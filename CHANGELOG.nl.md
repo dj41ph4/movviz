@@ -1,3 +1,15 @@
+## v1.28.144 — 13 november 2026
+
+### Eerste installatie
+
+- Vernieuwde assistent: Movviz-logo, leesbare voortgang (“Stap 2 van 8”, naam van de stap, balk), voltooide stappen zijn aanklikbaar en elke stap opent bovenaan de pagina.
+- Eén knop om verder te gaan: “Overslaan” en “Volgende” deden hetzelfde. Optionele stappen zijn gemarkeerd.
+- Nieuwe stap “Hoofdapparaat”: één klik bepaalt het formaat en de grootte van de bestanden vanaf de eerste download.
+- Downloadmappen: “Volgende” slaat de gewijzigde mappen zelf op in plaats van te blokkeren.
+- Account: regels voor gebruikersnaam en wachtwoord meteen zichtbaar, wachtwoord kan worden getoond, velden hebben een label.
+- Indexers: een duidelijke zin legt uit waarvoor ze dienen.
+- Eindscherm: werkelijke staat van de installatie (indexers, downloadengine, Plex) en snelkoppelingen naar de instellingen om daarna aan te passen.
+
 ## v1.28.143 — 13 november 2026
 
 ### Bibliotheek

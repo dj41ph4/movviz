@@ -1,3 +1,15 @@
+## v1.28.144 — 13 novembre 2026
+
+### Première installation
+
+- Assistant repensé : logo Movviz, progression lisible (« Étape 2 sur 8 », nom de l'étape, barre), étapes déjà passées cliquables, et chaque étape s'ouvre en haut de page.
+- Un seul bouton pour avancer : « Passer » et « Suivant » faisaient la même chose. Les étapes facultatives sont signalées.
+- Nouvelle étape « Matériel principal » : un clic règle le format et la taille des fichiers dès le premier téléchargement.
+- Dossiers de téléchargement : « Suivant » enregistre lui-même les dossiers modifiés au lieu de bloquer.
+- Compte : règles de l'identifiant et du mot de passe affichées d'emblée, mot de passe affichable, champs étiquetés.
+- Indexeurs : une phrase en clair explique à quoi ils servent.
+- Écran final : état réel de l'installation (indexeurs, moteur de téléchargement, Plex) et raccourcis vers les réglages à personnaliser ensuite.
+
 ## v1.28.143 — 13 novembre 2026
 
 ### Bibliothèque

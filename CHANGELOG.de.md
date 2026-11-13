@@ -1,3 +1,15 @@
+## v1.28.144 — 13. November 2026
+
+### Ersteinrichtung
+
+- Überarbeiteter Assistent: Movviz-Logo, lesbarer Fortschritt („Schritt 2 von 8“, Name des Schritts, Balken), erledigte Schritte sind anklickbar, und jeder Schritt öffnet sich am Seitenanfang.
+- Eine einzige Schaltfläche zum Fortfahren: „Überspringen“ und „Weiter“ taten dasselbe. Optionale Schritte sind gekennzeichnet.
+- Neuer Schritt „Hauptgerät“: Ein Klick legt Format und Größe der Dateien schon für den ersten Download fest.
+- Download-Ordner: „Weiter“ speichert die geänderten Ordner selbst, statt zu blockieren.
+- Konto: Regeln für Benutzername und Passwort werden sofort angezeigt, das Passwort lässt sich einblenden, die Felder sind beschriftet.
+- Indexer: Ein klarer Satz erklärt, wozu sie dienen.
+- Abschlussbildschirm: tatsächlicher Zustand der Installation (Indexer, Download-Engine, Plex) und Abkürzungen zu den Einstellungen, die sich danach anpassen lassen.
+
 ## v1.28.143 — 13. November 2026
 
 ### Bibliothek

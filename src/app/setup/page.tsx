@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { mutate } from "swr";
@@ -25,6 +25,7 @@ import {
   Clapperboard, Languages, KeyRound, Tv, Magnet, HardDrive, Play, PartyPopper, ShieldCheck,
   Check, Loader2, ArrowRight, ExternalLink, ChevronRight, MonitorSmartphone, FolderOpen,
   Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot, UserPlus,
+  Eye, EyeOff, LayoutGrid, SlidersHorizontal, BellRing, Users, ListOrdered, TriangleAlert,
 } from "lucide-react";
 import { DEVICE_TYPES, type DeviceType } from "@/lib/setup/deviceTypes";
 import { PrivacyConsentField, usePrivacyConsentInfo } from "@/components/legal/PrivacyConsent";
@@ -46,6 +47,27 @@ const STEP_ICON: Record<Step, React.ElementType> = {
   plex: Play,
   done: PartyPopper,
 };
+
+const STEP_TITLE_KEY: Record<Step, string> = {
+  account: "setup.accountTitle",
+  language: "setup.languageTitle",
+  hardware: "setup.hardwareTitle",
+  personalization: "setup.personalizationTitle",
+  tmdb: "setup.tmdbTitle",
+  tvdb: "setup.tvdbTitle",
+  ai: "setup.aiTitle",
+  indexers: "setup.indexersTitle",
+  downloads: "setup.downloadsTitle",
+  libraryImport: "setup.importTitle",
+  plex: "setup.plexTitle",
+  done: "setup.doneTitle",
+};
+/** Étapes qu'on peut laisser vides sans conséquence : signalées comme telles. */
+const OPTIONAL_STEPS: ReadonlySet<Step> = new Set(["hardware", "personalization", "tmdb", "tvdb", "ai", "libraryImport", "plex"]);
+/** Réservées à « Relancer l'assistant → Optimisation intelligente » : la première
+ *  installation reste courte. Le profil matériel, lui, en fait partie : un clic,
+ *  et il fixe la taille des fichiers dès le premier téléchargement. */
+const SMART_ONLY_STEPS: ReadonlySet<Step> = new Set(["personalization", "tmdb", "tvdb", "ai"]);
 
 const WIZARD_INTRO_SEEN_KEY = "movviz-wizard-intro-seen";
 const WIZARD_INTRO_AUTO_DISMISS_MS = 2400;
@@ -114,7 +136,7 @@ function SetupWizardPageInner() {
     if (currentUser === undefined || needsAccountStep !== null) return;
     setNeedsAccountStep(currentUser === null);
   }, [currentUser, needsAccountStep]);
-  const activeSteps = smartMode ? STEPS : STEPS.filter((s) => !["hardware", "personalization", "tmdb", "tvdb", "ai"].includes(s));
+  const activeSteps = smartMode ? STEPS : STEPS.filter((s) => !SMART_ONLY_STEPS.has(s));
   const steps = needsAccountStep === false ? activeSteps.filter((s) => s !== "account") : activeSteps;
   const step = steps[stepIndex];
 
@@ -131,6 +153,25 @@ function SetupWizardPageInner() {
 
   const next = () => setStepIndex((i) => Math.min(i + 1, steps.length - 1));
   const back = () => setStepIndex((i) => Math.max(i - 1, 0));
+  // Chaque étape commence en haut de page : sans cela, on arrivait au milieu de
+  // la suivante quand la précédente était longue.
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [stepIndex]);
+
+  // « Suivant » enregistre lui-même les dossiers modifiés, au lieu de bloquer
+  // en demandant de cliquer d'abord sur chaque « Enregistrer ».
+  const foldersSaveRef = useRef<(() => Promise<boolean>) | null>(null);
+  const [advancing, setAdvancing] = useState(false);
+  const goNext = async () => {
+    if (step === "downloads" && foldersDirty && foldersSaveRef.current) {
+      setAdvancing(true);
+      let saved = false;
+      try { saved = await foldersSaveRef.current(); } finally { setAdvancing(false); }
+      if (!saved) return;
+    }
+    next();
+  };
+  // Le compte existe déjà une fois l'étape passée : on n'y revient pas.
+  const canGoBack = stepIndex > 0 && steps[stepIndex - 1] !== "account";
 
   // Still resolving whether this browser already has a session — render
   // nothing rather than flashing the account-creation step for a returning
@@ -147,34 +188,61 @@ function SetupWizardPageInner() {
     <div className="mx-auto min-h-screen max-w-[900px] px-4 py-10">
       <AnimatePresence>{showIntro && <WizardIntro onDone={dismissIntro} />}</AnimatePresence>
 
-      <div className="mb-8 flex flex-col items-center gap-3 text-center">
-        <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl brand-gradient shadow-lg">
-          <Clapperboard className="h-6 w-6 text-white" strokeWidth={2.5} />
-        </div>
-        <h1 className="text-2xl font-black tracking-tight text-ink">{t("setup.title")}</h1>
+      <header className="mb-7 flex flex-col items-center gap-2 text-center">
+        <AnimatedLogo size="lg" />
+        <div className="mv-brand-name text-logo-flow text-2xl font-black tracking-tight">Movviz</div>
+        <h1 className="mt-2 text-xl font-black tracking-tight text-ink sm:text-2xl">{t("setup.title")}</h1>
         <p className="max-w-md text-sm text-ink-dim">{t("setup.subtitle")}</p>
-      </div>
+      </header>
 
-      <div className="mb-8 flex items-center justify-center gap-2">
-        {steps.map((s, i) => {
-          const Icon = STEP_ICON[s];
-          return (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-full border text-xs font-bold transition-colors",
-                  i < stepIndex ? "border-ok/40 bg-ok/15 text-ok" :
-                  i === stepIndex ? "border-brand/50 bg-brand/15 text-brand-glow" :
-                  "border-white/10 text-ink-dim"
-                )}
-              >
-                {i < stepIndex ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-              </div>
-              {i < steps.length - 1 && <ChevronRight className="h-4 w-4 text-ink-dim/40" />}
-            </div>
-          );
-        })}
-      </div>
+      <nav aria-label={t("setup.title")} className="mb-7 rounded-2xl glass p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="shrink-0 text-xs font-bold uppercase tracking-[0.14em] text-brand-glow">{t("setup.stepOf", { current: stepIndex + 1, total: steps.length })}</p>
+          <p className="min-w-0 truncate text-sm font-semibold text-ink">{t(STEP_TITLE_KEY[step])}</p>
+        </div>
+        <div
+          className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/8"
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={steps.length}
+          aria-valuenow={stepIndex + 1}
+        >
+          <div className="h-full rounded-full brand-gradient transition-[width] duration-300 ease-out" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
+        </div>
+        {/* Pastilles d'étapes : masquées sur téléphone (elles débordaient), la
+            ligne « Étape x sur n » et la barre suffisent. Une étape déjà passée
+            est cliquable pour y revenir. */}
+        <ol className="mt-4 hidden items-center sm:flex">
+          {steps.map((s, i) => {
+            const Icon = STEP_ICON[s];
+            const done = i < stepIndex;
+            const current = i === stepIndex;
+            const reachable = done && s !== "account" && !(step === "downloads" && foldersDirty);
+            return (
+              <li key={s} className={cn("flex items-center", i < steps.length - 1 && "flex-1")}>
+                <button
+                  type="button"
+                  disabled={!reachable}
+                  onClick={() => setStepIndex(i)}
+                  title={t(STEP_TITLE_KEY[s])}
+                  aria-label={t(STEP_TITLE_KEY[s])}
+                  aria-current={current ? "step" : undefined}
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors ring-focus",
+                    done ? "border-ok/40 bg-ok/15 text-ok" :
+                    current ? "border-brand/50 bg-brand/15 text-brand-glow" :
+                    "border-white/10 text-ink-dim",
+                    reachable && "hover:border-ok/70 hover:bg-ok/25"
+                  )}
+                >
+                  {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                </button>
+                {i < steps.length - 1 && <span aria-hidden className={cn("mx-2 h-px flex-1 transition-colors", done ? "bg-ok/40" : "bg-white/10")} />}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -197,13 +265,14 @@ function SetupWizardPageInner() {
           )}
           {step === "indexers" && (
             <StepShell title={t("setup.indexersTitle")} hint={t("setup.indexersHint")}>
+              <p className="mb-4 rounded-xl border border-brand/20 bg-brand/8 p-3.5 text-sm leading-relaxed text-ink-soft">{t("setup.indexersPlain")}</p>
               <AutoSearchMissingSetupOption />
               <IndexerManager />
             </StepShell>
           )}
           {step === "downloads" && (
             <StepShell title={t("setup.downloadsTitle")} hint={t("setup.downloadsHint")}>
-              <SetupFolders onDirtyChange={setFoldersDirty} />
+              <SetupFolders onDirtyChange={setFoldersDirty} saveRef={foldersSaveRef} />
             </StepShell>
           )}
           {step === "libraryImport" && <SetupLibraryImport />}
@@ -212,49 +281,159 @@ function SetupWizardPageInner() {
               <PlexSettings />
             </StepShell>
           )}
-          {step === "done" && (
-            <div className="flex flex-col items-center gap-4 rounded-2xl glass-strong py-16 text-center">
-              <PartyPopper className="h-10 w-10 text-brand-glow" />
-              <h2 className="text-xl font-black text-ink">{t("setup.doneTitle")}</h2>
-              <p className="max-w-sm text-sm text-ink-dim">{t("setup.doneHint")}</p>
-              <button
-                onClick={async () => { const response = await fetch("/api/setup/complete", { method: "POST" }); if (response.ok) window.location.href = "/"; }}
-                className="mt-2 flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white"
-              >
-                {t("setup.goToDashboard")} <ArrowRight className="h-4 w-4" />
-              </button>
-              <div className="flex w-full max-w-sm flex-col gap-2.5 rounded-2xl glass p-4 text-left">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-brand-glow" />
-                  <h3 className="text-sm font-bold text-ink">{t("setup.doneUsersTitle")}</h3>
-                </div>
-                <p className="text-xs leading-relaxed text-ink-dim">{t("setup.doneUsersHint")}</p>
-              </div>
-            </div>
-          )}
+          {step === "done" && <DoneStep />}
         </motion.div>
       </AnimatePresence>
 
-      {step === "downloads" && foldersDirty && <p className="mt-4 text-sm text-amber" role="status">{t("setup.saveFoldersFirst")}</p>}
       {step !== "done" && step !== "account" && (
-        <div className="mt-6 flex items-center justify-between">
-          <button
-            onClick={back}
-            disabled={stepIndex === 0 || (step === "downloads" && foldersDirty)}
-            className="rounded-xl glass px-4 py-2.5 text-sm font-semibold text-ink-soft disabled:opacity-30"
-          >
-            {t("setup.back")}
-          </button>
-          <div className="flex gap-2">
-            <button onClick={next} disabled={step === "downloads" && foldersDirty} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-dim hover:text-ink disabled:opacity-30">
-              {t("setup.skip")}
+        <div className="mt-6 flex items-center justify-between gap-3">
+          {canGoBack ? (
+            <button
+              onClick={back}
+              disabled={advancing || (step === "downloads" && foldersDirty)}
+              className="rounded-xl glass px-4 py-2.5 text-sm font-semibold text-ink-soft ring-focus disabled:opacity-30"
+            >
+              {t("setup.back")}
             </button>
-            <button onClick={next} disabled={step === "downloads" && foldersDirty} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white disabled:opacity-30">
+          ) : <span />}
+          <div className="flex items-center gap-3">
+            {OPTIONAL_STEPS.has(step) && <span className="hidden text-xs text-ink-dim sm:inline">{t("setup.optionalStep")}</span>}
+            <button onClick={() => void goNext()} disabled={advancing} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white ring-focus disabled:opacity-50">
+              {advancing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {t("setup.next")} <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Une ligne du récapitulatif final. */
+function RecapLine({ ok, children }: { ok: boolean | null; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5 text-sm">
+      {ok === null ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-ink-dim" />
+        : ok ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
+        : <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber" />}
+      <span className={ok === false ? "text-ink" : "text-ink-soft"}>{children}</span>
+    </li>
+  );
+}
+
+/**
+ * Écran final : ce qui est réellement en place (lu sur le serveur, pas supposé),
+ * puis les réglages qu'on peut personnaliser ensuite. Chaque lien termine la
+ * configuration avant d'ouvrir sa page.
+ */
+function DoneStep() {
+  const t = useT();
+  const [indexers, setIndexers] = useState<number | null>(null);
+  const [engineOnline, setEngineOnline] = useState<boolean | null>(null);
+  const [plexLinked, setPlexLinked] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/indexers", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (active) setIndexers(Array.isArray(d?.indexers) ? d.indexers.length : 0); })
+      .catch(() => { if (active) setIndexers(0); });
+    fetch("/api/engine/instances", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { offline: true }))
+      .then((d) => { if (active) setEngineOnline(!d.offline && (d.instances ?? []).length > 0); })
+      .catch(() => { if (active) setEngineOnline(false); });
+    fetch("/api/plex/config", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { connected: false }))
+      .then((d) => { if (active) setPlexLinked(!!(d.connected && d.hostname)); })
+      .catch(() => { if (active) setPlexLinked(false); });
+    return () => { active = false; };
+  }, []);
+
+  const finish = async (target: string) => {
+    if (busy) return;
+    setBusy(true);
+    setFailed(false);
+    try {
+      const response = await fetch("/api/setup/complete", { method: "POST" });
+      if (!response.ok) throw new Error(String(response.status));
+      window.location.href = target;
+    } catch {
+      setFailed(true);
+      setBusy(false);
+    }
+  };
+
+  const more: { icon: React.ElementType; title: string; hint: string; href: string }[] = [
+    { icon: LayoutGrid, title: t("setup.moreHomeTitle"), hint: t("setup.moreHomeHint"), href: "/profile?tab=preferences&view=home" },
+    { icon: SlidersHorizontal, title: t("setup.moreQualityTitle"), hint: t("setup.moreQualityHint"), href: "/settings?tab=downloads&view=qualite" },
+    { icon: BellRing, title: t("setup.moreNotificationsTitle"), hint: t("setup.moreNotificationsHint"), href: "/settings?tab=notifications" },
+    { icon: Bot, title: t("setup.moreAiTitle"), hint: t("setup.moreAiHint"), href: "/settings?tab=ai" },
+    { icon: Users, title: t("setup.moreUsersTitle"), hint: t("setup.moreUsersHint"), href: "/users" },
+    { icon: ListOrdered, title: t("setup.moreAutomationTitle"), hint: t("setup.moreAutomationHint"), href: "/settings?tab=automation" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col items-center gap-3 rounded-2xl glass-strong px-5 py-10 text-center">
+        <PartyPopper className="h-10 w-10 text-brand-glow" />
+        <h2 className="text-xl font-black text-ink">{t("setup.doneTitle")}</h2>
+        <p className="max-w-sm text-sm text-ink-dim">{t("setup.doneHint")}</p>
+        <button
+          onClick={() => void finish("/")}
+          disabled={busy}
+          className="mt-2 flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white ring-focus disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {t("setup.goToDashboard")} <ArrowRight className="h-4 w-4" />
+        </button>
+        {failed && <p className="text-xs font-semibold text-down" role="alert">{t("setup.finishFailed")}</p>}
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <section className="rounded-2xl glass p-5">
+          <h3 className="mb-3 text-sm font-bold text-ink">{t("setup.recapTitle")}</h3>
+          <ul className="space-y-2.5">
+            <RecapLine ok={indexers === null ? null : indexers > 0}>
+              {indexers ? t("setup.recapIndexersOk", { count: indexers }) : t("setup.recapIndexersMissing")}
+            </RecapLine>
+            <RecapLine ok={engineOnline}>
+              {engineOnline === false ? t("setup.recapEngineOff") : t("setup.recapFoldersOk")}
+            </RecapLine>
+            <RecapLine ok={plexLinked === null ? null : true}>
+              {plexLinked ? t("setup.recapPlexOk") : t("setup.recapPlexOff")}
+            </RecapLine>
+          </ul>
+        </section>
+        <section className="rounded-2xl glass p-5">
+          <div className="mb-2 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-brand-glow" />
+            <h3 className="text-sm font-bold text-ink">{t("setup.doneUsersTitle")}</h3>
+          </div>
+          <p className="text-xs leading-relaxed text-ink-dim">{t("setup.doneUsersHint")}</p>
+        </section>
+      </div>
+
+      <section className="rounded-2xl glass p-5">
+        <h3 className="text-sm font-bold text-ink">{t("setup.moreTitle")}</h3>
+        <p className="mb-4 mt-1 text-xs text-ink-dim">{t("setup.moreHint")}</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {more.map((item) => (
+            <button
+              key={item.href}
+              type="button"
+              disabled={busy}
+              onClick={() => void finish(item.href)}
+              className="group flex items-start gap-3 rounded-xl border border-white/8 bg-black/20 p-3 text-left transition-colors ring-focus hover:border-brand/30 hover:bg-brand/8 disabled:opacity-50"
+            >
+              <item.icon className="mt-0.5 h-4 w-4 shrink-0 text-brand-glow" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">{item.title}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-ink-dim">{item.hint}</span>
+              </span>
+              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-ink-dim transition-colors group-hover:text-brand-glow" />
+            </button>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -269,7 +448,7 @@ function StepShell({ title, hint, children }: { title: string; hint: string; chi
   );
 }
 
-function SetupFolders({ onDirtyChange }: { onDirtyChange: (dirty: boolean) => void }) {
+function SetupFolders({ onDirtyChange, saveRef }: { onDirtyChange: (dirty: boolean) => void; saveRef: React.RefObject<(() => Promise<boolean>) | null> }) {
   const t = useT();
   const [folders, setFolders] = useState<{ id: string; category: string; completedPath: string; downloadPath: string }[] | null>(null);
   const [savedFolders, setSavedFolders] = useState<Record<string, { completedPath: string; downloadPath: string }>>({});
@@ -313,17 +492,31 @@ function SetupFolders({ onDirtyChange }: { onDirtyChange: (dirty: boolean) => vo
     }).catch(() => setFolders([]));
   }, []);
   useEffect(() => { onDirtyChange(!!saving || !!folders?.some((folder) => savedFolders[folder.id] && (folder.completedPath !== savedFolders[folder.id].completedPath || folder.downloadPath !== savedFolders[folder.id].downloadPath))); }, [folders, savedFolders, saving, onDirtyChange]);
-  const save = async (folder: NonNullable<typeof folders>[number]) => {
+  const save = async (folder: NonNullable<typeof folders>[number]): Promise<boolean> => {
     setSaving(folder.id); setMessage(null);
     try {
       const check = await fetch("/api/setup/check-folders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ completedPath: folder.completedPath.trim(), downloadPath: folder.downloadPath.trim() }) });
-      if (!check.ok) { setMessage(t(synology ? "setup.folderPermissionError" : "setup.folderPermissionGeneric")); return; }
+      if (!check.ok) { setMessage(t(synology ? "setup.folderPermissionError" : "setup.folderPermissionGeneric")); return false; }
       const response = await fetch(`/api/engine/instances/${folder.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ completedPath: folder.completedPath.trim(), downloadPath: folder.downloadPath.trim() }) });
       if (response.ok) setSavedFolders((old) => ({ ...old, [folder.id]: { completedPath: folder.completedPath, downloadPath: folder.downloadPath } }));
       setMessage(response.ok ? t("settings.saved") : t("common.actionFailed"));
-    } catch { setMessage(t("common.actionFailed")); }
+      return response.ok;
+    } catch { setMessage(t("common.actionFailed")); return false; }
     finally { setSaving(null); }
   };
+  // « Suivant » appelle ceci : enregistre chaque dossier modifié, s'arrête au premier refus.
+  useEffect(() => {
+    saveRef.current = async () => {
+      for (const folder of folders ?? []) {
+        const saved = savedFolders[folder.id];
+        if (saved && saved.completedPath === folder.completedPath && saved.downloadPath === folder.downloadPath) continue;
+        if (!folder.completedPath?.trim() || !folder.downloadPath?.trim()) { setMessage(t("setup.saveFoldersFirst")); return false; }
+        if (!(await save(folder))) return false;
+      }
+      return true;
+    };
+    return () => { saveRef.current = null; };
+  });
   if (!folders) return <Loader2 className="h-5 w-5 animate-spin text-ink-dim" />;
   return <div className="space-y-5">
     {synology && <p className="rounded-xl glass p-4 text-sm text-ink-soft">{t(synologyMissingShare ? "setup.synologyChooseShare" : "setup.synologySuggestion")}</p>}
@@ -338,7 +531,7 @@ function SetupFolders({ onDirtyChange }: { onDirtyChange: (dirty: boolean) => vo
       </div>)}
       <button disabled={!!saving || !folder.completedPath?.trim() || !folder.downloadPath?.trim()} onClick={() => void save(folder)} className="h-10 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">{t("common.save")}</button>
     </div>)}
-    {message && <p className="text-xs text-ink-soft" role="status">{message}</p>}
+    {message && <p className="text-sm font-semibold text-ink" role="status">{message}</p>}
   </div>;
 }
 
@@ -446,6 +639,8 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [plexDialogOpen, setPlexDialogOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const fieldId = useId();
   // Paquet UGREEN uniquement : consentement explicite, case jamais pré-cochée.
   const consent = usePrivacyConsentInfo();
   const consentNeeded = consent?.required === true;
@@ -532,26 +727,43 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
     <StepShell title={t("setup.accountTitle")} hint={t("setup.accountHint")}>
       <div className="space-y-3 rounded-2xl glass p-5">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("auth.username")}</label>
+          <label htmlFor={`${fieldId}-user`} className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("auth.username")}</label>
           <input
+            id={`${fieldId}-user`}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
             autoComplete="username"
+            aria-describedby={`${fieldId}-user-hint`}
             autoFocus
           />
+          <p id={`${fieldId}-user-hint`} className="mt-1 text-xs text-ink-dim">{t("setup.usernameRule")}</p>
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("auth.password")}</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
-            autoComplete="new-password"
-          />
+          <label htmlFor={`${fieldId}-pass`} className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("auth.password")}</label>
+          <div className="relative">
+            <input
+              id={`${fieldId}-pass`}
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              className="h-11 w-full rounded-xl border border-white/8 bg-black/30 pl-3 pr-12 text-sm text-ink outline-none focus:border-brand/40"
+              autoComplete="new-password"
+              aria-describedby={`${fieldId}-pass-hint`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((shown) => !shown)}
+              aria-label={t(showPassword ? "setup.hidePassword" : "setup.showPassword")}
+              aria-pressed={showPassword}
+              className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl text-ink-dim ring-focus hover:text-ink"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <p id={`${fieldId}-pass-hint`} className="mt-1 text-xs text-ink-dim">{t("setup.passwordRule")}</p>
         </div>
         {consentNeeded && <PrivacyConsentField checked={consentChecked} onChange={setConsentChecked} />}
         {error && <p className="text-xs font-semibold text-down">{error}</p>}
@@ -718,8 +930,9 @@ function HardwareStep({ smartMode }: { smartMode: boolean }) {
       });
   }, [smartMode]);
 
-  const apply = async () => {
-    if (!selected) return;
+  const apply = async (override?: HardwarePreset) => {
+    const preset = override ?? selected;
+    if (!preset) return;
     setApplying(true);
     try {
       const patch: Record<string, unknown> = { source: "wizard" };
@@ -731,26 +944,26 @@ function HardwareStep({ smartMode }: { smartMode: boolean }) {
       const codecKeys = ["codecScores.x264", "codecScores.x265", "codecScores.av1"] as const;
       if (!smartMode || codecKeys.some((k) => !locked.has(k))) {
         if (!smartMode) {
-          patch.codecScores = selected.codecScores;
+          patch.codecScores = preset.codecScores;
         } else {
           const current = await fetch("/api/settings/release-rules", { cache: "no-store" }).then((r) => r.json());
           patch.codecScores = {
-            x264: locked.has("codecScores.x264") ? current.codecScores.x264 : selected.codecScores.x264,
-            x265: locked.has("codecScores.x265") ? current.codecScores.x265 : selected.codecScores.x265,
-            av1: locked.has("codecScores.av1") ? current.codecScores.av1 : selected.codecScores.av1,
+            x264: locked.has("codecScores.x264") ? current.codecScores.x264 : preset.codecScores.x264,
+            x265: locked.has("codecScores.x265") ? current.codecScores.x265 : preset.codecScores.x265,
+            av1: locked.has("codecScores.av1") ? current.codecScores.av1 : preset.codecScores.av1,
           };
         }
       }
-      if (!smartMode || !locked.has("maxMovieSizeMb")) patch.maxMovieSizeMb = selected.maxMovieSizeMb;
-      if (!smartMode || !locked.has("maxEpisodeSizeMb")) patch.maxEpisodeSizeMb = selected.maxEpisodeSizeMb;
-      if (!smartMode || !locked.has("maxSeasonSizeMb")) patch.maxSeasonSizeMb = selected.maxSeasonSizeMb;
+      if (!smartMode || !locked.has("maxMovieSizeMb")) patch.maxMovieSizeMb = preset.maxMovieSizeMb;
+      if (!smartMode || !locked.has("maxEpisodeSizeMb")) patch.maxEpisodeSizeMb = preset.maxEpisodeSizeMb;
+      if (!smartMode || !locked.has("maxSeasonSizeMb")) patch.maxSeasonSizeMb = preset.maxSeasonSizeMb;
 
       await fetch("/api/settings/release-rules", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(patch),
       });
-      setApplied(selected.id);
+      setApplied(preset.id);
     } finally {
       setApplying(false);
     }
@@ -765,7 +978,10 @@ function HardwareStep({ smartMode }: { smartMode: boolean }) {
           return (
             <button
               key={p.id}
-              onClick={() => { setSelected(p); setApplied(null); }}
+              // Première installation : choisir applique tout de suite. En optimisation
+              // intelligente, on confirme d'abord (des valeurs existent déjà).
+              onClick={() => { setSelected(p); setApplied(null); if (!smartMode) void apply(p); }}
+              aria-pressed={active}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-sm font-semibold transition-colors",
                 active ? "border-brand/40 bg-brand/12 text-brand-glow" : "border-white/8 bg-black/20 text-ink-soft hover:text-ink"
@@ -785,7 +1001,7 @@ function HardwareStep({ smartMode }: { smartMode: boolean }) {
             <p className="text-sm text-ink-soft">{t(selected.consequenceKey)}</p>
           </div>
           <button
-            onClick={apply}
+            onClick={() => void apply()}
             disabled={applying || applied === selected.id}
             className="mt-3 flex h-9 items-center gap-2 rounded-xl brand-gradient px-4 text-xs font-bold text-white disabled:opacity-60"
           >

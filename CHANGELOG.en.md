@@ -1,3 +1,15 @@
+## v1.28.144 — November 13, 2026
+
+### First setup
+
+- Redesigned wizard: Movviz logo, readable progress ("Step 2 of 8", step name, bar), completed steps are clickable, and each step opens at the top of the page.
+- A single button to move forward: "Skip" and "Next" did the same thing. Optional steps are flagged.
+- New "Main hardware" step: one click sets the file format and size from the very first download.
+- Download folders: "Next" saves the modified folders itself instead of blocking.
+- Account: username and password rules shown up front, password can be revealed, fields are labelled.
+- Indexers: a plain sentence explains what they are for.
+- Final screen: real state of the installation (indexers, download engine, Plex) and shortcuts to the settings worth personalising next.
+
 ## v1.28.143 — November 13, 2026
 
 ### Library

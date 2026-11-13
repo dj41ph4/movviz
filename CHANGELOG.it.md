@@ -1,3 +1,15 @@
+## v1.28.144 — 13 novembre 2026
+
+### Prima installazione
+
+- Assistente ripensato: logo Movviz, avanzamento leggibile («Passo 2 di 8», nome del passo, barra), passi già completati cliccabili, e ogni passo si apre in cima alla pagina.
+- Un solo pulsante per avanzare: «Salta» e «Avanti» facevano la stessa cosa. I passi facoltativi sono segnalati.
+- Nuovo passo «Hardware principale»: un clic imposta formato e dimensione dei file fin dal primo download.
+- Cartelle di download: «Avanti» salva da solo le cartelle modificate invece di bloccare.
+- Account: regole di nome utente e password mostrate subito, password visualizzabile, campi etichettati.
+- Indexer: una frase chiara spiega a cosa servono.
+- Schermata finale: stato reale dell'installazione (indexer, motore di download, Plex) e scorciatoie verso le impostazioni da personalizzare in seguito.
+
 ## v1.28.143 — 13 novembre 2026
 
 ### Libreria
