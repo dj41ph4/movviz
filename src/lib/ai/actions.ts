@@ -1,4 +1,5 @@
 import { searchMulti, getMovieRecommendations, getTvRecommendations, getSeason } from "@/lib/metadata/tmdb";
+import { libraryCoordinateFromTmdb } from "@/lib/library/tvdbProjection";
 import type { ResolvedTitleItem } from "@/lib/metadata/resolveTitle";
 import { titleSimilarity } from "@/lib/library/matching";
 import { requestMedia } from "@/lib/requests/requestMedia";
@@ -244,7 +245,9 @@ async function markEpisodeWatchedFromTitle(user: User, tmdbId: number, seriesTit
       .map((ep) => ({ ep, score: titleSimilarity(split.episodeTitle, ep.title) }))
       .sort((a, b) => b.score - a.score);
     if (!scored.length || scored[0].score < MIN_EPISODE_MATCH_SCORE) return;
-    const entry = { tmdbId, season: scored[0].ep.seasonNumber, episode: scored[0].ep.episodeNumber };
+    const coordinate = libraryCoordinateFromTmdb(tmdbId, scored[0].ep.seasonNumber, scored[0].ep.episodeNumber);
+    if (!coordinate) return;
+    const entry = { tmdbId, season: coordinate.season, episode: coordinate.episode };
     setWatchedEpisodes(user.id, [entry], true, seriesTitle, "ai");
     pushEpisodesWatchedToPlex(user, [entry], true).catch(() => {});
   } catch {

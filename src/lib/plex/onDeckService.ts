@@ -1,4 +1,5 @@
 import { loadPlexConfig } from "./store";
+import { tmdbCoordinateOfLibraryEpisode } from "@/lib/library/tvdbProjection";
 import { batchTmdbIds, buildPlexWebUrl } from "./client";
 import { getVerifiedOnDeck, resolvePlexServerAuth } from "./watchWrite";
 import { isEarlierEpisode, hasEpisodeSource, nextAvailableEpisode, availableEpisode } from "./onDeckPolicy";
@@ -53,8 +54,10 @@ async function resolveEpisodeStillPath(tmdbId: number, seasonNumber: number, epi
   const cache = episodeStillCache();
   const cached = cache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
-  const season = await getSeason(tmdbId, seasonNumber);
-  const value = season?.episodes.find((episode) => episode.episodeNumber === episodeNumber)?.stillPath ?? null;
+  // A TVDB-numbered anime: the still is the one of its TMDb counterpart.
+  const tmdb = tmdbCoordinateOfLibraryEpisode(tmdbId, seasonNumber, episodeNumber);
+  const season = tmdb ? await getSeason(tmdbId, tmdb.seasonNumber) : null;
+  const value = tmdb ? season?.episodes.find((episode) => episode.episodeNumber === tmdb.episodeNumber)?.stillPath ?? null : null;
   cache.set(key, { value, expiresAt: Date.now() + EPISODE_STILL_TTL_MS });
   return value;
 }

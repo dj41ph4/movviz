@@ -15,7 +15,7 @@ const TMDB_ID = 990001;
 const TVDB_ID = 880001;
 const day = (n: number) => new Date(Date.UTC(2015, 6, 5) + n * 7 * 86_400_000).toISOString().slice(0, 10);
 // TMDb: one flat season of 6. TVDB: two arcs of 3, same broadcasts.
-const tmdbEpisodes = Array.from({ length: 6 }, (_, i) => ({ season_number: 1, episode_number: i + 1, name: `Épisode TMDb ${i + 1}`, air_date: day(i), overview: "x" }));
+const tmdbEpisodes: Array<Record<string, unknown>> = Array.from({ length: 6 }, (_, i) => ({ season_number: 1, episode_number: i + 1, name: `Épisode TMDb ${i + 1}`, air_date: day(i), overview: `Résumé TMDb ${i + 1}`, still_path: `/still${i + 1}.jpg` }));
 const tvdbEpisodes = Array.from({ length: 6 }, (_, i) => ({ seasonNumber: i < 3 ? 1 : 2, number: (i % 3) + 1, name: `Titre TVDB ${i + 1}`, aired: day(i) }));
 let tvdbDown = false;
 
@@ -163,6 +163,22 @@ test("daily pass on a TVDB series: TVDB moves an episode → file moved + rename
   const contents = s.seasons[1].episodes.filter((e) => e.file).map((e) => fs.readFileSync(e.file!.path, "utf8"));
   assert.deepEqual(contents, ["ep3", "ep4-again", "ep5", "ep6"]);
   for (const e of s.seasons[1].episodes.filter((x) => x.file)) assert.match(path.basename(e.file!.path), new RegExp(`S02E0${e.episodeNumber}`));
+});
+
+test("every client sees the library structure of a TVDB series, with the right TMDb stills (web, Android, Tizen share these routes)", async () => {
+  const { projectSeasonSummaries, projectSeason, libraryCoordinateFromTmdb, tvdbOrderedSeries } = await import("../src/lib/library/tvdbProjection.ts");
+  const series = tvdbOrderedSeries(TMDB_ID)!;
+  assert.ok(series, "marked TVDB by the resync");
+  assert.deepEqual(projectSeasonSummaries(series).map((x) => `${x.seasonNumber}:${x.episodeCount}`), ["1:2", "2:5"]);
+  const s2 = (await projectSeason(series, 2))!;
+  // TVDB S2E1 is the 3rd broadcast: TMDb's S1E3 still and synopsis, never TMDb's (non-existent) S2E1.
+  assert.equal(s2.episodes[0].stillPath, "/still3.jpg");
+  assert.equal(s2.episodes[0].overview, "Résumé TMDb 3");
+  assert.equal(s2.episodes[0].title, series.seasons[1].episodes[0].title);
+  // A watched mark imported with TMDb numbers lands on the library episode.
+  assert.deepEqual(libraryCoordinateFromTmdb(TMDB_ID, 1, 4), { season: 2, episode: 2 });
+  assert.equal(libraryCoordinateFromTmdb(TMDB_ID, 1, 99), null);
+  assert.deepEqual(libraryCoordinateFromTmdb(123, 1, 4), { season: 1, episode: 4 }, "any other show: unchanged");
 });
 
 test("library-wide alignment (scheduled task) without Plex: older anime put in TVDB, renamed, marked; a show with duplicates waits", async () => {

@@ -1,3 +1,10 @@
+## v1.28.148 — 15 november 2026
+
+### Bibliotheek
+
+- Anime met TVDB-nummering: de titelpagina's (web, Android TV, Android mobiel en Samsung) tonen nu de seizoenen en afleveringen van de bibliotheek — TVDB-arcnamen, het juiste aantal afleveringen — in plaats van die van TMDb; stilstaande beelden, samenvattingen en speelduur komen van de TMDb-aflevering die op dezelfde dag werd uitgezonden, nooit van een andere aflevering met hetzelfde nummer. Dezelfde koppeling geldt voor de beelden van „Verder kijken” en voor bekeken afleveringen uit Netflix, LifeHub of via de assistent.
+- De handmatige reparatie van TMDb-seizoenen zet de serie terug op TMDb-nummering en de Plex-volgorde terug.
+
 ## v1.28.147 — 15 november 2026
 
 ### Bibliotheek

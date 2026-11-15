@@ -5,6 +5,7 @@ import { loadDashboardLayout } from "@/lib/dashboard/store";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import { getSeriesByTmdbId } from "@/lib/library/store";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
+import { tvdbOrderedSeries, projectSeasonSummaries } from "@/lib/library/tvdbProjection";
 import { ensureBleachRepaired } from "@/lib/library/bleachRepairService";
 import { parseBleachPart, projectBleachDetail } from "@/lib/metadata/bleachPresentation";
 
@@ -28,6 +29,10 @@ export async function GET(req: NextRequest) {
     ...(currentLibrary && needsBleachRepair(currentLibrary) ? { bleachOrder: "tmdb" as const } : {}),
   });
   if (!detail) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (type === "series") {
+    const tvdbSeries = tvdbOrderedSeries(tmdbId);
+    if (tvdbSeries) detail = { ...detail, seasons: projectSeasonSummaries(tvdbSeries) };
+  }
   const part = parseBleachPart(searchParams.get("seriesPart"));
   if (type === "series" && tmdbId === BLEACH_TMDB_ID && part) {
     detail = projectBleachDetail(detail, part);

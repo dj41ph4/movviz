@@ -84,7 +84,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "carry_over_mismatch", before: oldCarriedCount, after: carriedCount }, { status: 409 });
   }
 
-  updateSeries(id, { seasons: newSeasons });
+  // Back in TMDb numbering: the TVDB marker would otherwise let the nightly
+  // alignment convert it straight back, and Plex should follow TMDb again.
+  updateSeries(id, { seasons: newSeasons, episodeOrder: undefined, ...(series.episodeOrder === "tvdb" ? { plexOrderPending: "tmdb" as const } : {}) });
   return NextResponse.json({
     ok: true,
     oldSeasonCount: series.seasons.length,

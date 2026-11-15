@@ -1,4 +1,5 @@
 import { parseNetflixCsv, classifyNetflixTitle } from "./parseHistory";
+import { libraryCoordinateFromTmdb } from "@/lib/library/tvdbProjection";
 import { resolveTitleAgainstTmdb, mapWithConcurrency } from "@/lib/metadata/resolveTitle";
 import { titleSimilarity } from "@/lib/library/matching";
 import { getSeason } from "@/lib/metadata/tmdb";
@@ -151,11 +152,17 @@ export async function importNetflixHistory(user: User, csv: string, onProgress?:
       unmatched.push(row.raw);
       continue;
     }
+    // TMDb numbers → the library's own (a TVDB-numbered anime differs).
+    const coordinate = libraryCoordinateFromTmdb(series.tmdbId, scored[0].ep.seasonNumber, scored[0].ep.episodeNumber);
+    if (!coordinate) {
+      unmatched.push(row.raw);
+      continue;
+    }
     resolvedEpisodes.push({
       tmdbId: series.tmdbId,
       title: series.title,
-      season: scored[0].ep.seasonNumber,
-      episode: scored[0].ep.episodeNumber,
+      season: coordinate.season,
+      episode: coordinate.episode,
       watchedAt: row.watchedAt,
     });
   }

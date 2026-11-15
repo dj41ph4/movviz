@@ -174,6 +174,10 @@ export interface LibraryEpisode {
   /** Two catalog episodes represented by one unchanged on-disk video.
    * The number in the physical filename is not the catalog episode number. */
   combinedFile?: { fileEpisodeNumber: number; firstEpisodeNumber: number; lastEpisodeNumber: number };
+  /** TMDb's season/episode for this episode when the series is kept in TVDB
+   *  numbering (set by the resync from air-date matching): stills, synopses and
+   *  runtimes are read there. Null: no proven TMDb counterpart. */
+  tmdbCoordinate?: { seasonNumber: number; episodeNumber: number } | null;
   /** Plex library item id for this exact episode — set by the Plex library sync, powers "Watch on Plex". */
   plexRatingKey: string | null;
   playbackSource?: "movviz" | "plex" | null;

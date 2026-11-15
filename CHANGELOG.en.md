@@ -1,3 +1,10 @@
+## v1.28.148 — November 15, 2026
+
+### Library
+
+- TVDB-numbered anime: title pages (web, Android TV, Android mobile and Samsung) now show the library's seasons and episodes — TVDB arc names, the right episode count — instead of TMDb's; stills, synopses and runtimes are those of the TMDb episode aired the same day, never another episode carrying the same number. Same matching for “Continue watching” stills and for watched marks imported from Netflix, LifeHub or told to the assistant.
+- The manual TMDb season repair returns the show to TMDb numbering and switches the Plex order back.
+
 ## v1.28.147 — November 15, 2026
 
 ### Library

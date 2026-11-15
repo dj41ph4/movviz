@@ -1,4 +1,5 @@
 import { getSeries, getSeason } from "@/lib/metadata/tmdb";
+import { libraryCoordinateFromTmdb } from "@/lib/library/tvdbProjection";
 import { mapWithConcurrency } from "@/lib/metadata/resolveTitle";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { pushMovieWatchedToPlex, pushEpisodesWatchedToPlex } from "@/lib/plex/watchWrite";
@@ -102,7 +103,11 @@ export async function importLifehubHistory(user: User, json: string, onProgress?
           const data = await getSeason(show.tmdb_id, s.seasonNumber).catch(() => null);
           eps = data?.episodes ?? [];
         }
-        for (const ep of eps) entries.push({ tmdbId: show.tmdb_id, season: ep.seasonNumber, episode: ep.episodeNumber, watchedAt });
+        // TMDb numbers → the library's own (a TVDB-numbered anime differs).
+        for (const ep of eps) {
+          const coordinate = libraryCoordinateFromTmdb(show.tmdb_id, ep.seasonNumber, ep.episodeNumber);
+          if (coordinate) entries.push({ tmdbId: show.tmdb_id, season: coordinate.season, episode: coordinate.episode, watchedAt });
+        }
       }
       if (entries.length) perShow.push({ title: series.title || show.title, tmdbId: show.tmdb_id, entries });
       else if (show.status === "vu") unmatched.push(show.title);

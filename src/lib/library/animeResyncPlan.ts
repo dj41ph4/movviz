@@ -265,6 +265,16 @@ export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
     }
   }
   const catalog = [...primary, ...announced].sort(bySeasonEpisode);
+  // TMDb's coordinate of each TVDB episode (proven matches only): what lets
+  // every client show the right TMDb still and synopsis for a TVDB number.
+  const tmdbOf = new Map<string, { seasonNumber: number; episodeNumber: number }>();
+  if (useTvdb && tmdb) {
+    for (const [from, to] of toTarget) {
+      if (!to.verified) continue;
+      const [s, e] = from.split("-").map(Number);
+      tmdbOf.set(to.key, { seasonNumber: s, episodeNumber: e });
+    }
+  }
   const catalogByKey = new Map(catalog.map((e) => [keyOf(e.seasonNumber, e.episodeNumber), e]));
   const otherKeys = new Set((other ?? []).map((e) => keyOf(e.seasonNumber, e.episodeNumber)));
 
@@ -410,6 +420,7 @@ export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
           plexRatingKey: owner?.plexRatingKey ?? null,
           playbackSource: owner?.playbackSource ?? null,
           ...(owner?.combinedFile && keyOf(owner.seasonNumber, owner.episodeNumber) === key ? { combinedFile: owner.combinedFile } : { combinedFile: undefined }),
+          tmdbCoordinate: tmdbOf.get(key) ?? null,
         });
       } else {
         out.push({
@@ -426,6 +437,7 @@ export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
           playbackSource: null,
           plexLinkStatus: undefined,
           combinedFile: undefined,
+          tmdbCoordinate: tmdbOf.get(key) ?? null,
         });
       }
     }
