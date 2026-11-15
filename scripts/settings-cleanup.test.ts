@@ -58,7 +58,8 @@ test("dead controls and their help texts are removed, not animation reduction", 
   for (const key of ["showStats", "showDownloads", "showTasks"]) assert.ok(!dashboard.includes(key));
   const graphics = source("src/components/settings/ExperiencePanel.tsx");
   assert.ok(!graphics.includes("setTier"));
-  assert.ok(graphics.includes("setReduceAnimations"));
+  // Animation reduction lives on as the « smooth » effects level (v1.28.145).
+  assert.ok(graphics.includes("setEffectsLevel") && graphics.includes("\"smooth\""));
   for (const locale of ["fr", "en", "de", "it", "nl"]) {
     const text = source(`src/i18n/locales/${locale}.ts`);
     for (const key of ["gpu: {", "showStats:", "showDownloads:", "showTasks:", "betaUserToggle:", "betaEngineStable:", "betaEngineBeta:"]) assert.ok(!text.includes(key), `${locale}: ${key}`);
