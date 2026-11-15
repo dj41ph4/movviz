@@ -276,3 +276,16 @@ test("Saint Seiya: when TVDB's dates can't host every file, the show stays on TM
   noDuplicateFiles(plan);
   assert.ok(plan.seasons[0].episodes.every((e) => e.file));
 });
+
+test("season names are never left in Japanese: an untranslated TVDB arc name, new or already stored, becomes « Saison N »", () => {
+  // TVDB splits 4 episodes in two arcs; the library already holds that layout,
+  // with the Japanese arc names an earlier resync stored.
+  const tvdb = catalog([2, 2]);
+  const tmdb = catalog([4]);
+  const old = seasonsFrom([ep(1, 1, date(0), pathOf(1, 1)), ep(1, 2, date(1), pathOf(1, 2)), ep(2, 1, date(2), pathOf(2, 1)), ep(2, 2, date(3), pathOf(2, 2))]);
+  old[0].name = "日光・華厳の滝編";
+  old[1].name = "京都編&練馬編";
+  const plan = planAnimeResync({ oldSeasons: old, tvdb, tmdb, tvdbSeasonNames: new Map([[1, "L'arc de Nikko"], [2, "京都編&練馬編"]]), tmdbSeasonNames: new Map(), files: filesOf(old), includeSpecials: true, isCjk, statusFor }) as ResyncPlan;
+  assert.equal(plan.ok, true);
+  assert.deepEqual(plan.seasons.map((s) => s.name), ["L'arc de Nikko", "Saison 2"]);
+});

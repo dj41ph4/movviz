@@ -1,3 +1,9 @@
+## v1.28.153 — 15 november 2026
+
+### Bibliotheek
+
+- TVDB-synchronisatie voor anime: seizoensnamen verschijnen niet meer in het Japans. Als TVDB een arc-naam niet in jouw taal heeft vertaald, wordt de Engelse naam gebruikt, anders “Seizoen N”; een al opgeslagen Japanse naam wordt meteen op het scherm vervangen, op alle platformen, en bij de volgende hersynchronisatie in de bibliotheek gecorrigeerd.
+
 ## v1.28.152 — 15 november 2026
 
 ### Bibliotheek

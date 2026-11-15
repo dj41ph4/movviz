@@ -201,11 +201,23 @@ export async function getTvdbSeasonNames(tvdbId: number, langOverride?: string):
   await Promise.all(
     officialSeasons.map(async (s) => {
       const translated = await tvdbGet<RawSeasonTranslation>(`/seasons/${s.id}/translations/${code}`);
-      const name = translated?.name || s.name;
+      // Untranslated in the user's language: English next, then the raw
+      // name — but never one in Japanese/Chinese script (TVDB's raw season
+      // name is the original: « 京都編&練馬編 » showed up as a season title).
+      // No readable name → none at all, the caller keeps « Saison N ».
+      let name = readableName(translated?.name);
+      if (!name && code !== "eng") name = readableName((await tvdbGet<RawSeasonTranslation>(`/seasons/${s.id}/translations/eng`))?.name);
+      name ??= readableName(s.name);
       if (name) names.set(s.number, name);
     })
   );
   return names;
+}
+
+/** A name a French-interface user can read: not empty, not in CJK script. */
+export function readableName(name: string | null | undefined): string | undefined {
+  const trimmed = name?.trim();
+  return trimmed && !/[぀-ヿ㐀-䶿一-鿿]/.test(trimmed) ? trimmed : undefined;
 }
 
 export interface TvdbSeason {

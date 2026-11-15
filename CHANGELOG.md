@@ -1,3 +1,9 @@
+## v1.28.153 — 15 novembre 2026
+
+### Bibliothèque
+
+- Synchronisation TVDB des animés : les noms de saisons ne s'affichent plus en japonais. Quand TVDB n'a pas traduit un nom d'arc en français, c'est le nom anglais qui est pris, sinon « Saison N » ; un nom en japonais déjà enregistré est remplacé à l'affichage tout de suite, sur toutes les plateformes, et corrigé dans la bibliothèque à la resynchronisation suivante.
+
 ## v1.28.152 — 15 novembre 2026
 
 ### Bibliothèque

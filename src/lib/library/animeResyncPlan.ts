@@ -499,7 +499,10 @@ function planWithSource(input: ResyncPlanInput, forced?: "tmdb"): ResyncPlanResu
       return {
         ...(old ?? {}),
         seasonNumber,
-        name: names.get(seasonNumber) ?? announcedNames.get(seasonNumber) ?? old?.name ?? (seasonNumber === 0 ? "Épisodes spéciaux" : `Saison ${seasonNumber}`),
+        // A name in Japanese/Chinese script — from any source, including one an
+        // earlier resync stored — is never kept: the next readable one wins.
+        name: [names.get(seasonNumber), announcedNames.get(seasonNumber), old?.name].find((n) => n && !input.isCjk(n))
+          ?? (seasonNumber === 0 ? "Épisodes spéciaux" : `Saison ${seasonNumber}`),
         monitored: old?.monitored ?? seasonNumber !== 0,
         episodes: episodes.sort((a, b) => a.episodeNumber - b.episodeNumber),
       };

@@ -1,3 +1,9 @@
+## v1.28.153 — November 15, 2026
+
+### Library
+
+- Anime TVDB sync: season names no longer show in Japanese. When TVDB has no translation of an arc name in your language, the English name is used, otherwise “Season N”; a Japanese name already stored is replaced on screen right away, on every platform, and fixed in the library at the next resync.
+
 ## v1.28.152 — November 15, 2026
 
 ### Library

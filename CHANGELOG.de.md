@@ -1,3 +1,9 @@
+## v1.28.153 — 15. November 2026
+
+### Bibliothek
+
+- TVDB-Synchronisierung für Anime: Staffelnamen erscheinen nicht mehr auf Japanisch. Hat TVDB einen Arc-Namen nicht in Ihre Sprache übersetzt, wird der englische Name verwendet, sonst „Staffel N“; ein bereits gespeicherter japanischer Name wird in der Anzeige sofort auf allen Plattformen ersetzt und bei der nächsten Resynchronisierung in der Bibliothek korrigiert.
+
 ## v1.28.152 — 15. November 2026
 
 ### Bibliothek

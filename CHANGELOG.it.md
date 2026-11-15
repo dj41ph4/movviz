@@ -1,3 +1,9 @@
+## v1.28.153 — 15 novembre 2026
+
+### Libreria
+
+- Sincronizzazione TVDB degli anime: i nomi delle stagioni non compaiono più in giapponese. Quando TVDB non ha tradotto il nome di un arco nella tua lingua, viene usato il nome inglese, altrimenti «Stagione N»; un nome giapponese già salvato viene sostituito subito a schermo, su tutte le piattaforme, e corretto nella libreria alla risincronizzazione successiva.
+
 ## v1.28.152 — 15 novembre 2026
 
 ### Libreria

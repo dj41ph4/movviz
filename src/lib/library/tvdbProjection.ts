@@ -3,6 +3,13 @@ import { getSeason } from "@/lib/metadata/tmdb";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import type { LibrarySeries } from "@/lib/library/types";
 import type { MetaEpisode, MetaSeason, MetaSeasonSummary } from "@/lib/metadata/types";
+import { readableName } from "@/lib/metadata/tvdb";
+
+/** Season title shown to every client: never one in Japanese/Chinese script
+ *  (an earlier TVDB resync stored TVDB's untranslated arc names). */
+function seasonTitle(season: { seasonNumber: number; name: string }): string {
+  return readableName(season.name) ?? (season.seasonNumber === 0 ? "Épisodes spéciaux" : `Saison ${season.seasonNumber}`);
+}
 
 /**
  * A series the resync keeps in TVDB numbering is shown — on the web, Android
@@ -24,7 +31,7 @@ export function projectSeasonSummaries(series: LibrarySeries): MetaSeasonSummary
     .sort((a, b) => a.seasonNumber - b.seasonNumber)
     .map((s) => {
       const first = [...s.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber).find((e) => e.airDate);
-      return { seasonNumber: s.seasonNumber, name: s.name, episodeCount: s.episodes.length, airDate: first?.airDate ?? null };
+      return { seasonNumber: s.seasonNumber, name: seasonTitle(s), episodeCount: s.episodes.length, airDate: first?.airDate ?? null };
     });
 }
 
@@ -50,7 +57,7 @@ export async function projectSeason(series: LibrarySeries, seasonNumber: number,
   const mainSource = [...sourceSeasons.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   return {
     seasonNumber,
-    name: season.name,
+    name: seasonTitle(season),
     episodeCount: episodes.length,
     airDate: episodes.find((e) => e.airDate)?.airDate ?? null,
     posterPath: mainSource != null ? tmdbSeasons.get(mainSource)?.posterPath ?? null : null,
