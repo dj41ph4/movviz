@@ -909,7 +909,9 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : plexFor(season.seasonNumber, ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey) { changed = true; break; }
-            if (ep.file && hasValidLocalFile(ep.file) && ep.playbackSource !== "movviz") { changed = true; break; }
+            // In-memory test first: hasValidLocalFile is a blocking disk stat, and it ran for every
+            // episode of every show Plex reported — seconds of frozen server per show on a busy NAS.
+            if (ep.playbackSource !== "movviz" && ep.file && hasValidLocalFile(ep.file)) { changed = true; break; }
             if (ep.file && ep.file.language === undefined) needsLanguageBackfill = true;
           } else {
             if (bleach && !bleach.complete) continue;
@@ -947,7 +949,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
                 plexRatingKey: plexEp.ratingKey,
               };
             }
-            if (ep.file && hasValidLocalFile(ep.file) && ep.playbackSource !== "movviz") {
+            if (ep.playbackSource !== "movviz" && ep.file && hasValidLocalFile(ep.file)) {
               return { ...ep, playbackSource: "movviz" as const };
             }
             return ep;
