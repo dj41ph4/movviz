@@ -1,3 +1,14 @@
+## v1.28.154 — 16 novembre 2026
+
+### Bibliothèque
+
+- Fiche d'un animé : nouveau bouton « Forcer TMDb » (administrateur). La série repasse en numérotation TMDb, ses fichiers sont renommés en conséquence, les « Vu » suivent, et Plex bascule en ordre TMDb pour cette série — tout de suite s'il est joignable, à sa prochaine synchronisation sinon. Le bouton « Resynchroniser avec TVDB » disparaît et plus aucune synchronisation TVDB automatique ne s'applique à la série (passage de nuit, synchronisation des épisodes, resynchronisation de tous les animés). Un second clic lève le choix.
+- La saison 0 porte le même nom partout (« Épisodes spéciaux ») au lieu de « Saison 0 » sur certaines séries.
+
+### Performances
+
+- Synchronisation Plex : elle n'interroge plus le disque pour chaque épisode de chaque série rapportée par Plex (serveur figé par à-coups après un renommage massif) ; seuls les épisodes qui en ont réellement besoin sont vérifiés.
+
 ## v1.28.153 — 15 novembre 2026
 
 ### Bibliothèque

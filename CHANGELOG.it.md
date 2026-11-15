@@ -1,3 +1,14 @@
+## v1.28.154 — 16 novembre 2026
+
+### Libreria
+
+- Scheda di un anime: nuovo pulsante «Forza TMDb» (amministratore). La serie torna alla numerazione TMDb, i suoi file vengono rinominati di conseguenza, i «Visto» seguono, e Plex passa all'ordine TMDb per quella serie — subito se raggiungibile, altrimenti alla prossima sincronizzazione. Il pulsante «Risincronizza con TVDB» scompare e nessuna sincronizzazione TVDB automatica viene più applicata alla serie (passaggio notturno, sincronizzazione degli episodi, risincronizzazione di tutti gli anime). Un secondo clic annulla la scelta.
+- La stagione 0 ha lo stesso nome ovunque («Épisodes spéciaux») invece di «Saison 0» su alcune serie.
+
+### Prestazioni
+
+- Sincronizzazione Plex: non interroga più il disco per ogni episodio di ogni serie segnalata da Plex (server bloccato a scatti dopo una rinomina di massa); vengono verificati solo gli episodi che ne hanno davvero bisogno.
+
 ## v1.28.153 — 15 novembre 2026
 
 ### Libreria

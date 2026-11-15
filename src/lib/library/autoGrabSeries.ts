@@ -204,9 +204,16 @@ const RESYNC_SNAPSHOT_DIR = path.join(
  * copies are not tagged with different languages; any doubt keeps the file.
  * The whole previous record is snapshotted before anything is written.
  */
-export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { background?: boolean } = {}): Promise<ResyncAnimeResult> {
+export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { background?: boolean; forceTmdb?: boolean } = {}): Promise<ResyncAnimeResult> {
   const initial = getSeries(seriesId);
   if (!initial) return { error: "not_found", ok: false };
+  // « Forcer TMDb » on the title's page: once the series is back in TMDb
+  // numbering, nothing automatic resyncs it any more — only the choice
+  // itself (opts.forceTmdb) runs. While it is still TVDB-numbered (the
+  // conversion could not finish yet), any pass completes it, towards TMDb.
+  if (initial.forceTmdbOrder && !opts.forceTmdb && initial.episodeOrder !== "tvdb") {
+    return { ok: true, oldSeasonCount: initial.seasons.length, newSeasonCount: initial.seasons.length, source: "tmdb", movedFiles: 0, duplicatesRemoved: 0, duplicatesKept: 0, renamedFiles: 0, unchanged: true, snapshot: null };
+  }
   // Bleach has an explicit identity repair; never use positional resync here.
   if (initial.tmdbId === BLEACH_TMDB_ID) return { error: "bleach_repair_required", ok: false };
 
@@ -231,7 +238,9 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
   const tvdbEpisodes = await getTvdbEpisodesFor(tvdbId, initial.title, initial.year);
   // A known TVDB id answering nothing is TVDB being unreachable, not a show
   // without episodes: planning without it would undo a TVDB structure.
-  if (tvdbConfigured() && tvdbId && tvdbEpisodes.length === 0) return { ok: false, error: "tvdb_unavailable" };
+  // (A series forced to TMDb and already numbered that way needs nothing from TVDB.)
+  const tvdbNeeded = !(initial.forceTmdbOrder && initial.episodeOrder !== "tvdb");
+  if (tvdbNeeded && tvdbConfigured() && tvdbId && tvdbEpisodes.length === 0) return { ok: false, error: "tvdb_unavailable" };
   if (!tmdb && tvdbEpisodes.length === 0) return { ok: false, error: "no_tvdb_match" };
   const tvdbSeasonNames = tvdbId && tvdbEpisodes.length > 0 ? await getTvdbSeasonNames(tvdbId) : new Map<number, string>();
 
@@ -289,6 +298,7 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
       includeSpecials: specialsEnabled(),
       isCjk: hasCjkText,
       statusFor: (eps) => seasonEpisodeStatuses(eps),
+      forceTmdb: !!series.forceTmdbOrder,
     });
     if (!plan.ok) return { ok: false, error: plan.error === "no_catalog" ? "no_tvdb_match" : plan.error };
     // The daily pass applies everything on its own — new episodes, moved
@@ -333,7 +343,7 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
           void refreshPlexLibraryFor("tv").catch(() => {});
         }
         // Every file now carries its Movviz number: Plex may follow; else it must not.
-        updateSeries(seriesId, { plexOrderPending: renamed.kept === 0 ? (retried > 0 || series.plexOrderPending ? plan.source : series.plexOrderPending) : undefined });
+        updateSeries(seriesId, { plexOrderPending: renamed.kept === 0 ? (retried > 0 || series.plexOrderPending || opts.forceTmdb ? plan.source : series.plexOrderPending) : undefined });
       }
       return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: series.seasons.length, source: plan.source, movedFiles: 0, duplicatesRemoved: 0, duplicatesKept: 0, renamedFiles: retried, unchanged: retried === 0, snapshot: null };
     }

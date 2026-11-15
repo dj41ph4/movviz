@@ -221,6 +221,19 @@ test("every client sees the library structure of a TVDB series, with the right T
   assert.deepEqual(libraryCoordinateFromTmdb(123, 1, 4), { season: 1, episode: 4 }, "any other show: unchanged");
 });
 
+test("season titles shown to every client: never Japanese script, one name for season 0", async () => {
+  const { projectSeasonSummaries, projectSeason, tvdbOrderedSeries } = await import("../src/lib/library/tvdbProjection.ts");
+  const series = tvdbOrderedSeries(TMDB_ID)!;
+  const stored = { ...series, seasons: [
+    { seasonNumber: 0, name: "Saison 0", monitored: false, episodes: [] },
+    { ...series.seasons[0], name: "日光・華厳の滝編" },
+    { ...series.seasons[1], name: "Arc Deux" },
+  ] };
+  assert.deepEqual(projectSeasonSummaries(stored).map((x) => x.name), ["Épisodes spéciaux", "Saison 1", "Arc Deux"]);
+  assert.equal((await projectSeason(stored, 1))!.name, "Saison 1");
+  assert.equal((await projectSeason(stored, 0))!.name, "Épisodes spéciaux");
+});
+
 test("library-wide alignment (scheduled task) without Plex: older anime put in TVDB, renamed, marked; a show with duplicates waits", async () => {
   const { alignAnimeLibraryOnTvdb } = await import("../src/lib/library/animeTvdbAlign.ts");
   const make = (id: string, tmdbId: number, title: string, withDuplicate: boolean) => {
@@ -297,4 +310,59 @@ test("Saint Seiya / Lost Canvas: another show's files wrongly shared are let go,
   assert.deepEqual(linked, ["main1", "main2", "main3", "main4"], "only the main show's own files");
   assert.ok(getSeries("sr_spin")!.seasons[0].episodes.every((e, i) => e.file!.path === lc(i + 1)), "spin-off untouched");
   for (let e = 1; e <= 4; e++) assert.ok(fs.existsSync(lc(e)), "nothing trashed");
+});
+
+test("« Forcer TMDb » on a title's page: back to TMDb numbering, files renamed, Plex asked for TMDb, and no automatic TVDB resync ever again", async () => {
+  const { updateSeries } = await import("../src/lib/library/store.ts");
+  const { alignAnimeLibraryOnTvdb } = await import("../src/lib/library/animeTvdbAlign.ts");
+  // « Old Show » was put in TVDB layout (2 + 2) by the library-wide pass above.
+  const before = getSeries("sr_old")!;
+  assert.equal(before.episodeOrder, "tvdb");
+
+  updateSeries("sr_old", { forceTmdbOrder: true });
+  const forced = await resyncAnimeSeasonsFromTvdb("sr_old", { forceTmdb: true });
+  assert.equal(forced.ok, true, JSON.stringify(forced));
+  if (!forced.ok) return;
+  assert.equal(forced.source, "tmdb");
+  const after = getSeries("sr_old")!;
+  assert.deepEqual(after.seasons.map((x) => `${x.seasonNumber}:${x.episodes.length}`), ["1:4"]);
+  assert.equal(after.episodeOrder, undefined);
+  assert.equal(after.plexOrderPending, "tmdb");
+  const files = after.seasons[0].episodes.map((e) => e.file!.path);
+  assert.deepEqual(files.map((p) => fs.readFileSync(p, "utf8")), ["Old Show1", "Old Show2", "Old Show3", "Old Show4"]);
+  files.forEach((p, i) => assert.match(path.basename(p), new RegExp(`S01E0${i + 1}`)));
+
+  // Nothing automatic touches it any more: daily pass, library-wide pass, even a plain resync call.
+  const snapshot = JSON.stringify(getSeries("sr_old")!.seasons);
+  const background = await resyncAnimeSeasonsFromTvdb("sr_old", { background: true });
+  assert.equal(background.ok && background.unchanged, true);
+  await alignAnimeLibraryOnTvdb({ background: true });
+  const plain = await resyncAnimeSeasonsFromTvdb("sr_old");
+  assert.equal(plain.ok && plain.unchanged, true);
+  assert.equal(JSON.stringify(getSeries("sr_old")!.seasons), snapshot);
+  assert.equal(getSeries("sr_old")!.episodeOrder, undefined);
+
+  // Lifting the choice only brings the TVDB resync back: a click then returns to TVDB.
+  updateSeries("sr_old", { forceTmdbOrder: undefined });
+  assert.equal(JSON.stringify(getSeries("sr_old")!.seasons), snapshot);
+  const back = await resyncAnimeSeasonsFromTvdb("sr_old");
+  assert.equal(back.ok && back.source, "tvdb");
+  assert.deepEqual(getSeries("sr_old")!.seasons.map((x) => `${x.seasonNumber}:${x.episodes.length}`), ["1:2", "2:2"]);
+});
+
+test("« Forcer TMDb » while a download is running: the choice holds, a later pass finishes the conversion towards TMDb", async () => {
+  const { updateSeries } = await import("../src/lib/library/store.ts");
+  const tvdbState = getSeries("sr_old")!;
+  assert.equal(tvdbState.episodeOrder, "tvdb");
+  const busy = tvdbState.seasons.map((s, i) => ({ ...s, episodes: s.episodes.map((e, j) => i === 0 && j === 0 ? { ...e, activeInfoHash: "abc" } : e) }));
+  updateSeries("sr_old", { forceTmdbOrder: true, seasons: busy });
+  const blocked = await resyncAnimeSeasonsFromTvdb("sr_old", { forceTmdb: true });
+  assert.deepEqual(blocked, { ok: false, error: "active_downloads" });
+  assert.equal(getSeries("sr_old")!.forceTmdbOrder, true);
+  // Download over: the ordinary background pass now converts it — to TMDb, never back to TVDB.
+  updateSeries("sr_old", { seasons: getSeries("sr_old")!.seasons.map((s) => ({ ...s, episodes: s.episodes.map((e) => ({ ...e, activeInfoHash: null })) })) });
+  const later = await resyncAnimeSeasonsFromTvdb("sr_old", { background: true });
+  assert.equal(later.ok && later.source, "tmdb", JSON.stringify(later));
+  assert.deepEqual(getSeries("sr_old")!.seasons.map((x) => `${x.seasonNumber}:${x.episodes.length}`), ["1:4"]);
+  assert.equal(getSeries("sr_old")!.episodeOrder, undefined);
 });

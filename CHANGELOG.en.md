@@ -1,3 +1,14 @@
+## v1.28.154 — November 16, 2026
+
+### Library
+
+- Anime title page: new “Force TMDb” button (administrator). The show goes back to TMDb numbering, its files are renamed accordingly, watched marks follow, and Plex switches to TMDb order for that show — right away when reachable, at its next sync otherwise. The “Resync with TVDB” button disappears and no automatic TVDB sync applies to the show anymore (nightly pass, episode sync, resync of all anime). A second click lifts the choice.
+- Season 0 has the same name everywhere (“Épisodes spéciaux”) instead of “Saison 0” on some shows.
+
+### Performance
+
+- Plex sync: it no longer queries the disk for every episode of every show Plex reports (server freezing in bursts after a mass rename); only the episodes that really need it are checked.
+
 ## v1.28.153 — November 15, 2026
 
 ### Library

@@ -51,7 +51,7 @@ import { toast } from "@/components/ui/Toast";
 import {
   Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
-  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, RotateCcw, Pencil, Eye,
+  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, RotateCcw, Pencil, Eye, Lock, LockOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -198,6 +198,8 @@ type LibraryListItem = {
     }[];
   }[];
   episodeOrder?: "tmdb" | "tvdb";
+  /** « Forcer TMDb »: TVDB resync hidden and never applied automatically. */
+  forceTmdbOrder?: boolean;
 };
 
 export interface TitleContentProps {
@@ -570,6 +572,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
   const logoPath = libraryMatch?.customLogoPath
     ?? (editorialArtwork ? editorialArtwork.logoPath : seriesPart === "tybw" ? null : imagesData?.logos?.[0]?.filePath ?? null);
   const [resyncingAnime, setResyncingAnime] = useState(false);
+  const [forcingTmdb, setForcingTmdb] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
   const [forcingPlexSync, setForcingPlexSync] = useState(false);
 
@@ -860,6 +863,40 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
       setResyncingAnime(false);
     }
   }, [libraryMatch?.id, t, seriesPart, mutateLibrary]);
+
+  // « Forcer TMDb » : la série repasse en numérotation TMDb (fichiers renommés,
+  // Plex basculé) et plus aucune synchro TVDB ne s'y applique ; un second clic
+  // lève le choix et rend le bouton TVDB.
+  const tmdbForced = libraryMatch?.forceTmdbOrder === true;
+  const toggleForceTmdb = async () => {
+    if (!libraryMatch?.id || forcingTmdb) return;
+    setForcingTmdb(true);
+    setResyncResult(null);
+    try {
+      const res = await fetch(`/api/library/series/${libraryMatch.id}/force-tmdb`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: !tmdbForced }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResyncResult(t("library.forceTmdbFailed"));
+      } else if (!data.forced) {
+        setResyncResult(t("library.forceTmdbLifted"));
+      } else if (data.pending) {
+        setResyncResult(t(data.pending === "active_downloads" ? "library.forceTmdbPendingDownloads" : "library.forceTmdbPending"));
+      } else {
+        setResyncResult([
+          t("library.forceTmdbDone"),
+          data.renamedFiles > 0 ? t("library.resyncAnimeRenamed", { renamed: data.renamedFiles }) : null,
+          data.plexOrder === "applied" ? t("library.forceTmdbPlexApplied") : data.plexOrder === "pending" ? t("library.forceTmdbPlexPending") : null,
+        ].filter(Boolean).join(" "));
+      }
+      await mutateLibrary();
+    } catch {
+      setResyncResult(t("library.forceTmdbFailed"));
+    } finally {
+      setForcingTmdb(false);
+    }
+  };
 
   // "en attente de synchronisation Plex" (plexRatingKey/plexUrl not
   // populated yet) — admin-only manual trigger instead of waiting for the
@@ -1900,10 +1937,31 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                 </h2>
                 {canComplete && libraryMatch?.id && (
                   <div className="flex flex-wrap gap-2">
-                    {detail.isAnime && user?.role === "admin" && (
+                    {detail.isAnime && user?.role === "admin" && !seriesPart && (
+                      <button
+                        onClick={toggleForceTmdb}
+                        disabled={forcingTmdb || resyncingAnime}
+                        aria-pressed={tmdbForced}
+                        aria-label={t(tmdbForced ? "library.forceTmdbOn" : "library.forceTmdb")}
+                        title={t(tmdbForced ? "library.forceTmdbOnHint" : "library.forceTmdbHint")}
+                        className={`flex h-9 shrink-0 items-center gap-2 rounded-xl px-3.5 text-xs font-bold transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-50 sm:px-4 ${tmdbForced ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-ink"}`}
+                      >
+                        {forcingTmdb ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : tmdbForced ? (
+                          <Lock className="h-3.5 w-3.5" />
+                        ) : (
+                          <LockOpen className="h-3.5 w-3.5" />
+                        )}
+                        <span className="hidden sm:inline">
+                          {t(tmdbForced ? "library.forceTmdbOn" : "library.forceTmdb")}
+                        </span>
+                      </button>
+                    )}
+                    {detail.isAnime && user?.role === "admin" && !tmdbForced && (
                       <button
                         onClick={resyncAnime}
-                        disabled={resyncingAnime}
+                        disabled={resyncingAnime || forcingTmdb}
                         title={t("library.resyncAnime")}
                         className="flex h-9 shrink-0 items-center gap-2 rounded-xl bg-magenta/15 px-3.5 text-xs font-bold text-magenta transition-transform hover:scale-105 disabled:opacity-50 sm:px-4"
                       >

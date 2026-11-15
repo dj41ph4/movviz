@@ -46,6 +46,9 @@ export interface ResyncPlanInput {
   includeSpecials: boolean;
   isCjk: (text: string) => boolean;
   statusFor: (episodes: CatalogEpisode[]) => Map<number, "upcoming" | "missing">;
+  /** The user forced TMDb numbering for this series: TVDB is only read to
+   *  convert files still named after it, never chosen as the structure. */
+  forceTmdb?: boolean;
 }
 
 export interface ResyncDuplicate {
@@ -207,6 +210,7 @@ function patchTitlesOnly(oldSeasons: LibrarySeason[], tvdb: CatalogEpisode[], tm
  * which places more of them, wins, and the show goes (back) to TMDb numbering.
  */
 export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
+  if (input.forceTmdb && input.tmdb?.length) return planWithSource(input, "tmdb");
   const plan = planWithSource(input);
   if (!plan.ok || plan.source !== "tvdb" || plan.extras.length === 0 || !input.tmdb?.length) return plan;
   const alternative = planWithSource(input, "tmdb");

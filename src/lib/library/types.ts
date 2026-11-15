@@ -205,6 +205,11 @@ export interface LibrarySeries {
   /** Episode order Plex should use for this show, set by a TVDB resync and
    *  applied by the next Plex sync that reaches the server (Plex optional). */
   plexOrderPending?: "tmdb" | "tvdb";
+  /** The user's choice on this title's page: keep TMDb numbering whatever
+   *  TVDB offers. No automatic TVDB resync ever touches the series again
+   *  (daily pass, episode sync, library-wide button), and the TVDB resync
+   *  button is hidden; Plex is asked for TMDb order. */
+  forceTmdbOrder?: boolean;
   /** Independent cosmetic choices for the two Bleach fiches. */
   bleachArtwork?: import("@/lib/metadata/bleachArtwork").BleachArtworkByPart;
   bleachSettings?: Partial<Record<"original" | "tybw", { qualityProfileId?: string; aliases?: string[] }>>;

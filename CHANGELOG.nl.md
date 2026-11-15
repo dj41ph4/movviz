@@ -1,3 +1,14 @@
+## v1.28.154 — 16 november 2026
+
+### Bibliotheek
+
+- Anime-titelpagina: nieuwe knop “TMDb afdwingen” (beheerder). De serie gaat terug naar TMDb-nummering, de bestanden worden dienovereenkomstig hernoemd, “Gezien”-markeringen volgen, en Plex schakelt voor die serie over op de TMDb-volgorde — meteen als Plex bereikbaar is, anders bij de volgende synchronisatie. De knop “Hersynchroniseren met TVDB” verdwijnt en er wordt geen automatische TVDB-synchronisatie meer op de serie toegepast (nachtelijke doorloop, afleveringssynchronisatie, hersynchronisatie van alle anime). Een tweede klik heft de keuze op.
+- Seizoen 0 heeft overal dezelfde naam (“Épisodes spéciaux”) in plaats van “Saison 0” bij sommige series.
+
+### Prestaties
+
+- Plex-synchronisatie: bevraagt de schijf niet meer voor elke aflevering van elke serie die Plex meldt (server die schoksgewijs bevroor na een massale hernoeming); alleen de afleveringen die het echt nodig hebben worden gecontroleerd.
+
 ## v1.28.153 — 15 november 2026
 
 ### Bibliotheek

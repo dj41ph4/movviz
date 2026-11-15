@@ -8,7 +8,10 @@ import { readableName } from "@/lib/metadata/tvdb";
 /** Season title shown to every client: never one in Japanese/Chinese script
  *  (an earlier TVDB resync stored TVDB's untranslated arc names). */
 function seasonTitle(season: { seasonNumber: number; name: string }): string {
-  return readableName(season.name) ?? (season.seasonNumber === 0 ? "Épisodes spéciaux" : `Saison ${season.seasonNumber}`);
+  const name = readableName(season.name);
+  // Season 0 has one name everywhere: a stored « Saison 0 » / « Specials » is the same thing.
+  if (season.seasonNumber === 0 && (!name || /^(saison|season|staffel|stagione|seizoen)\s*0+$|^specials?$/i.test(name))) return "Épisodes spéciaux";
+  return name ?? `Saison ${season.seasonNumber}`;
 }
 
 /**

@@ -1,3 +1,14 @@
+## v1.28.154 — 16. November 2026
+
+### Bibliothek
+
+- Anime-Titelseite: neue Schaltfläche „TMDb erzwingen“ (Administrator). Die Serie kehrt zur TMDb-Nummerierung zurück, ihre Dateien werden entsprechend umbenannt, „Gesehen“-Markierungen folgen, und Plex wechselt für diese Serie zur TMDb-Reihenfolge — sofort, wenn erreichbar, sonst bei der nächsten Synchronisierung. Die Schaltfläche „Mit TVDB resynchronisieren“ verschwindet, und es wird keine automatische TVDB-Synchronisierung mehr auf die Serie angewendet (nächtlicher Durchlauf, Episodensynchronisierung, Resynchronisierung aller Anime). Ein zweiter Klick hebt die Auswahl auf.
+- Staffel 0 trägt überall denselben Namen („Épisodes spéciaux“) statt „Saison 0“ bei manchen Serien.
+
+### Leistung
+
+- Plex-Synchronisierung: Sie fragt nicht mehr für jede Episode jeder von Plex gemeldeten Serie die Festplatte ab (stoßweise eingefrorener Server nach einer Massenumbenennung); nur die Episoden, die es wirklich brauchen, werden geprüft.
+
 ## v1.28.153 — 15. November 2026
 
 ### Bibliothek
