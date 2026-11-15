@@ -1,3 +1,11 @@
+## v1.28.152 — 15. November 2026
+
+### Bibliothek
+
+- Anime-Resynchronisierung: Eine nicht verknüpfte Kopie einer Episode, die den Namen belegte, den eine Datei erhalten sollte, weicht jetzt als „… (doublon)“ aus, ohne gelöscht zu werden, statt diese Datei und alle folgenden unter ihrer alten Nummer zu belassen (Saint Seiya: 7 falsch benannte Dateien).
+- Ein Klick auf die Resynchronisierung schließt auch Umbenennungen ab, die ein früherer Durchlauf offenlassen musste; eine Datei mit mehreren Episoden wird nie umbenannt.
+- Plex wird nie auf eine Episodenreihenfolge umgestellt, der die Dateinamen nicht folgen: Die angeforderte Reihenfolge wird zurückgezogen, solange die Umbenennung unvollständig ist, und es wird immer die tatsächliche Reihenfolge der Serie angefordert.
+
 ## v1.28.151 — 15. November 2026
 
 ### Leistung

@@ -1,3 +1,11 @@
+## v1.28.152 — November 15, 2026
+
+### Library
+
+- Anime resync: an unlinked copy of an episode holding the name a file had to take now steps aside as “… (doublon)”, without being deleted, instead of leaving that file and every file behind it under their old number (Saint Seiya: 7 files left misnamed).
+- Clicking resync also finishes the renames an earlier pass had to leave; a file holding several episodes is never renamed.
+- Plex is never switched to an episode order the file names don't follow: the requested order is withdrawn while renaming is incomplete, and it is always the show's real order that is requested.
+
 ## v1.28.151 — November 15, 2026
 
 ### Performance

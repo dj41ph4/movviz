@@ -1,3 +1,11 @@
+## v1.28.152 — 15 november 2026
+
+### Bibliotheek
+
+- Anime-hersynchronisatie: een niet-gekoppelde kopie van een aflevering die de naam bezette die een bestand moest krijgen, wijkt nu uit als “… (doublon)”, zonder te worden verwijderd, in plaats van dat bestand en alle volgende onder hun oude nummer te laten (Saint Seiya: 7 verkeerd benoemde bestanden).
+- Een klik op hersynchroniseren rondt ook de hernoemingen af die een eerdere doorloop moest laten liggen; een bestand met meerdere afleveringen wordt nooit hernoemd.
+- Plex wordt nooit omgeschakeld naar een afleveringsvolgorde die de bestandsnamen niet volgen: de gevraagde volgorde wordt ingetrokken zolang het hernoemen onvolledig is, en altijd wordt de echte volgorde van de serie gevraagd.
+
 ## v1.28.151 — 15 november 2026
 
 ### Prestaties

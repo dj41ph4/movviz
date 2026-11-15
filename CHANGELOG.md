@@ -1,3 +1,11 @@
+## v1.28.152 — 15 novembre 2026
+
+### Bibliothèque
+
+- Resynchronisation des animés : une copie non liée d'un épisode qui occupait le nom qu'un fichier devait prendre s'écarte sous « … (doublon) », sans être supprimée, au lieu de laisser ce fichier et tous ceux qui le suivaient sous leur ancien numéro (Saint Seiya : 7 fichiers restés mal nommés).
+- Un clic sur la resynchronisation termine aussi les renommages qu'un passage précédent avait dû laisser ; un fichier contenant plusieurs épisodes n'est jamais renommé.
+- Plex n'est plus jamais basculé sur un ordre d'épisodes que les noms de fichiers ne suivent pas : l'ordre demandé est retiré tant que le renommage est incomplet, et c'est toujours l'ordre réel de la série qui est demandé.
+
 ## v1.28.151 — 15 novembre 2026
 
 ### Performances

@@ -60,8 +60,14 @@ interface Move {
  * goes through a temporary name first, so chains like E09→E10, E10→E11 in
  * one folder can't collide; a failed move is put back where it was. Library
  * records change only for files really moved.
+ *
+ * `aside`: copies of an episode the resync kept on disk without linking
+ * them (duplicates it could not prove identical). When one of them holds the
+ * very name an episode's file must take, it steps aside under
+ * « <its name> (doublon) » — never deleted, never overwritten — instead of
+ * leaving the linked file, and every file chained behind it, misnamed.
  */
-export async function renameResyncedFiles(series: LibrarySeries, seasons: LibrarySeason[], onlyEpisodes: Set<string>, log: (msg: string) => void = () => {}): Promise<ResyncRenameResult> {
+export async function renameResyncedFiles(series: LibrarySeries, seasons: LibrarySeason[], onlyEpisodes: Set<string>, log: (msg: string) => void = () => {}, aside: ReadonlySet<string> = new Set()): Promise<ResyncRenameResult> {
   const templates = loadNamingTemplates();
   const useDots = templates.useDotsInsteadOfSpaces;
   const moves: Move[] = [];
@@ -105,18 +111,47 @@ export async function renameResyncedFiles(series: LibrarySeries, seasons: Librar
     }
   }
   if (moves.length === 0) return { seasons, renamed: 0, kept: 0 };
+  const episodeMoves = moves.length;
 
-  // A target may only be free, or held by a file of this same batch.
-  const leaving = new Set(moves.flatMap((m) => [m.src, ...m.sidecars.map((s) => s.src)]));
-  const targets = new Set<string>();
-  const runnable = moves.filter((m) => {
-    const all = [m.dst, ...m.sidecars.map((s) => s.dst)];
-    const blocked = all.some((d) => targets.has(d) || (fs.existsSync(d) && !leaving.has(d)));
-    if (blocked) { log(`[resyncRename] conservé sous son nom (cible occupée) : ${m.src}`); return false; }
-    if (!fs.existsSync(m.src)) { log(`[resyncRename] introuvable : ${m.src}`); return false; }
-    all.forEach((d) => targets.add(d));
-    return true;
+  // An unlinked duplicate sitting on a wanted name steps aside first.
+  const wanted = new Set(moves.map((m) => m.dst));
+  const sources = new Set(moves.map((m) => m.src));
+  for (const held of wanted) {
+    if (!aside.has(held) || sources.has(held) || !fs.existsSync(held)) continue;
+    const p = pathFor(held);
+    const dir = p.dirname(held), name = p.basename(held), ext = p.extname(held);
+    const base = name.slice(0, name.length - ext.length);
+    const dst = p.join(dir, `${base} (doublon)${ext}`);
+    let sidecars: Move["sidecars"] = [];
+    try {
+      sidecars = fs.readdirSync(dir)
+        .filter((f) => f !== name && f.startsWith(`${base}.`) && !f.endsWith(TMP_SUFFIX))
+        .map((f) => ({ src: p.join(dir, f), dst: p.join(dir, `${base} (doublon)${f.slice(base.length)}`) }));
+    } catch { /* unreadable folder: the move fails cleanly */ }
+    moves.push({ seasonNumber: -1, episodeNumber: -1, src: held, dst, sidecars });
+  }
+
+  // A target may only be free, or held by a file of this same batch that
+  // really leaves. Decided before touching the disk, to a fixpoint: a file
+  // that cannot move keeps its name, so whoever wanted that name stays too.
+  let runnable = moves.filter((m) => {
+    if (fs.existsSync(m.src)) return true;
+    log(`[resyncRename] introuvable : ${m.src}`);
+    return false;
   });
+  for (;;) {
+    const leaving = new Set(runnable.flatMap((m) => [m.src, ...m.sidecars.map((s) => s.src)]));
+    const targets = new Set<string>();
+    const next = runnable.filter((m) => {
+      const all = [m.dst, ...m.sidecars.map((s) => s.dst)];
+      const blocked = all.some((d) => targets.has(d) || (fs.existsSync(d) && !leaving.has(d)));
+      if (blocked) { log(`[resyncRename] conservé sous son nom (cible occupée) : ${m.src}`); return false; }
+      all.forEach((d) => targets.add(d));
+      return true;
+    });
+    if (next.length === runnable.length) break;
+    runnable = next;
+  }
 
   // Phase 1: every source steps aside under a temporary name.
   const parked: Array<{ move: Move; items: Array<{ src: string; tmp: string; dst: string }> }> = [];
@@ -143,7 +178,7 @@ export async function renameResyncedFiles(series: LibrarySeries, seasons: Librar
         await fs.promises.rename(it.tmp, it.dst);
         landed.push(it);
       }
-      movedTo.set(`${move.seasonNumber}-${move.episodeNumber}`, move.dst);
+      if (move.seasonNumber >= 0) movedTo.set(`${move.seasonNumber}-${move.episodeNumber}`, move.dst);
       log(`[resyncRename] ${move.src} → ${move.dst}`);
     } catch (err) {
       for (const it of landed.reverse()) await fs.promises.rename(it.dst, it.tmp).catch(() => {});
@@ -159,5 +194,5 @@ export async function renameResyncedFiles(series: LibrarySeries, seasons: Librar
       return dst && ep.file ? { ...ep, file: { ...ep.file, path: dst, diskPath: dst } } : ep;
     }),
   }));
-  return { seasons: next, renamed: movedTo.size, kept: moves.length - movedTo.size };
+  return { seasons: next, renamed: movedTo.size, kept: episodeMoves - movedTo.size };
 }

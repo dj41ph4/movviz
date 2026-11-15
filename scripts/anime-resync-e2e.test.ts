@@ -135,6 +135,31 @@ test("running it again changes nothing and writes no snapshot", async () => {
   assert.equal(fs.readdirSync(path.join(config, "repair-snapshots")).length, before);
 });
 
+test("a rename an earlier pass had to leave is finished by the next click, never by the background pass", async () => {
+  const { updateSeries } = await import("../src/lib/library/store.ts");
+  const before = getSeries("sr_e2e")!;
+  const good = before.seasons[1].episodes[1].file!.path; // …S02E02…
+  const wrong = path.join(path.dirname(good), "Arc Show - S01E05.mkv");
+  fs.renameSync(good, wrong);
+  // The state an incomplete rename leaves: right episode, old name, a stale order still recorded for Plex.
+  updateSeries("sr_e2e", { plexOrderPending: "tmdb", seasons: before.seasons.map((s) => ({ ...s, episodes: s.episodes.map((e) => e.file?.path === good ? { ...e, file: { ...e.file, path: wrong, diskPath: wrong } } : e) })) });
+
+  const background = await resyncAnimeSeasonsFromTvdb("sr_e2e", { background: true });
+  assert.equal(background.ok && background.renamedFiles, 0);
+  assert.ok(fs.existsSync(wrong));
+
+  const clicked = await resyncAnimeSeasonsFromTvdb("sr_e2e");
+  assert.equal(clicked.ok && clicked.renamedFiles, 1, JSON.stringify(clicked));
+  const after = getSeries("sr_e2e")!;
+  assert.equal(after.seasons[1].episodes[1].file!.path, good);
+  assert.equal(fs.readFileSync(good, "utf8"), "ep5");
+  assert.ok(!fs.existsSync(wrong));
+  assert.equal(after.plexOrderPending, "tvdb", "the order Plex is asked for is the series' real one");
+  // And once everything is in place, a further click changes nothing.
+  const again = await resyncAnimeSeasonsFromTvdb("sr_e2e");
+  assert.equal(again.ok && again.unchanged, true);
+});
+
 test("TVDB unreachable: the TVDB structure is left exactly as it is", async () => {
   tvdbDown = true;
   const before = JSON.stringify(getSeries("sr_e2e"));

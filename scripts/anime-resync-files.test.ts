@@ -69,6 +69,54 @@ test("a target held by a file outside the batch is never overwritten", async () 
   assert.deepEqual(names(root).filter((n) => !before.includes(n)).length, names(root).length - before.length);
 });
 
+// Saint Seiya, 2026-11-15: an unlinked copy sat on « S01E51 »; the file that
+// had to take that name stayed « S01E55 », and so did every file behind it.
+async function chainWithStray(aside: boolean) {
+  const root = show();
+  // The names the template gives episodes 51, 55, 59 and 63, found with a dry run elsewhere.
+  const dry = show();
+  const seed = (n: number) => path.join(dry, "Saison 1", `Show - S01E0${n - 50}.mkv`);
+  for (const n of [51, 55, 59, 63]) touch(seed(n));
+  const probe = await renameResyncedFiles(series, [{ seasonNumber: 1, name: "S1", monitored: true, episodes: [51, 55, 59, 63].map((n) => ep(1, n, seed(n))) }], new Set(["1-51", "1-55", "1-59", "1-63"]));
+  const named = new Map([51, 55, 59, 63].map((n, i) => [n, probe.seasons[0].episodes[i].file!.path.replace(dry, root)]));
+  const f = (n: number) => named.get(n)!;
+  for (const n of [55, 59, 63]) touch(f(n), `file${n}`);
+  const stray = f(51);
+  touch(stray, "unlinked copy");
+  touch(stray.replace(/.mkv$/, ".fr.srt"), "copy sub");
+  // Episode 51's file is the one named 55, 55's is named 59, 59's is named 63.
+  const eps = [ep(1, 51, f(55)), ep(1, 55, f(59)), ep(1, 59, f(63))];
+  eps[0].title = "Titre 1x51"; eps[1].title = "Titre 1x55"; eps[2].title = "Titre 1x59";
+  const seasons: LibrarySeason[] = [{ seasonNumber: 1, name: "S1", monitored: true, episodes: eps }];
+  const result = await renameResyncedFiles(series, seasons, new Set(["1-51", "1-55", "1-59"]), () => {}, aside ? new Set([stray]) : new Set());
+  return { root, f, stray, result };
+}
+
+test("a name held by a foreign file blocks the whole chain behind it — decided before touching the disk", async () => {
+  const { root, f, stray, result } = await chainWithStray(false);
+  assert.equal(result.renamed, 0);
+  assert.equal(result.kept, 3);
+  for (const n of [55, 59, 63]) assert.equal(fs.readFileSync(f(n), "utf8"), `file${n}`);
+  assert.equal(fs.readFileSync(stray, "utf8"), "unlinked copy");
+  assert.deepEqual(result.seasons[0].episodes.map((e) => e.file!.path), [f(55), f(59), f(63)]);
+  assert.ok(!names(root).some((n) => n.endsWith(".movviz-resync-tmp")));
+});
+
+test("a known unlinked duplicate on the wanted name steps aside (kept, with its subtitle): the chain completes", async () => {
+  const { root, f, stray, result } = await chainWithStray(true);
+  assert.equal(result.renamed, 3);
+  assert.equal(result.kept, 0);
+  const paths = result.seasons[0].episodes.map((e) => e.file!.path);
+  assert.equal(paths[0], stray, "episode 51's file now holds the name the copy had");
+  assert.deepEqual(paths.map((p) => fs.readFileSync(p, "utf8")), ["file55", "file59", "file63"]);
+  assert.equal(paths[1], f(55));
+  assert.equal(paths[2], f(59));
+  const aside = stray.replace(/.mkv$/, " (doublon).mkv");
+  assert.equal(fs.readFileSync(aside, "utf8"), "unlinked copy");
+  assert.equal(fs.readFileSync(aside.replace(/.mkv$/, ".fr.srt"), "utf8"), "copy sub");
+  assert.ok(!names(root).some((n) => n.endsWith(".movviz-resync-tmp")));
+});
+
 test("a file moved to a new season lands in that season's existing folder", async () => {
   const root = show();
   const src = path.join(root, "Saison 1", "Show - S01E15.mkv");

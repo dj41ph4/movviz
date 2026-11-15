@@ -304,7 +304,38 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
       // Nothing moves, but marks left on TMDb numbers by an earlier resync are
       // still brought onto their TVDB episode.
       if (plan.source === "tvdb") migrateWatchedEpisodes(series, new Map());
-      return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: series.seasons.length, source: plan.source, movedFiles: 0, duplicatesRemoved: 0, duplicatesKept: 0, renamedFiles: 0, unchanged: true, snapshot: null };
+      // A click on « resync » also finishes renames an earlier pass had to
+      // leave (a name held by another file): every linked file whose name
+      // carries another number than its episode. Never in the background.
+      let retried = 0;
+      if (!opts.background) {
+        const before = new Map<string, string>();
+        const holders = new Map<string, number>();
+        for (const s of series.seasons) for (const e of s.episodes) {
+          const p = physical(e.file);
+          if (!p) continue;
+          before.set(`${s.seasonNumber}-${e.episodeNumber}`, p);
+          holders.set(p, (holders.get(p) ?? 0) + 1);
+        }
+        // A file holding several episodes (one name, two numbers) is never renamed.
+        const all = new Set([...before].filter(([, p]) => holders.get(p) === 1).map(([key]) => key));
+        const renamed = await renameResyncedFiles(series, series.seasons, all, (m) => console.log(m), new Set(plan.duplicates.map((d) => d.droppedPath)));
+        retried = renamed.renamed;
+        if (retried > 0) {
+          updateSeries(seriesId, { seasons: renamed.seasons });
+          const probeMoves: Array<{ fromId: string; fromPath: string; toId: string; toPath: string }> = [];
+          for (const s of renamed.seasons) for (const e of s.episodes) {
+            const key = `${s.seasonNumber}-${e.episodeNumber}`, toPath = physical(e.file), fromPath = before.get(key);
+            const id = episodeMediaId(seriesId, s.seasonNumber, e.episodeNumber);
+            if (toPath && fromPath && toPath !== fromPath) probeMoves.push({ fromId: id, fromPath, toId: id, toPath });
+          }
+          carryMediaProbeEntries(probeMoves);
+          void refreshPlexLibraryFor("tv").catch(() => {});
+        }
+        // Every file now carries its Movviz number: Plex may follow; else it must not.
+        updateSeries(seriesId, { plexOrderPending: renamed.kept === 0 ? (retried > 0 || series.plexOrderPending ? plan.source : series.plexOrderPending) : undefined });
+      }
+      return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: series.seasons.length, source: plan.source, movedFiles: 0, duplicatesRemoved: 0, duplicatesKept: 0, renamedFiles: retried, unchanged: retried === 0, snapshot: null };
     }
 
     // Episodes whose file changed in this resync: the only ones renamed below.
@@ -352,7 +383,8 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
     let renameComplete = true;
     if (changedFile.size > 0) {
       const latest = getSeries(seriesId)!;
-      const renamed = await renameResyncedFiles(latest, latest.seasons, changedFile, (m) => console.log(m));
+      const keptCopies = new Set(plan.duplicates.map((d) => d.droppedPath).filter((p) => fs.existsSync(p)));
+      const renamed = await renameResyncedFiles(latest, latest.seasons, changedFile, (m) => console.log(m), keptCopies);
       renamedFiles = renamed.renamed;
       renameComplete = renamed.kept === 0;
       if (renamed.renamed > 0) updateSeries(seriesId, { seasons: renamed.seasons });
@@ -360,7 +392,9 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
     // Plex is optional: the wanted episode order is only recorded here and
     // applied by the next Plex sync that reaches the server. Asked only when
     // every file now carries its Movviz number, or Plex would misread them.
-    if (renameComplete) updateSeries(seriesId, { plexOrderPending: plan.source });
+    // Left incomplete, an order recorded by an earlier pass is withdrawn too:
+    // Plex must never be switched to an order the file names don't follow.
+    updateSeries(seriesId, { plexOrderPending: renameComplete ? plan.source : undefined });
 
     // ---- « Vu » follow their episode, for every Movviz profile ----
     const moves = new Map<string, string>();

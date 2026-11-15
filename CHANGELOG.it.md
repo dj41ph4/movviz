@@ -1,3 +1,11 @@
+## v1.28.152 — 15 novembre 2026
+
+### Libreria
+
+- Risincronizzazione degli anime: una copia non collegata di un episodio che occupava il nome che un file doveva prendere si sposta come «… (doublon)», senza essere eliminata, invece di lasciare quel file e tutti quelli successivi con il vecchio numero (Saint Seiya: 7 file rimasti con il nome sbagliato).
+- Un clic sulla risincronizzazione completa anche le rinomine che un passaggio precedente aveva dovuto lasciare; un file che contiene più episodi non viene mai rinominato.
+- Plex non viene più impostato su un ordine degli episodi che i nomi dei file non seguono: l'ordine richiesto viene ritirato finché la rinomina è incompleta, ed è sempre l'ordine reale della serie a essere richiesto.
+
 ## v1.28.151 — 15 novembre 2026
 
 ### Prestazioni
