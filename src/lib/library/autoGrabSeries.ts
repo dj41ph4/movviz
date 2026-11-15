@@ -8,6 +8,8 @@ import { encodeLibraryRef, decodeLibraryRef, type LibrarySeries, type LibrarySea
 import { planAnimeResync, type CatalogEpisode, type ResyncFile } from "@/lib/library/animeResyncPlan";
 import { pathFor } from "@/lib/library/renamePath";
 import { renameResyncedFiles } from "@/lib/library/resyncRename";
+import { loadUsers } from "@/lib/auth/store";
+import { getWatchStatus, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
 import { moveToTrash } from "@/lib/library/trashMove";
 import { getTrashConfig, addTrashEntry } from "@/lib/library/trashStore";
@@ -291,6 +293,9 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
     const episodeOrder = plan.source === "tvdb" ? "tvdb" as const : undefined;
     const unchanged = stableJson(plan.seasons) === stableJson(series.seasons) && series.episodeOrder === episodeOrder;
     if (unchanged) {
+      // Nothing moves, but marks left on TMDb numbers by an earlier resync are
+      // still brought onto their TVDB episode.
+      if (plan.source === "tvdb") migrateWatchedEpisodes(series, new Map());
       return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: series.seasons.length, source: plan.source, movedFiles: 0, duplicatesRemoved: 0, duplicatesKept: 0, renamedFiles: 0, unchanged: true, snapshot: null };
     }
 
@@ -348,6 +353,20 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
     // applied by the next Plex sync that reaches the server. Asked only when
     // every file now carries its Movviz number, or Plex would misread them.
     if (renameComplete) updateSeries(seriesId, { plexOrderPending: plan.source });
+
+    // ---- « Vu » follow their episode, for every Movviz profile ----
+    const moves = new Map<string, string>();
+    for (const s of plan.seasons) for (const e of s.episodes) {
+      const p = physical(e.file);
+      const from = p ? oldKeyOfPath.get(p) : undefined;
+      const to = `${s.seasonNumber}-${e.episodeNumber}`;
+      if (from && from !== to) moves.set(from, to);
+    }
+    for (const dup of plan.duplicates) {
+      const from = oldKeyOfPath.get(dup.droppedPath);
+      if (from) moves.set(from, `${dup.seasonNumber}-${dup.episodeNumber}`);
+    }
+    migrateWatchedEpisodes(getSeries(seriesId)!, moves);
     if (renamedFiles > 0) void refreshPlexLibraryFor("tv").catch(() => {});
 
     console.log(`[resyncAnime] ${series.title} : ${plan.source}, ${series.seasons.length} → ${plan.seasons.length} saisons, ${plan.movedFiles} fichier(s) replacé(s), ${renamedFiles} renommé(s), ${duplicatesRemoved}/${plan.duplicates.length} doublon(s) en corbeille, ${plan.extras.length} hors catalogue`);
@@ -364,6 +383,39 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
       snapshot,
     };
   });
+}
+
+/**
+ * Moves every profile's « Vu » onto the episode it belongs to after a
+ * resync: `moves` (old "s-e" → new "s-e", from files and duplicates), and
+ * any mark still sitting on a number the library no longer has that is a
+ * TMDb coordinate of one of its TVDB episodes (libraries resynced before
+ * this existed). Written as « legacy_migration », the weakest source: it
+ * never overrides a choice a person made and is never pushed to Plex.
+ * The old mark is left where it was — it points at no episode any more.
+ */
+function migrateWatchedEpisodes(series: LibrarySeries, moves: Map<string, string>): void {
+  const existing = new Set(series.seasons.flatMap((s) => s.episodes.map((e) => `${s.seasonNumber}-${e.episodeNumber}`)));
+  const byTmdb = new Map<string, string>();
+  for (const s of series.seasons) for (const e of s.episodes) {
+    if (e.tmdbCoordinate) byTmdb.set(`${e.tmdbCoordinate.seasonNumber}-${e.tmdbCoordinate.episodeNumber}`, `${s.seasonNumber}-${e.episodeNumber}`);
+  }
+  for (const user of loadUsers()) {
+    const status = getWatchStatus(user.id);
+    if (!status) continue;
+    const mine = status.episodes.filter((e) => e.tmdbId === series.tmdbId && e.season > 0);
+    const watched = new Set(mine.map((e) => `${e.season}-${e.episode}`));
+    const entries: { tmdbId: number; season: number; episode: number; watchedAt: number | null }[] = [];
+    for (const e of mine) {
+      const from = `${e.season}-${e.episode}`;
+      const to = moves.get(from) ?? (!existing.has(from) ? byTmdb.get(from) : undefined);
+      if (!to || watched.has(to) || !existing.has(to)) continue;
+      const [season, episode] = to.split("-").map(Number);
+      entries.push({ tmdbId: series.tmdbId, season, episode, watchedAt: e.at ?? null });
+      watched.add(to);
+    }
+    if (entries.length > 0) setWatchedEpisodes(user.id, entries, true, series.title, "legacy_migration");
+  }
 }
 
 /** JSON with keys sorted and undefined dropped: equal content, equal text. */

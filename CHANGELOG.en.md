@@ -5,6 +5,7 @@
 - TVDB-numbered anime: title pages (web, Android TV, Android mobile and Samsung) now show the library's seasons and episodes — TVDB arc names, the right episode count — instead of TMDb's; stills, synopses and runtimes are those of the TMDb episode aired the same day, never another episode carrying the same number. Same matching for “Continue watching” stills and for watched marks imported from Netflix, LifeHub or told to the assistant.
 - The manual TMDb season repair returns the show to TMDb numbering and switches the Plex order back.
 - Resync with specials switched off: an existing season 0 is kept as it is instead of being removed.
+- Resync: every profile's watched marks follow their episode when it changes number (original date kept), including those left on the old TMDb numbering by an earlier resync; without Plex and never overriding a choice made by hand.
 
 ## v1.28.147 — November 15, 2026
 

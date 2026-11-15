@@ -24,8 +24,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   // Two more shows for the library-wide pass: 4 episodes, TMDb flat, TVDB 2 + 2.
-  const extra = [990002, 990003].find((id) => url.pathname.startsWith(`/3/tv/${id}`));
-  const extraTvdb = [880002, 880003].find((id) => url.pathname.includes(`/series/${id}`));
+  const extra = [990002, 990003, 990004].find((id) => url.pathname.startsWith(`/3/tv/${id}`));
+  const extraTvdb = [880002, 880003, 880004].find((id) => url.pathname.includes(`/series/${id}`));
   if (extra) {
     const eps = Array.from({ length: 4 }, (_, i) => ({ season_number: 1, episode_number: i + 1, name: `Old ${i + 1}`, air_date: day(100 + i), overview: "x" }));
     if (url.pathname.endsWith("/season/1")) return json({ name: "Saison 1", episodes: eps });
@@ -209,4 +209,33 @@ test("library-wide alignment (scheduled task) without Plex: older anime put in T
   const dup = getSeries("sr_dup")!;
   assert.equal(dup.episodeOrder, undefined);
   assert.ok(fs.existsSync(fd(1, 3)) && fs.existsSync(fd(2, 1)));
+});
+
+test("« Vu » follow their episode: a profile that watched TMDb S1E3 sees TVDB S2E1 watched, same date, after the resync", async () => {
+  const { addUser } = await import("../src/lib/auth/store.ts");
+  const { getWatchStatus, setWatchedEpisodes } = await import("../src/lib/plex/watchStore.ts");
+  addUser({ id: "viewer", username: "viewer", passwordHash: null, role: "user", status: "active", autoApproveRequests: false, autoRequestFromWatchlist: false, discoverContinents: [] } as never);
+  const dir = path.join(media, "Watched Show");
+  const f = (e: number) => path.join(dir, "Saison 1", `Watched Show - S01E0${e}.mkv`);
+  for (let e = 1; e <= 4; e++) write(f(e), `w${e}`);
+  addSeries({ id: "sr_watch", tmdbId: 990004, imdbId: null, title: "Watched Show", year: 2017, releaseDate: day(100), overview: "", posterPath: null, backdropPath: null, rating: 0, genres: ["Animation"], isAnime: true, tvStatus: "Ended", monitored: true, qualityProfileId: "default", addedAt: 1, plexRatingKey: null,
+    seasons: [{ seasonNumber: 1, name: "Saison 1", monitored: true, episodes: [1, 2, 3, 4].map((e) => ({ ...ep(1, e, f(e)), airDate: day(99 + e) })) }] } as never);
+  const at = Date.UTC(2020, 0, 2);
+  setWatchedEpisodes("viewer", [{ tmdbId: 990004, season: 1, episode: 3, watchedAt: at }], true, "Watched Show", "plex_history");
+  const result = await resyncAnimeSeasonsFromTvdb("sr_watch");
+  assert.equal(result.ok, true, JSON.stringify(result));
+  const mine = getWatchStatus("viewer")!.episodes.filter((e) => e.tmdbId === 990004);
+  const moved = mine.find((e) => e.season === 2 && e.episode === 1);
+  assert.ok(moved, JSON.stringify(mine));
+  assert.equal(moved!.at, at, "the original watch date is kept");
+  assert.ok(!mine.some((e) => e.season === 2 && e.episode === 2), "nothing else marked");
+});
+
+test("marks left on old TMDb numbers by an earlier resync are caught up, even when nothing else changes", async () => {
+  const { getWatchStatus, setWatchedEpisodes } = await import("../src/lib/plex/watchStore.ts");
+  // TMDb S1E4 no longer exists in the library (it is TVDB S2E2 now).
+  setWatchedEpisodes("viewer", [{ tmdbId: 990004, season: 1, episode: 4, watchedAt: Date.UTC(2020, 0, 3) }], true, "Watched Show", "plex_history");
+  const result = await resyncAnimeSeasonsFromTvdb("sr_watch");
+  assert.equal(result.ok && result.unchanged, true, JSON.stringify(result));
+  assert.ok(getWatchStatus("viewer")!.episodes.some((e) => e.tmdbId === 990004 && e.season === 2 && e.episode === 2));
 });

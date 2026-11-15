@@ -5,6 +5,7 @@
 - Anime con numerazione TVDB: le schede (web, Android TV, Android mobile e Samsung) mostrano ora stagioni ed episodi della libreria — nomi degli archi TVDB, numero di episodi corretto — invece di quelli di TMDb; miniature, trame e durate sono quelle dell'episodio TMDb andato in onda lo stesso giorno, mai di un altro episodio con lo stesso numero. Stessa corrispondenza per le miniature di «Continua a guardare» e per i «visti» importati da Netflix, LifeHub o dettati all'assistente.
 - La riparazione manuale delle stagioni TMDb riporta la serie alla numerazione TMDb e ripristina l'ordine Plex.
 - Risincronizzazione con gli speciali disattivati: una stagione 0 già presente resta com'è invece di essere rimossa.
+- Risincronizzazione: i «visti» di ogni profilo seguono il loro episodio quando cambia numero (data originale conservata), compresi quelli rimasti sulla vecchia numerazione TMDb dopo una risincronizzazione precedente; senza Plex e senza mai sovrascrivere una scelta fatta a mano.
 
 ## v1.28.147 — 15 novembre 2026
 

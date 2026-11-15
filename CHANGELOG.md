@@ -5,6 +5,7 @@
 - Animés en numérotation TVDB : les fiches (web, Android TV, Android mobile et Samsung) affichent désormais les saisons et épisodes de la bibliothèque — noms d'arcs TVDB, bon nombre d'épisodes — au lieu de ceux de TMDb ; vignettes, résumés et durées sont ceux de l'épisode TMDb diffusé le même jour, jamais d'un autre épisode portant le même numéro. Même correspondance pour les vignettes de « Continuer à regarder » et pour les « Vu » importés de Netflix, de LifeHub ou dictés à l'assistant.
 - La réparation manuelle des saisons TMDb rend la série à la numérotation TMDb et y rebascule l'ordre Plex.
 - Resynchronisation avec les épisodes spéciaux désactivés : une saison 0 déjà présente est conservée telle quelle au lieu d'être retirée.
+- Resynchronisation : les « Vu » de chaque profil suivent leur épisode quand il change de numéro (date d'origine conservée), y compris ceux restés sur l'ancienne numérotation TMDb après une resynchronisation précédente ; sans Plex et sans jamais écraser un choix fait à la main.
 
 ## v1.28.147 — 15 novembre 2026
 
