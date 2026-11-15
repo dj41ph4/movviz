@@ -1,3 +1,15 @@
+## v1.28.147 — 15 novembre 2026
+
+### Bibliothèque
+
+- Animés — « Resynchroniser avec TVDB » réécrit. Chaque fichier est désormais placé sur l'épisode qu'il est vraiment : son numéro est lu dans les deux numérotations (TMDb et TVDB) et converti par date de diffusion. Les séries où les deux numérotations s'étaient mélangées (Blood+, Dragon Ball GT et Super, Yu-Gi-Oh! GX, Jujutsu Kaisen, Tokyo Revengers, Re:ZERO…) ne listent plus chaque épisode deux fois ; la copie en double d'un même épisode part dans la corbeille séries, seulement quand les deux placements sont prouvés.
+- Resynchronisation : plus rien n'est perdu au passage — liens Plex, épisodes non suivis, fichiers et saisons annoncées par TMDb restent ; une série saine n'est plus jamais réorganisée, seuls ses titres sont rafraîchis. Un instantané de la série est enregistré avant chaque écriture.
+- TVDB : les épisodes au-delà du 500ᵉ sont enfin lus (Pokémon s'arrêtait à la saison 8, Naruto Shippuden perdait ses derniers épisodes).
+- TVDB : une série sans identifiant TVDB n'hérite plus de la structure d'une autre (Saint Seiya – The Lost Canvas recevait les 12 saisons de toute la franchise, New Panty & Stocking celles de la série de 2010), et les saisons de franchise que TMDb sépare (Hadès, Omega, Shaman King Flowers…) ne sont plus ajoutées à la série d'origine.
+- Après la resync, seuls les fichiers replacés sont renommés d'après leur nouveau numéro, dans le dossier de saison déjà existant (sous-titres compris, jamais d'écrasement, aucun fichier sans numéro touché). Marquée en numérotation TVDB, la série n'est plus jamais recassée par la synchro quotidienne TMDb : la synchro quotidienne fait elle-même le travail du bouton (nouveaux épisodes, fichiers replacés et renommés quand TVDB renumérote, bascule de l'ordre Plex) ; seule une série contenant des copies en double attend un clic, qui seul les met à la corbeille. TVDB injoignable : rien n'est modifié.
+- Plex (facultatif) : les épisodes Plex sont rattachés par fichier et non plus par numéro, les liens suivent donc l'épisode après une resync. L'ordre des épisodes de la série est ensuite basculé sur TVDB (ou TMDb) dans Plex, avec les seules valeurs que le serveur déclare, et vérifié après coup ; Plex hors ligne, c'est appliqué à la synchro suivante.
+- Animés déjà dans la bibliothèque : nouvelle tâche planifiée « Alignement des animés sur TVDB (fichiers et ordre Plex) », chaque nuit entre 3 h et 6 h — chaque anime passe en numérotation TVDB, ses fichiers sont replacés et renommés, puis l'ordre Plex est basculé (sans jamais rien mettre à la corbeille). Le bouton Réglages › Plex, métadonnées et imports › Anime › « Resynchroniser tous les animes » fait la même chose à la demande, doublons compris, applique aussitôt l'ordre Plex et explique en clair chaque série laissée de côté.
+
 ## v1.28.146 — 14 novembre 2026
 
 ### Affichage

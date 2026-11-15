@@ -1,10 +1,16 @@
 import fs from "node:fs";
 import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import path from "node:path";
-import { getSeries, getSeriesByTmdbId, addSeries, updateSeries, loadSeries } from "@/lib/library/store";
+import { getSeries, getSeriesByTmdbId, addSeries, updateSeries, loadSeries, loadMovies } from "@/lib/library/store";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
 import { configuredQualityProfile } from "@/lib/library/defaultQualityProfile";
-import { encodeLibraryRef, decodeLibraryRef, type LibrarySeries, type LibrarySeason, type LibraryEpisode } from "@/lib/library/types";
+import { encodeLibraryRef, decodeLibraryRef, type LibrarySeries, type LibrarySeason, type LibraryEpisode, type LibraryFile } from "@/lib/library/types";
+import { planAnimeResync, type CatalogEpisode, type ResyncFile } from "@/lib/library/animeResyncPlan";
+import { pathFor } from "@/lib/library/renamePath";
+import { renameResyncedFiles } from "@/lib/library/resyncRename";
+import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
+import { moveToTrash } from "@/lib/library/trashMove";
+import { getTrashConfig, addTrashEntry } from "@/lib/library/trashStore";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
@@ -105,15 +111,14 @@ function applyTvdbTitleOverrides(tvdbEpisodes: TvdbEpisode[], seasons: LibrarySe
 
 interface DiskFile {
   path: string;
+  /** Show title the filename carries, empty when it only has numbers. */
+  title: string;
+  seasonNumber: number;
   episodeNumber: number;
 }
 
-interface DiskSeason {
-  seasonNumber: number;
-  files: DiskFile[];
-}
-
 const VIDEO_EXTS = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
+const SEASON_DIR = /^(?:specials?|S(?:aison|eason)?[. _-]?\d{1,2}\b.*)$/i;
 
 // Real pause between per-episode direct-search attempts — see the matching
 // constant/comment in searchMissing.ts. Measured live: an indexer tripped
@@ -122,245 +127,255 @@ const VIDEO_EXTS = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
 // same reason.
 const ITEM_DELAY_MS = 1500;
 
-function scanSeriesDiskStructure(baseDir: string): DiskSeason[] {
+/**
+ * Every video in a series folder's season directories, with the season and
+ * episode its own NAME carries (the folder only fills in a missing season).
+ * Unreadable folders yield nothing: an offline share must never look like
+ * "no files" — files the library already links are planned regardless.
+ */
+function scanSeriesDiskFiles(baseDir: string): DiskFile[] {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(baseDir, { withFileTypes: true });
   } catch {
     return [];
   }
-
-  const bySeason = new Map<number, DiskFile[]>();
-
+  const out: DiskFile[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    // Match "Saison 1", "Season 01", "S01", "Saison 1 - Nom", "Specials",
-    // "Season 00", etc. — "Specials" carries no digit at all, so it's
-    // recognized by name and mapped straight to season 0.
+    if (!entry.isDirectory() || !SEASON_DIR.test(entry.name.trim())) continue;
     const isSpecials = /^specials?$/i.test(entry.name.trim());
-    const sm = isSpecials ? null : entry.name.match(/S(?:aison)?[. _-]?(\d{1,2})/i);
-    if (!isSpecials && !sm) continue;
-    const seasonNumber = isSpecials ? 0 : parseInt(sm![1], 10);
-    if (seasonNumber < 0) continue;
-
+    const folderSeason = isSpecials ? 0 : parseInt(entry.name.match(/(\d{1,2})/)![1], 10);
     let seasonFiles: fs.Dirent[];
     try {
       seasonFiles = fs.readdirSync(path.join(baseDir, entry.name), { withFileTypes: true });
     } catch {
       continue;
     }
-
-    const diskFiles: DiskFile[] = [];
     for (const file of seasonFiles) {
       if (!file.isFile() || !VIDEO_EXTS.test(file.name)) continue;
       const parsed = parseRelease(file.name);
-      if (parsed.season != null && parsed.season === seasonNumber && parsed.episode != null) {
-        diskFiles.push({
-          path: path.join(baseDir, entry.name, file.name),
-          episodeNumber: parsed.episode,
-        });
-      }
-    }
-
-    if (diskFiles.length > 0) {
-      diskFiles.sort((a, b) => a.episodeNumber - b.episodeNumber);
-      bySeason.set(seasonNumber, diskFiles);
+      if (parsed.episode == null) continue;
+      out.push({ path: path.join(baseDir, entry.name, file.name), title: parsed.title ?? "", seasonNumber: parsed.season ?? folderSeason, episodeNumber: parsed.episode });
     }
   }
+  return out;
+}
 
-  return [...bySeason.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([seasonNumber, files]) => ({ seasonNumber, files }));
+function diskLibraryFile(filePath: string): LibraryFile {
+  const parsed = parseRelease(path.basename(filePath));
+  let size = 0;
+  try { size = fs.statSync(filePath).size; } catch { /* ignore */ }
+  return {
+    path: filePath,
+    quality: parsed.source ?? "—",
+    resolution: parsed.resolution ?? null,
+    videoCodec: parsed.videoCodec,
+    audioCodec: parsed.audioCodec,
+    hdr: parsed.hdr,
+    source: parsed.source,
+    size,
+    addedAt: Date.now(),
+  };
 }
 
 export type ResyncAnimeResult =
-  | { ok: true; oldSeasonCount: number; newSeasonCount: number }
-  | { ok: false; error: "not_found" | "no_tvdb_match" | "active_downloads" | "no_disk_seasons" | "bleach_repair_required" };
+  | { ok: true; oldSeasonCount: number; newSeasonCount: number; source: "tvdb" | "tmdb"; movedFiles: number; duplicatesRemoved: number; duplicatesKept: number; renamedFiles: number; unchanged: boolean; snapshot: string | null }
+  | { ok: false; error: "not_found" | "no_tvdb_match" | "active_downloads" | "no_disk_seasons" | "bleach_repair_required" | "tmdb_unavailable" | "tvdb_unavailable" | "combined_files" | "needs_review" };
+
+const RESYNC_SNAPSHOT_DIR = path.join(
+  process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"),
+  "repair-snapshots"
+);
 
 /**
- * Resync a series already in the library :
+ * Rebuilds an in-library anime on its most precise catalogue (TVDB when it
+ * splits the show into more seasons than TMDb, TMDb otherwise) and puts
+ * every physical file on the episode it really is — see animeResyncPlan.ts.
  *
- * 1. Scan the actual media folder on disk for season directories and video
- *    files (SxxExx), then use TVDB for episode metadata.
- * 2. If nothing useful found on disk, fall back to the old TVDB-vs-TMDb
- *    comparison (kept for series that were added as separate seasons but
- *    whose episodes were never physically downloaded).
- *
- * The disk-driven path also creates seasons that have NO matching file yet
- * (they still show up in the UI as "missing") — the user wanted to see every
- * season they own even when the episode library is incomplete.
+ * Nothing is lost on the way: Plex links, monitoring choices and file
+ * records travel with their episode; TMDb-announced seasons TVDB doesn't
+ * list yet stay; files no catalogue fits stay as extra episodes. Copies of
+ * the same episode under both numberings (Blood+ S01E14 = S02E01) are moved
+ * to the series trash — only when both placements are proven and the two
+ * copies are not tagged with different languages; any doubt keeps the file.
+ * The whole previous record is snapshotted before anything is written.
  */
-export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<ResyncAnimeResult> {
-  const series = getSeries(seriesId);
-  if (!series) return { error: "not_found", ok: false };
+export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { background?: boolean } = {}): Promise<ResyncAnimeResult> {
+  const initial = getSeries(seriesId);
+  if (!initial) return { error: "not_found", ok: false };
   // Bleach has an explicit identity repair; never use positional resync here.
-  if (series.tmdbId === BLEACH_TMDB_ID) return { error: "bleach_repair_required", ok: false };
+  if (initial.tmdbId === BLEACH_TMDB_ID) return { error: "bleach_repair_required", ok: false };
 
-  const oldSorted = [...series.seasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
-  const oldFlat = oldSorted.flatMap((s) => [...s.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber));
-  if (oldFlat.some((e) => e.status === "downloading" || e.status === "searching")) {
-    return { error: "active_downloads", ok: false };
+  // ---- Catalogues (network, outside the lock) ----
+  const meta = await fetchTmdbSeries(initial.tmdbId).catch(() => null);
+  let tmdb: CatalogEpisode[] | null = null;
+  const tmdbSeasonNames = new Map<number, string>();
+  if (meta) {
+    tmdb = [];
+    for (const s of meta.seasons) {
+      const detail = await fetchTmdbSeason(initial.tmdbId, s.seasonNumber).catch(() => null);
+      if (!detail) { tmdb = null; break; }
+      tmdbSeasonNames.set(s.seasonNumber, detail.name || s.name);
+      tmdb.push(...detail.episodes.map((e) => ({ seasonNumber: s.seasonNumber, episodeNumber: e.episodeNumber, title: e.title, airDate: e.airDate })));
+    }
   }
+  // A partial TMDb read would misplace files converted from TMDb numbering.
+  if (meta && !tmdb) return { ok: false, error: "tmdb_unavailable" };
+  const tvdbId = meta?.tvdbId ?? initial.tvdbId ?? null;
+  // Without TVDB, a series kept in TVDB numbering is never rebuilt from TMDb.
+  if (!tvdbConfigured() && initial.episodeOrder === "tvdb") return { ok: false, error: "no_tvdb_match" };
+  const tvdbEpisodes = await getTvdbEpisodesFor(tvdbId, initial.title, initial.year);
+  // A known TVDB id answering nothing is TVDB being unreachable, not a show
+  // without episodes: planning without it would undo a TVDB structure.
+  if (tvdbConfigured() && tvdbId && tvdbEpisodes.length === 0) return { ok: false, error: "tvdb_unavailable" };
+  if (!tmdb && tvdbEpisodes.length === 0) return { ok: false, error: "no_tvdb_match" };
+  const tvdbSeasonNames = tvdbId && tvdbEpisodes.length > 0 ? await getTvdbSeasonNames(tvdbId) : new Map<number, string>();
 
-  // ---- 1. Detect series base directory from an existing file path ----
-  const firstFile = oldFlat.find((e) => e.file?.path);
-  let baseDir: string | null = null;
-  if (firstFile?.file?.path) {
-    const fileDir = path.dirname(firstFile.file.path);
-    // If the immediate parent folder looks like a season dir, go up one level
-    baseDir = /S(?:aison)?[. _-]?\d{1,2}/i.test(path.basename(fileDir))
-      ? path.dirname(fileDir)
-      : fileDir;
-  }
-
-  // ---- 2. Scan disk seasons ----
-  const diskSeasons = baseDir ? scanSeriesDiskStructure(baseDir) : [];
-
-  // ---- 3. Get TVDB metadata ----
-  const meta = await fetchTmdbSeries(series.tmdbId);
-  const tvdbEpisodes = await getTvdbEpisodesFor(meta?.tvdbId ?? null, series.title, series.year);
-  const seasonNames = meta?.tvdbId ? await getTvdbSeasonNames(meta.tvdbId) : new Map<number, string>();
-  const tvdbByKey = new Map<string, TvdbEpisode>();
-  for (const e of tvdbEpisodes) {
-    tvdbByKey.set(`${e.seasonNumber}-${e.episodeNumber}`, e);
-  }
-
-  // Build a lookup of existing titles before TVDB overwrites them — used to
-  // preserve French/Latin titles when TVDB only has Japanese (CJK) for an ep.
-  const existingTitleByKey = new Map<string, string>();
-  for (const ep of oldFlat) {
-    existingTitleByKey.set(`${ep.seasonNumber}-${ep.episodeNumber}`, ep.title);
-  }
-
-  // ---- 4. Disk-driven path — build seasons from what exists on disk ----
-  if (diskSeasons.length > 0) {
-    const newSeasons: LibrarySeason[] = [];
-
-    for (const ds of diskSeasons) {
-      const episodeNumbers = new Set(ds.files.map((f) => f.episodeNumber));
-
-      // Collect all episode numbers TVDB knows about for this season, plus
-      // any extras found on disk that TVDB doesn't list.
-      const allEps = new Set<number>();
-      for (const ep of tvdbEpisodes.filter((e) => e.seasonNumber === ds.seasonNumber)) {
-        allEps.add(ep.episodeNumber);
-      }
-      for (const epN of episodeNumbers) allEps.add(epN);
-
-      const episodes: LibraryEpisode[] = [...allEps].sort((a, b) => a - b).map((epN) => {
-        const tvdb = tvdbByKey.get(`${ds.seasonNumber}-${epN}`);
-        const diskFile = ds.files.find((f) => f.episodeNumber === epN);
-        let status: LibraryEpisode["status"] = "missing";
-        let file: LibraryEpisode["file"] = null;
-        if (diskFile) {
-          status = "available";
-          const parsed = parseRelease(path.basename(diskFile.path));
-          let stat: fs.Stats | undefined;
-          try { stat = fs.statSync(diskFile.path); } catch { /* ignore */ }
-          file = {
-            path: diskFile.path,
-            quality: parsed.source ?? "—",
-            resolution: parsed.resolution ?? null,
-            videoCodec: parsed.videoCodec,
-            audioCodec: parsed.audioCodec,
-            hdr: parsed.hdr,
-            source: parsed.source,
-            size: stat?.size ?? 0,
-            addedAt: Date.now(),
-          };
-        }
-        const existingTitle = existingTitleByKey.get(`${ds.seasonNumber}-${epN}`);
-        return {
-          seasonNumber: ds.seasonNumber,
-          episodeNumber: epN,
-          // CJK handling:
-          //  - existing French/Latin title (not CJK) → keep it, ignore TVDB
-          //  - existing CJK title + TVDB has a non-CJK (French) title → replace
-          //  - existing CJK title + TVDB is also CJK (or null) → fall back to
-          //    the generic "Épisode N" rather than propagating another CJK
-          //    string — this is the v1.3.1/v1.3.2 bug: the old condition still
-          //    picked tvdb.title when it was CJK, so a Japanese title just got
-          //    replaced with another Japanese title.
-          title: !existingTitle || hasCjkText(existingTitle)
-            ? (tvdb?.title && !hasCjkText(tvdb.title) ? tvdb.title : `Épisode ${epN}`)
-            : existingTitle,
-          airDate: tvdb?.airDate ?? null,
-          monitored: true,
-          status,
-          file,
-          activeInfoHash: null,
-          plexRatingKey: null,
-        };
-      });
-
-      newSeasons.push({
-        seasonNumber: ds.seasonNumber,
-        name: seasonNames.get(ds.seasonNumber) ?? `Saison ${ds.seasonNumber}`,
-        monitored: true,
-        episodes,
-      });
+  return withKeyLock(`series:${seriesId}`, async (): Promise<ResyncAnimeResult> => {
+    const series = getSeries(seriesId);
+    if (!series) return { error: "not_found", ok: false };
+    const oldFlat = series.seasons.flatMap((s) => s.episodes);
+    if (oldFlat.some((e) => e.status === "downloading" || e.status === "searching" || e.activeInfoHash)) {
+      return { error: "active_downloads", ok: false };
     }
 
-    updateSeries(seriesId, { seasons: newSeasons });
-    return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: newSeasons.length };
-  }
+    // ---- Every physical file: library links first, then the season folders ----
+    const physical = (f: LibraryFile | null | undefined) => f?.diskPath ?? f?.path ?? null;
+    const files = new Map<string, ResyncFile>();
+    const baseDirs = new Set<string>();
+    for (const ep of oldFlat) {
+      const p = physical(ep.file);
+      if (!p) continue;
+      const pp = pathFor(p);
+      const dir = pp.dirname(p);
+      baseDirs.add(SEASON_DIR.test(pp.basename(dir)) ? pp.dirname(dir) : dir);
+      if (files.has(p)) continue;
+      const parsed = parseRelease(pp.basename(p));
+      files.set(p, {
+        path: p,
+        literal: parsed.episode != null && parsed.season != null ? { seasonNumber: parsed.season, episodeNumber: parsed.episode } : null,
+        size: ep.file?.size ?? 0,
+      });
+    }
+    const knownPaths = new Set(oldFlat.flatMap((e) => [e.file?.path, e.file?.diskPath].filter((p): p is string => !!p)));
+    for (const dir of baseDirs) {
+      for (const f of scanSeriesDiskFiles(dir)) {
+        if (knownPaths.has(f.path) || files.has(f.path)) continue;
+        // Two shows can share a folder (a franchise kept together on disk):
+        // a file named after another title is never pulled into this one.
+        if (f.title && !releaseTitleMatches(f.title, series.title, [series.originalTitle].filter((t): t is string => !!t))) continue;
+        const diskFile = diskLibraryFile(f.path);
+        files.set(f.path, { path: f.path, literal: { seasonNumber: f.seasonNumber, episodeNumber: f.episodeNumber }, size: diskFile.size, diskFile });
+      }
+    }
 
-  // ---- 5. Fallback: no disk data — compare TVDB vs TMDb directly ----
-  if (tvdbEpisodes.length === 0) return { ok: false, error: diskSeasons.length === 0 && baseDir ? "no_disk_seasons" : "no_tvdb_match" };
-
-  const tvdbSeasons = (specialsEnabled() ? groupTvdbEpisodesBySeason(tvdbEpisodes) : groupTvdbEpisodesBySeason(tvdbEpisodes).filter((s) => s.seasonNumber !== 0));
-  if (tvdbSeasons.length <= series.seasons.length) {
-    // TVDB isn't more granular here, but resyncing is still worth doing for
-    // its own sake: refreshing episode titles (e.g. picking up a
-    // newly-working localized TVDB title where the library still has the
-    // Japanese original from an earlier import) shouldn't require a season
-    // restructure to happen at all — patch titles/dates in place instead of
-    // silently no-oping.
-    const patched = series.seasons.map((se) => ({ ...se, episodes: se.episodes.map((e) => ({ ...e })) }));
-    applyTvdbTitleOverrides(tvdbEpisodes, patched);
-    updateSeries(seriesId, { seasons: patched });
-    return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: patched.length };
-  }
-
-  const newSeasons: LibrarySeason[] = [];
-  let cursor = 0;
-  for (const s of tvdbSeasons) {
-    // Same opt-in-by-default rule as a fresh add — a genuinely new season 0
-    // discovered here (no prior library entry to carry a monitored flag
-    // from) shouldn't come pre-monitored the way a real season does.
-    const monitoredByDefault = s.seasonNumber !== 0;
-    // Season 0 never participates in the positional carry-over below: it's
-    // new territory for any series added before specials were tracked, so
-    // there's no legitimate "old" episode at any particular cursor position
-    // to correspond to it — consuming cursor slots for it would shift every
-    // later real season's carry-over by however many specials TVDB reports,
-    // silently reassigning files/statuses between unrelated episodes.
-    const episodes: LibraryEpisode[] = s.episodes.map((e) => {
-      const carried = s.seasonNumber === 0 ? undefined : oldFlat[cursor++];
-      return {
-        seasonNumber: e.seasonNumber,
-        episodeNumber: e.episodeNumber,
-        title: !carried || hasCjkText(carried.title)
-          ? (e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`)
-          : carried.title,
-        airDate: e.airDate,
-        monitored: carried?.monitored ?? monitoredByDefault,
-        status: carried?.status ?? "missing",
-        file: carried?.file ?? null,
-        activeInfoHash: carried?.activeInfoHash ?? null,
-        plexRatingKey: carried?.plexRatingKey ?? null,
-      };
+    const plan = planAnimeResync({
+      oldSeasons: series.seasons,
+      tvdb: tvdbEpisodes,
+      tmdb,
+      tvdbSeasonNames,
+      tmdbSeasonNames,
+      files: [...files.values()],
+      includeSpecials: specialsEnabled(),
+      isCjk: hasCjkText,
+      statusFor: (eps) => seasonEpisodeStatuses(eps),
     });
-    newSeasons.push({
-      seasonNumber: s.seasonNumber,
-      name: seasonNames.get(s.seasonNumber) ?? `Saison ${s.seasonNumber}`,
-      monitored: monitoredByDefault,
-      episodes,
-    });
-  }
+    if (!plan.ok) return { ok: false, error: plan.error === "no_catalog" ? "no_tvdb_match" : plan.error };
+    // The daily pass applies everything on its own — new episodes, moved
+    // files, renames, the Plex order — except discarding a file: a show
+    // holding duplicate copies waits for a click, which alone trashes them
+    // (applied here, the extra copy would be unlinked and no longer provable).
+    if (opts.background && plan.duplicates.length > 0) {
+      return { ok: false, error: "needs_review" };
+    }
+    const episodeOrder = plan.source === "tvdb" ? "tvdb" as const : undefined;
+    const unchanged = stableJson(plan.seasons) === stableJson(series.seasons) && series.episodeOrder === episodeOrder;
+    if (unchanged) {
+      return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: series.seasons.length, source: plan.source, movedFiles: 0, duplicatesRemoved: 0, duplicatesKept: 0, renamedFiles: 0, unchanged: true, snapshot: null };
+    }
 
-  updateSeries(seriesId, { seasons: newSeasons });
-  return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: newSeasons.length };
+    // Episodes whose file changed in this resync: the only ones renamed below.
+    const oldKeyOfPath = new Map<string, string>();
+    for (const s of series.seasons) for (const e of s.episodes) { const p = physical(e.file); if (p) oldKeyOfPath.set(p, `${s.seasonNumber}-${e.episodeNumber}`); }
+    const changedFile = new Set<string>();
+    for (const s of plan.seasons) for (const e of s.episodes) {
+      const p = physical(e.file);
+      const key = `${s.seasonNumber}-${e.episodeNumber}`;
+      if (p && oldKeyOfPath.get(p) !== key) changedFile.add(key);
+    }
+
+    // ---- Snapshot, then write ----
+    fs.mkdirSync(RESYNC_SNAPSHOT_DIR, { recursive: true });
+    const snapshot = `anime-resync-${seriesId}-${Date.now()}.json`;
+    fs.writeFileSync(path.join(RESYNC_SNAPSHOT_DIR, snapshot), JSON.stringify({ series, plan: { ...plan, seasons: undefined }, createdAt: Date.now() }), { encoding: "utf8", flag: "wx" });
+    // Marked TVDB, the daily TMDb episode sync leaves it alone — that sync
+    // appending TMDb's long first season next to TVDB's arcs is how these
+    // libraries ended up listing every episode twice.
+    updateSeries(seriesId, { seasons: plan.seasons, episodeOrder, ...(tvdbId && !series.tvdbId ? { tvdbId } : {}) });
+
+    // ---- Duplicates: proven copies of one episode go to the series trash ----
+    let duplicatesRemoved = 0;
+    const trashRoot = getTrashConfig().seriesPath;
+    const languageOf = (p: string) => oldFlat.find((e) => physical(e.file) === p)?.file?.language ?? null;
+    for (const dup of plan.duplicates) {
+      const a = languageOf(dup.keptPath), b = languageOf(dup.droppedPath);
+      // A file only found on disk (never linked to this series) may belong
+      // to another show sharing the folder: it is left alone, never trashed.
+      if (!dup.verified || (a && b && a !== b) || !trashRoot || !knownPaths.has(dup.droppedPath)) continue;
+      if (!fs.existsSync(dup.droppedPath) || !fs.existsSync(dup.keptPath)) continue;
+      if (fileReferencedElsewhere(dup.droppedPath)) continue;
+      try {
+        const trashedTo = await moveToTrash(dup.droppedPath, trashRoot);
+        const label = `${series.title} — S${dup.seasonNumber}E${dup.episodeNumber} (doublon)`;
+        addTrashEntry({ id: `episode:${seriesId}:${dup.seasonNumber}:${dup.episodeNumber}:dup:${Date.now()}`, kind: "series", title: label, trashPath: trashedTo, deletedAt: Date.now() });
+        duplicatesRemoved++;
+      } catch (err) {
+        console.warn(`[resyncAnime] doublon non déplacé ${dup.droppedPath}:`, err);
+      }
+    }
+
+    // ---- Files named after their new number (local only, Plex not needed) ----
+    let renamedFiles = 0;
+    let renameComplete = true;
+    if (changedFile.size > 0) {
+      const latest = getSeries(seriesId)!;
+      const renamed = await renameResyncedFiles(latest, latest.seasons, changedFile, (m) => console.log(m));
+      renamedFiles = renamed.renamed;
+      renameComplete = renamed.kept === 0;
+      if (renamed.renamed > 0) updateSeries(seriesId, { seasons: renamed.seasons });
+    }
+    // Plex is optional: the wanted episode order is only recorded here and
+    // applied by the next Plex sync that reaches the server. Asked only when
+    // every file now carries its Movviz number, or Plex would misread them.
+    if (renameComplete) updateSeries(seriesId, { plexOrderPending: plan.source });
+    if (renamedFiles > 0) void refreshPlexLibraryFor("tv").catch(() => {});
+
+    console.log(`[resyncAnime] ${series.title} : ${plan.source}, ${series.seasons.length} → ${plan.seasons.length} saisons, ${plan.movedFiles} fichier(s) replacé(s), ${renamedFiles} renommé(s), ${duplicatesRemoved}/${plan.duplicates.length} doublon(s) en corbeille, ${plan.extras.length} hors catalogue`);
+    return {
+      renamedFiles,
+      unchanged: false,
+      ok: true,
+      oldSeasonCount: series.seasons.length,
+      newSeasonCount: plan.seasons.length,
+      source: plan.source,
+      movedFiles: plan.movedFiles,
+      duplicatesRemoved,
+      duplicatesKept: plan.duplicates.length - duplicatesRemoved,
+      snapshot,
+    };
+  });
+}
+
+/** JSON with keys sorted and undefined dropped: equal content, equal text. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, (v as Record<string, unknown>)[k]])) : v));
+}
+
+/** True when another library record (any series or movie) still points at this path. */
+function fileReferencedElsewhere(filePath: string): boolean {
+  const hit = (f: { path?: string; diskPath?: string } | null | undefined) => !!f && (f.path === filePath || f.diskPath === filePath);
+  return loadSeries().some((s) => s.seasons.some((se) => se.episodes.some((e) => hit(e.file))))
+    || loadMovies().some((m) => [m.file, ...(m.versions ?? [])].some(hit));
 }
 
 /**

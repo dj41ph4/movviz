@@ -1,3 +1,15 @@
+## v1.28.147 — 15 november 2026
+
+### Bibliotheek
+
+- Anime — „Opnieuw synchroniseren met TVDB” herschreven. Elk bestand komt nu bij de aflevering die het echt is: het nummer wordt in beide nummeringen (TMDb en TVDB) gelezen en via de uitzenddatum omgerekend. Series waarin beide nummeringen door elkaar waren geraakt (Blood+, Dragon Ball GT en Super, Yu-Gi-Oh! GX, Jujutsu Kaisen, Tokyo Revengers, Re:ZERO…) tonen niet langer elke aflevering twee keer; de dubbele kopie van een aflevering gaat naar de serieprullenbak, alleen als beide plaatsingen bewezen zijn.
+- Synchronisatie: onderweg gaat niets meer verloren — Plex-koppelingen, niet-gevolgde afleveringen, bestanden en door TMDb aangekondigde seizoenen blijven; een gezonde serie wordt nooit herschikt, alleen de titels worden ververst. Vóór elke wijziging wordt een momentopname van de serie bewaard.
+- TVDB: afleveringen na de 500e worden eindelijk gelezen (Pokémon stopte bij seizoen 8, Naruto Shippuden verloor zijn laatste afleveringen).
+- TVDB: een serie zonder TVDB-id erft niet langer de structuur van een andere (Saint Seiya – The Lost Canvas kreeg de 12 seizoenen van de hele franchise, New Panty & Stocking die van de serie uit 2010), en franchiseseizoenen die TMDb apart houdt (Hades, Omega, Shaman King Flowers…) worden niet meer aan de oorspronkelijke serie toegevoegd.
+- Na de synchronisatie worden alleen de verplaatste bestanden hernoemd naar hun nieuwe nummer, in de bestaande seizoensmap (ondertitels inbegrepen, nooit overschreven, bestanden zonder nummer blijven ongemoeid). Gemarkeerd als TVDB-genummerd wordt de serie nooit meer door de dagelijkse TMDb-synchronisatie kapotgemaakt: de dagelijkse synchronisatie doet zelf het werk van de knop (nieuwe afleveringen, bestanden verplaatst en hernoemd als TVDB hernummert, Plex-volgorde omgezet); alleen een serie met dubbele kopieën wacht op een klik, die ze als enige naar de prullenbak stuurt. TVDB onbereikbaar: er wordt niets gewijzigd.
+- Plex (optioneel): Plex-afleveringen worden via het bestand gekoppeld in plaats van via het nummer, koppelingen volgen dus de aflevering na een synchronisatie. De afleveringsvolgorde van de serie wordt daarna in Plex op TVDB (of TMDb) gezet, alleen met waarden die de server opgeeft, en achteraf gecontroleerd; is Plex offline, dan gebeurt dat bij de volgende synchronisatie.
+- Anime die al in de bibliotheek staan: nieuwe geplande taak „Anime op TVDB afstemmen (bestanden en Plex-volgorde)”, elke nacht tussen 3 en 6 uur — elke anime gaat naar TVDB-nummering, de bestanden worden verplaatst en hernoemd, daarna wordt de Plex-volgorde omgezet (zonder ooit iets naar de prullenbak te sturen). De knop Instellingen › Plex, metadata en imports › Anime › „Alle anime synchroniseren” doet hetzelfde op verzoek, duplicaten inbegrepen, past de Plex-volgorde meteen toe en legt elke overgeslagen serie in gewone woorden uit.
+
 ## v1.28.146 — 14 november 2026
 
 ### Weergave

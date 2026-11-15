@@ -1,7 +1,7 @@
 import { loadSeries, getSeries, updateSeries } from "@/lib/library/store";
 import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason, isPlaceholderEpisodeTitle } from "@/lib/metadata/tmdb";
 import { isFresh, markDone } from "@/lib/library/taskMemory";
-import { specialsEnabled } from "@/lib/metadata/tvdb";
+import { specialsEnabled, tvdbConfigured } from "@/lib/metadata/tvdb";
 import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { withKeyLock } from "@/lib/library/locks";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
@@ -22,6 +22,9 @@ import type { MetaSeason } from "@/lib/metadata/types";
  * - appends episodes/seasons TMDb now lists (new seasons only for monitored
  *   series, inheriting the season/series monitoring);
  * - never deletes anything, never touches files, downloads or Plex links;
+ * - TVDB-numbered anime go through the TVDB resync instead, in its cautious
+ *   background mode (new episodes, moved + renamed files, Plex order;
+ *   only a show holding duplicate copies waits for the button);
  * - skips series whose structure doesn't match TMDb's (TVDB-ordered anime,
  *   Bleach, a library season TMDb doesn't have, more episodes than TMDb),
  *   since their numbering can't be safely reconciled automatically.
@@ -65,7 +68,21 @@ export async function syncSeriesEpisodes(): Promise<{ checked: number; updated: 
   for (const listed of allSeries) {
     await yieldToEventLoop();
     tick();
-    if (listed.tmdbId === BLEACH_TMDB_ID || listed.episodeOrder === "tvdb") { skipped++; continue; }
+    if (listed.tmdbId === BLEACH_TMDB_ID) { skipped++; continue; }
+    if (listed.episodeOrder === "tvdb") {
+      // TVDB-numbered anime: merging TMDb's seasons would put TMDb's long
+      // first season back next to TVDB's arcs. New episodes come from the
+      // same resync as the button, on its own — files moved and renamed,
+      // Plex order switched; only discarding a duplicate waits for a click.
+      if (!tvdbConfigured() || !seriesNeedsCheck(listed, now)) { skipped++; continue; }
+      const { resyncAnimeSeasonsFromTvdb } = await import("@/lib/library/autoGrabSeries");
+      const result = await resyncAnimeSeasonsFromTvdb(listed.id, { background: true }).catch(() => null);
+      markDone(MEMORY_SCOPE, listed.id);
+      checked++;
+      if (result?.ok && !result.unchanged) updated++;
+      else if (!result?.ok) skipped++;
+      continue;
+    }
     if (!seriesNeedsCheck(listed, now)) continue;
     const meta = await fetchTmdbSeries(listed.tmdbId).catch(() => null);
     if (!meta) continue;

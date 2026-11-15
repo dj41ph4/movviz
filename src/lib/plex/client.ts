@@ -616,6 +616,46 @@ export async function getPlexEpisodeOrdering(cfg: PlexServerConfig, showRatingKe
   } catch { return null; }
 }
 
+/** Values a show's `showOrdering` preference accepts, as the server itself declares them. */
+export function plexOrderingValues(setting: { enumValues?: string } | undefined): string[] {
+  return (setting?.enumValues ?? "").split("|").map((entry) => entry.split(":")[0]).filter(Boolean);
+}
+
+/** Which declared value means "TVDB aired" / "TMDb aired" — never a guessed one. */
+export function pickPlexOrdering(values: string[], wanted: "tvdb" | "tmdb"): string | null {
+  const preferred = wanted === "tvdb" ? ["tvdbAiring", "aired"] : ["tmdbAiring"];
+  return preferred.find((v) => values.includes(v)) ?? null;
+}
+
+/**
+ * Puts a Plex show on the episode order Movviz uses, so both number files the
+ * same way. Only values the server lists for that show are ever written,
+ * then read back: "applied" means Plex really uses it now. "unsupported" =
+ * legacy agent without the preference, or no matching value (nothing to do);
+ * null = Plex unreachable or the write didn't stick (retry later).
+ */
+export async function setPlexEpisodeOrdering(cfg: PlexServerConfig, showRatingKey: string, token: string, wanted: "tvdb" | "tmdb"): Promise<"applied" | "already" | "unsupported" | null> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}?includePreferences=1`, { headers: serverHeaders(cfg, token), cache: "no-store" });
+    if (!res.ok) return null;
+    const show = (await res.json())?.MediaContainer?.Metadata?.[0];
+    if (!show) return null;
+    const setting = (show.Preferences?.Setting ?? []).find((entry: { id: string }) => entry.id === "showOrdering");
+    const value = pickPlexOrdering(plexOrderingValues(setting), wanted);
+    if (!value) return "unsupported";
+    const before = await getPlexEpisodeOrdering(cfg, showRatingKey, token);
+    if (before?.order === value || (wanted === "tvdb" && before?.order && ["tvdbAiring", "aired"].includes(before.order))) return "already";
+    const put = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}/prefs?showOrdering=${encodeURIComponent(value)}`, { method: "PUT", headers: serverHeaders(cfg, token), cache: "no-store" });
+    if (!put.ok) return null;
+    await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}/refresh`, { method: "PUT", headers: serverHeaders(cfg, token), cache: "no-store" }).catch(() => null);
+    const after = await getPlexEpisodeOrdering(cfg, showRatingKey, token);
+    return after?.order === value ? "applied" : null;
+  } catch {
+    return null;
+  }
+}
+
+
 interface RawStream {
   streamType: number;
   codec?: string;

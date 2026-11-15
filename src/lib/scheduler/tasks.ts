@@ -15,6 +15,8 @@ import { getBootstrapState } from "@/lib/plex/plexHistoryBootstrap";
 import { loadPlexConfig, plexConfigured } from "@/lib/plex/store";
 import { refreshLibraryMetadata } from "@/lib/library/metadataRefresh";
 import { syncSeriesEpisodes } from "@/lib/library/episodeSync";
+import { alignAnimeLibraryOnTvdb } from "@/lib/library/animeTvdbAlign";
+import { tvdbConfigured } from "@/lib/metadata/tvdb";
 import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
 import { purgeExpiredTrash } from "@/lib/library/trashPurge";
 import { isAutoSearchMissingEnabled } from "@/lib/settings/automation";
@@ -446,6 +448,20 @@ export const TASKS: ScheduledTask[] = [
     // series was added (see episodeSync.ts).
     run: async () => {
       await syncSeriesEpisodes();
+    },
+  },
+  {
+    id: "anime-tvdb-align",
+    name: "Alignement des animés sur TVDB (fichiers et ordre Plex)",
+    intervalMs: 24 * 60 * 60 * 1000, // daily
+    defaultWindow: { startHour: 3, endHour: 6 },
+    // Brings every anime onto its TVDB structure — files moved and renamed,
+    // then Plex switched to TVDB order when Plex is there (animeTvdbAlign.ts).
+    // Never trashes: a show holding duplicate copies waits for its button.
+    isEnabled: () => tvdbConfigured(),
+    run: async () => {
+      const r = await alignAnimeLibraryOnTvdb({ background: true });
+      console.log(`[anime-tvdb-align] ${r.checked} animé(s) vérifié(s), ${r.changed} aligné(s), ${r.plexOrdersApplied} ordre(s) Plex appliqué(s)${r.needsReview.length ? `, à valider : ${r.needsReview.join(", ")}` : ""}`);
     },
   },
   {

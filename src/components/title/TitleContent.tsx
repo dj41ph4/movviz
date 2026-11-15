@@ -831,14 +831,26 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
       );
       const data = await res.json();
       if (res.ok) {
-        setResyncResult(
-          t("library.resyncAnimeDone", {
-            old: data.oldSeasonCount,
-            new: data.newSeasonCount,
-          }),
-        );
+        // Bleach's metadata refresh answers without file counts.
+        const done = data.unchanged ? t("library.resyncAnimeUpToDate") : null;
+        const summary = typeof data.movedFiles === "number"
+          ? t("library.resyncAnimeDoneDetail", { old: data.oldSeasonCount, new: data.newSeasonCount, moved: data.movedFiles, dups: data.duplicatesRemoved ?? 0 })
+          : t("library.resyncAnimeDone", { old: data.oldSeasonCount, new: data.newSeasonCount });
+        setResyncResult([
+          done ?? summary,
+          data.renamedFiles > 0 ? t("library.resyncAnimeRenamed", { renamed: data.renamedFiles }) : null,
+          data.duplicatesKept > 0 ? t("library.resyncAnimeDuplicatesKept", { kept: data.duplicatesKept }) : null,
+          data.movedFiles > (data.renamedFiles ?? 0) ? t("library.resyncAnimeRenameHint") : null,
+        ].filter(Boolean).join(" "));
+        mutateLibrary();
       } else if (data.error === "active_downloads") {
         setResyncResult(t("library.resyncAnimeActiveDownloads"));
+      } else if (data.error === "tmdb_unavailable") {
+        setResyncResult(t("library.resyncAnimeTmdbUnavailable"));
+      } else if (data.error === "tvdb_unavailable") {
+        setResyncResult(t("library.resyncAnimeTvdbUnavailable"));
+      } else if (data.error === "combined_files") {
+        setResyncResult(t("library.resyncAnimeCombinedFiles"));
       } else if (data.error === "no_disk_seasons") {
         setResyncResult(t("library.resyncAnimeNoDiskSeasons"));
       } else {
@@ -847,7 +859,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
     } finally {
       setResyncingAnime(false);
     }
-  }, [libraryMatch?.id, t, seriesPart]);
+  }, [libraryMatch?.id, t, seriesPart, mutateLibrary]);
 
   // "en attente de synchronisation Plex" (plexRatingKey/plexUrl not
   // populated yet) — admin-only manual trigger instead of waiting for the

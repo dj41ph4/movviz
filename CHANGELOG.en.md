@@ -1,3 +1,15 @@
+## v1.28.147 — November 15, 2026
+
+### Library
+
+- Anime — “Resync with TVDB” rewritten. Every file now lands on the episode it really is: its number is read in both numberings (TMDb and TVDB) and converted by air date. Shows where both numberings had got mixed (Blood+, Dragon Ball GT and Super, Yu-Gi-Oh! GX, Jujutsu Kaisen, Tokyo Revengers, Re:ZERO…) no longer list every episode twice; the duplicate copy of one episode goes to the series trash, only when both placements are proven.
+- Resync: nothing is lost along the way any more — Plex links, unmonitored episodes, files and seasons announced by TMDb stay; a healthy show is never reorganised, only its titles are refreshed. A snapshot of the show is saved before every write.
+- TVDB: episodes past the 500th are finally read (Pokémon stopped at season 8, Naruto Shippuden lost its last episodes).
+- TVDB: a show without a TVDB id no longer inherits another show's structure (Saint Seiya – The Lost Canvas got the whole franchise's 12 seasons, New Panty & Stocking the 2010 series'), and franchise seasons TMDb keeps separate (Hades, Omega, Shaman King Flowers…) are no longer added to the original show.
+- After the resync, only the files that moved are renamed after their new number, in the season folder that already exists (subtitles included, nothing ever overwritten, files without a number left alone). Marked as TVDB-numbered, the show is never broken again by the daily TMDb sync: the daily sync does the button's work on its own (new episodes, files moved and renamed when TVDB renumbers, Plex order switched); only a show holding duplicate copies waits for a click, which alone sends them to the trash. TVDB unreachable: nothing is changed.
+- Plex (optional): Plex episodes are linked by file instead of by number, so links follow the episode after a resync. The show's episode order is then switched to TVDB (or TMDb) in Plex, using only values the server declares, and checked afterwards; with Plex offline, it is applied at the next sync.
+- Anime already in the library: new scheduled task “Align anime on TVDB (files and Plex order)”, every night between 3 and 6 am — every anime moves to TVDB numbering, its files are moved and renamed, then the Plex order is switched (never trashing anything). The Settings › Plex, metadata and imports › Anime › “Resync all anime” button does the same on demand, duplicates included, applies the Plex order right away and explains in plain words every show left aside.
+
 ## v1.28.146 — November 14, 2026
 
 ### Display

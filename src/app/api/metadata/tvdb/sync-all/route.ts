@@ -5,6 +5,8 @@ import { getSeries as fetchTmdbSeries, getMovie as fetchTmdbMovie } from "@/lib/
 import { tvdbConfigured } from "@/lib/metadata/tvdb";
 import { resyncAnimeSeasonsFromTvdb, backfillMissingSeason0FromTmdb } from "@/lib/library/autoGrabSeries";
 import { enqueueJob, isSourceActive } from "@/lib/jobs/queue";
+import { plexConfigured, loadPlexConfig } from "@/lib/plex/store";
+import { applyPendingPlexOrdering } from "@/lib/plex/librarySync";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +97,14 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // Plex optional: whatever order the resyncs asked for is applied now
+      // when the server answers, otherwise by the next Plex sync.
+      let plexOrdersApplied = 0;
+      if (plexConfigured()) {
+        const cfg = loadPlexConfig();
+        if (cfg.adminToken) plexOrdersApplied = await applyPendingPlexOrdering(cfg, cfg.adminToken, Number.MAX_SAFE_INTEGER).catch(() => 0);
+      }
+
       const synced = results.filter((r) => r.ok);
       const skipped = results.filter((r) => !r.ok);
 
@@ -105,6 +115,7 @@ export async function POST(req: NextRequest) {
         skipped: skipped.length,
         specialsBackfilled,
         moviesOriginalTitleBackfilled,
+        plexOrdersApplied,
         details: results,
       };
     },

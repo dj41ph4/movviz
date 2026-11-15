@@ -21,8 +21,19 @@ interface SyncResult {
   synced: number;
   skipped: number;
   specialsBackfilled: number;
+  plexOrdersApplied?: number;
   details: SyncDetail[];
 }
+
+/** Same plain-language reasons as the resync button on a series page. */
+const REASON_KEYS: Record<string, string> = {
+  active_downloads: "library.resyncAnimeActiveDownloads",
+  tmdb_unavailable: "library.resyncAnimeTmdbUnavailable",
+  tvdb_unavailable: "library.resyncAnimeTvdbUnavailable",
+  combined_files: "library.resyncAnimeCombinedFiles",
+  no_tvdb_match: "library.resyncAnimeNoMatch",
+  no_disk_seasons: "library.resyncAnimeNoDiskSeasons",
+};
 
 export function TvdbSyncAllPanel() {
   const t = useT();
@@ -115,6 +126,9 @@ export function TvdbSyncAllPanel() {
           <p className="font-semibold text-ink-soft">
             {t("tvdbSyncAll.summary", { synced: result.synced, animeFound: result.animeFound, total: result.total })}
           </p>
+          {(result.plexOrdersApplied ?? 0) > 0 && (
+            <p className="text-xs text-ink-dim">{t("tvdbSyncAll.plexOrders", { count: result.plexOrdersApplied ?? 0 })}</p>
+          )}
           {result.specialsBackfilled > 0 && (
             <p className="text-xs text-ink-dim">{t("tvdbSyncAll.specialsBackfilled", { count: result.specialsBackfilled })}</p>
           )}
@@ -136,7 +150,7 @@ export function TvdbSyncAllPanel() {
                   ? d.oldSeasonCount !== d.newSeasonCount
                     ? t("tvdbSyncAll.seasonsChanged", { title: d.title, old: d.oldSeasonCount ?? 0, new: d.newSeasonCount ?? 0 })
                     : t("tvdbSyncAll.titlesRefreshed", { title: d.title })
-                  : t("tvdbSyncAll.skipped", { title: d.title, reason: d.error ?? "?" })}
+                  : t("tvdbSyncAll.skipped", { title: d.title, reason: d.error && REASON_KEYS[d.error] ? t(REASON_KEYS[d.error]) : d.error ?? "?" })}
               </p>
             </div>
           ))}

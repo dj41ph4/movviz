@@ -3,7 +3,7 @@ import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { plexArrivalDate } from "./arrivalDate";
 import { loadPlexConfig, savePlexConfig } from "./store";
 import { loadSyncState, saveSyncState } from "./syncState";
-import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds } from "./client";
+import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds, setPlexEpisodeOrdering } from "./client";
 import type { PlexServerConfig, PlexSection, PlexLibraryItem } from "./types";
 import {
   getMovieByTmdbId, addMovie, updateMovie, updateMovies, loadMovies,
@@ -196,6 +196,7 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   // processes recently-changed items, so older movies never get their media
   // info populated until a full reconcile runs.
   await backfillMissingMediaInfo(cfg, adminToken);
+  await applyPendingPlexOrdering(cfg, adminToken);
 
   saveSyncState({ moviesLastSyncedAt: runStartedAt, seriesLastSyncedAt: runStartedAt });
   return { moviesAdded, moviesMatched, seriesAdded, seriesMatched };
@@ -359,6 +360,53 @@ function isSamePhysicalFileCached(
     return false;
   }
 }
+
+/**
+ * Plex episode for each library episode, keyed "season-episode". A Plex
+ * item IS one file, so an episode whose file Plex holds is linked to that
+ * item whatever number either side gives it — after a TVDB resync the
+ * library may call S2E1 the file Plex still lists as S1E15 (its filename),
+ * and the link must follow the file, not the number. An episode whose file
+ * Plex doesn't list (a second version, not scanned yet) falls back to the
+ * Plex item at its own number, as before — never to one already claimed by
+ * another episode's file.
+ */
+export function matchPlexEpisodesToLibrary<P extends { seasonNumber: number; episodeNumber: number; file?: { path: string } | null }>(
+  seasons: LibrarySeason[],
+  plexEpisodes: P[],
+  mappings: PathMapping[],
+): Map<string, P> {
+  const byName = new Map<string, P[]>();
+  const byNumber = new Map<string, P[]>();
+  for (const pe of plexEpisodes) {
+    const at = `${pe.seasonNumber}-${pe.episodeNumber}`;
+    byNumber.set(at, [...(byNumber.get(at) ?? []), pe]);
+    if (!pe.file?.path) continue;
+    const name = pe.file.path.split(/[\/]/).pop()!.toLowerCase();
+    byName.set(name, [...(byName.get(name) ?? []), pe]);
+  }
+  const out = new Map<string, P>();
+  const claimed = new Set<P>();
+  for (const season of seasons) {
+    for (const ep of season.episodes) {
+      const own = [ep.file?.diskPath, ep.file?.path].filter((p): p is string => !!p);
+      if (own.length === 0) continue;
+      const name = own[0].split(/[\/]/).pop()!.toLowerCase();
+      const hit = (byName.get(name) ?? []).find((pe) => !claimed.has(pe) && own.some((p) => isSamePhysicalFileCached(p, pe.file!.path, 2, mappings)));
+      if (hit) { out.set(`${season.seasonNumber}-${ep.episodeNumber}`, hit); claimed.add(hit); }
+    }
+  }
+  for (const season of seasons) {
+    for (const ep of season.episodes) {
+      const key = `${season.seasonNumber}-${ep.episodeNumber}`;
+      if (out.has(key)) continue;
+      const atNumber = (byNumber.get(key) ?? []).find((pe) => !claimed.has(pe));
+      if (atNumber) { out.set(key, atNumber); claimed.add(atNumber); }
+    }
+  }
+  return out;
+}
+
 
 /** Retrouve un film déjà connu par son chemin physique (file + versions[]).
  *  Deux passes, zéro syscall : passe 1 en égalité normalisée pure (mémoire
@@ -837,6 +885,12 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
       continue;
     }
 
+    // Bleach keeps its own normalized coordinates; every other show is
+    // linked by file first (see matchPlexEpisodesToLibrary).
+    const linked = bleach ? null : matchPlexEpisodesToLibrary(existing.seasons, episodes, loadPathMappings());
+    const plexFor = (seasonNumber: number, episodeNumber: number) => linked
+      ? linked.get(`${seasonNumber}-${episodeNumber}`)
+      : episodes.find((pe) => pe.seasonNumber === seasonNumber && pe.episodeNumber === episodeNumber);
     let changed = false;
     if (!existing.plexRatingKey) changed = true;
     const plexKeys = bleachPlexKeysPatch(existing, bleach);
@@ -852,7 +906,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           // verified 2:1 Movviz association must not be overwritten by Plex's
           // different catalog coordinate (its E02 points at physical file 2).
           if (ep.combinedFile && hasValidLocalFile(ep.file)) continue;
-          const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+          const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : plexFor(season.seasonNumber, ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey) { changed = true; break; }
             if (ep.file && hasValidLocalFile(ep.file) && ep.playbackSource !== "movviz") { changed = true; break; }
@@ -874,7 +928,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           ...season,
           episodes: season.episodes.map((ep) => {
           if (ep.combinedFile && hasValidLocalFile(ep.file)) return ep;
-          const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+          const plexEp = isRemoved(season.seasonNumber, ep.episodeNumber) ? undefined : plexFor(season.seasonNumber, ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
               const nextFile = toLibraryFileReconciled(plexEp, ep.file, true) ?? ep.file;
@@ -932,6 +986,27 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
  * consulte Plex que pour cette série (et, si fourni, cette saison/épisode).
  * Aucun autre titre n'est parcouru et aucune recherche torrent n'est lancée.
  */
+/**
+ * A TVDB resync records the episode order Plex should use (plexOrderPending)
+ * instead of calling Plex itself — Plex is optional and may be offline then.
+ * Each sync that reaches the server applies what is still pending; an
+ * unreachable server or a write that didn't stick stays pending for the next one.
+ */
+const ORDERING_PER_SYNC = 20;
+export async function applyPendingPlexOrdering(cfg: PlexServerConfig, token: string, limit = ORDERING_PER_SYNC): Promise<number> {
+  const pending = loadSeries().filter((s) => s.plexOrderPending && s.plexRatingKey && s.tmdbId !== BLEACH_TMDB_ID).slice(0, limit);
+  let applied = 0;
+  for (const series of pending) {
+    await yieldToUser("ordre des épisodes Plex");
+    const result = await setPlexEpisodeOrdering(cfg, series.plexRatingKey!, token, series.plexOrderPending!);
+    if (result === null) continue;
+    console.log(`[plexOrdering] ${series.title} : ordre ${series.plexOrderPending} → ${result}`);
+    if (result === "applied") applied++;
+    updateSeries(series.id, { plexOrderPending: undefined });
+  }
+  return applied;
+}
+
 export async function reconcileSeriesPlayback(
   seriesId: string,
   opts?: { seasonNumber?: number; episodeNumber?: number },
@@ -970,13 +1045,14 @@ export async function reconcileSeriesPlayback(
   if (needsPlex && cfg.hostname && cfg.adminToken && series.plexRatingKey) {
     const plexEpisodes = series.tmdbId === BLEACH_TMDB_ID ? (await cachedBleachPlexSnapshot(cfg, cfg.adminToken))?.items : await getShowEpisodes(cfg, series.plexRatingKey, cfg.adminToken);
     if (!plexEpisodes) return series;
+    const linked = series.tmdbId === BLEACH_TMDB_ID ? null : matchPlexEpisodesToLibrary(seasons, plexEpisodes, loadPathMappings());
     seasons = seasons.map((season) => ({
       ...season,
       episodes: season.episodes.map((ep) => {
         if (!matches(ep)) return ep;
-        const plexEp = plexEpisodes.find(
-          (candidate) => candidate.seasonNumber === ep.seasonNumber && candidate.episodeNumber === ep.episodeNumber,
-        );
+        const plexEp = linked
+          ? linked.get(`${season.seasonNumber}-${ep.episodeNumber}`)
+          : plexEpisodes.find((candidate) => candidate.seasonNumber === ep.seasonNumber && candidate.episodeNumber === ep.episodeNumber);
         if (!plexEp) return ep;
         const nextFile = toLibraryFileReconciled(plexEp, ep.file) ?? ep.file;
         changed = true;

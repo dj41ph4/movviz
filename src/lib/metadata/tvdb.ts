@@ -47,7 +47,7 @@ async function getToken(): Promise<string | null> {
   }
 }
 
-async function tvdbGet<T>(path: string): Promise<T | null> {
+async function tvdbFetch(path: string): Promise<{ data?: unknown; links?: { next?: string | null } } | null> {
   const token = await getToken();
   if (!token) return null;
   const lang = loadTvdbConfig().language || "fr";
@@ -57,11 +57,38 @@ async function tvdbGet<T>(path: string): Promise<T | null> {
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const data = await res.json();
-    return (data?.data ?? null) as T;
+    return await res.json();
   } catch {
     return null;
   }
+}
+
+async function tvdbGet<T>(path: string): Promise<T | null> {
+  const body = await tvdbFetch(path);
+  return (body?.data ?? null) as T | null;
+}
+
+/** Hard stop for a runaway `links.next` chain (Pokémon, the longest anime
+ *  on TVDB, needs 3 pages of 500 today). */
+const MAX_EPISODE_PAGES = 20;
+
+/**
+ * TVDB v4 serves a series' episodes 500 per page and says so only through
+ * `links.next`. Reading page 0 alone silently cut every long anime at
+ * exactly 500 episodes (Pokémon stopped at season 8, Naruto Shippuden lost
+ * its last episodes). Null when the very first page fails, so callers keep
+ * their existing "endpoint failed" fallbacks.
+ */
+async function tvdbGetAllEpisodes(path: string): Promise<RawEpisode[] | null> {
+  const all: RawEpisode[] = [];
+  for (let page = 0; page < MAX_EPISODE_PAGES; page++) {
+    const body = await tvdbFetch(`${path}?page=${page}`);
+    if (!body) return page === 0 ? null : all;
+    const episodes = (body.data as { episodes?: RawEpisode[] } | undefined)?.episodes ?? [];
+    all.push(...episodes);
+    if (!body.links?.next || episodes.length === 0) break;
+  }
+  return all;
 }
 
 /**
@@ -126,20 +153,20 @@ function rawEpisodesToTvdbEpisodes(raw: RawEpisode[] | undefined): TvdbEpisode[]
  */
 export async function getTvdbEpisodes(tvdbId: number, langOverride?: string): Promise<TvdbEpisode[]> {
   const code = tvdbLangCode(langOverride ?? loadTvdbConfig().language ?? "fr");
-  const localized = await tvdbGet<{ episodes: RawEpisode[] }>(`/series/${tvdbId}/episodes/default/${code}`);
+  const localized = await tvdbGetAllEpisodes(`/series/${tvdbId}/episodes/default/${code}`);
 
-  if (localized?.episodes?.length) {
-    const episodes = rawEpisodesToTvdbEpisodes(localized.episodes);
+  if (localized?.length) {
+    const episodes = rawEpisodesToTvdbEpisodes(localized);
     if (episodes.every((e) => e.title)) return episodes;
-    const original = await tvdbGet<{ episodes: RawEpisode[] }>(`/series/${tvdbId}/episodes/default`);
+    const original = await tvdbGetAllEpisodes(`/series/${tvdbId}/episodes/default`);
     const originalByKey = new Map(
-      rawEpisodesToTvdbEpisodes(original?.episodes).map((e) => [`${e.seasonNumber}x${e.episodeNumber}`, e.title])
+      rawEpisodesToTvdbEpisodes(original ?? undefined).map((e) => [`${e.seasonNumber}x${e.episodeNumber}`, e.title])
     );
     return episodes.map((e) => (e.title ? e : { ...e, title: originalByKey.get(`${e.seasonNumber}x${e.episodeNumber}`) ?? e.title }));
   }
 
-  const data = await tvdbGet<{ episodes: RawEpisode[] }>(`/series/${tvdbId}/episodes/default`);
-  return rawEpisodesToTvdbEpisodes(data?.episodes);
+  const data = await tvdbGetAllEpisodes(`/series/${tvdbId}/episodes/default`);
+  return rawEpisodesToTvdbEpisodes(data ?? undefined);
 }
 
 interface RawSeason {
@@ -202,6 +229,41 @@ export function groupTvdbEpisodesBySeason(episodes: TvdbEpisode[]): TvdbSeason[]
     }));
 }
 
+function normalizeSeriesName(name: string): string {
+  return name.normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/** At least half of the shorter name's words appear in the other one. */
+function namesOverlap(a: string, b: string): boolean {
+  const wa = a.split(" ").filter(Boolean), wb = new Set(b.split(" ").filter(Boolean));
+  if (wa.length === 0 || wb.size === 0) return false;
+  const shared = wa.filter((w) => wb.has(w)).length;
+  return shared / Math.min(wa.length, wb.size) >= 0.5;
+}
+
+/**
+ * A name search is only trusted when the candidate provably IS the show:
+ * same first-air year (±1, TVDB and TMDb disagree on premieres straddling
+ * New Year) or, without a known year, the exact same name. Taking the first
+ * hit blindly gave « Saint Seiya - The Lost Canvas » (2009) the 1986 Saint
+ * Seiya franchise entry — 12 seasons, 291 episodes — and the 2025 New Panty
+ * & Stocking the 2010 series. No trustworthy candidate → null, so the
+ * caller keeps TMDb instead of importing another show's structure.
+ */
+export function pickTvdbSearchMatch(candidates: TvdbSearchResult[], title: string, year: number | null): TvdbSearchResult | null {
+  const wanted = normalizeSeriesName(title);
+  const sameName = (c: TvdbSearchResult) => normalizeSeriesName(c.name) === wanted;
+  if (year == null) return candidates.find(sameName) ?? null;
+  // Same era is not enough on its own: a search also returns unrelated
+  // shows of that year, so the name must still mostly agree.
+  const close = candidates.filter((c) => c.year != null && Math.abs(c.year - year) <= 1 && namesOverlap(normalizeSeriesName(c.name), wanted));
+  return close.find((c) => c.year === year && sameName(c))
+    ?? close.find(sameName)
+    ?? close.find((c) => c.year === year)
+    ?? close[0]
+    ?? null;
+}
+
 /**
  * Resolves a series to its TVDB episode list, preferring TMDb's own tvdb_id
  * (exact) over a name+year text search (best-effort, only used as a
@@ -212,10 +274,8 @@ export async function getTvdbEpisodesFor(tvdbId: number | null, title: string, y
     const byId = await getTvdbEpisodes(tvdbId);
     if (byId.length > 0) return byId;
   }
-  const candidates = await searchTvdbSeries(title);
-  if (candidates.length === 0) return [];
-  const best = candidates.find((c) => c.year === year) ?? candidates[0];
-  return getTvdbEpisodes(best.tvdbId);
+  const best = pickTvdbSearchMatch(await searchTvdbSeries(title), title, year);
+  return best ? getTvdbEpisodes(best.tvdbId) : [];
 }
 
 interface RawSearchResult {

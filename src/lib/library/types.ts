@@ -194,8 +194,13 @@ export interface LibrarySeason {
 export interface LibrarySeries {
   id: string; // "sr_..."
   tmdbId: number;
-  /** Explicit operational order for Bleach; legacy imports must be repaired before acquisition. */
+  /** Explicit operational order: Bleach (legacy imports must be repaired before
+   *  acquisition), and any anime a resync put in TVDB numbering — the daily TMDb
+   *  episode sync never touches a "tvdb" series. */
   episodeOrder?: "tmdb" | "tvdb";
+  /** Episode order Plex should use for this show, set by a TVDB resync and
+   *  applied by the next Plex sync that reaches the server (Plex optional). */
+  plexOrderPending?: "tmdb" | "tvdb";
   /** Independent cosmetic choices for the two Bleach fiches. */
   bleachArtwork?: import("@/lib/metadata/bleachArtwork").BleachArtworkByPart;
   bleachSettings?: Partial<Record<"original" | "tybw", { qualityProfileId?: string; aliases?: string[] }>>;
