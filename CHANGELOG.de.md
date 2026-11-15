@@ -1,3 +1,12 @@
+## v1.28.151 — 15. November 2026
+
+### Leistung
+
+- Server fror bei Hintergrundaufgaben stoßweise 1 bis 4 s ein: Folgten zwei Änderungen der Bibliothek kurz aufeinander, wurde die Seriendatei (25 MB) komplett neu gelesen und dekodiert, statt aus dem Speicher bedient zu werden. Die Bibliothek wird wegen ihrer eigenen Schreibvorgänge nie mehr von der Festplatte neu gelesen.
+- Dateianalyse (ffprobe): keine blockierenden Festplattenzugriffe auf Videodateien mehr, sofortige Suche in vorhandenen Analysen, ein einziger Bibliotheksschreibvorgang pro Serie, und Analysen werden gebündelt gespeichert statt bei jeder Datei komplett neu geschrieben.
+- Anime-Resynchronisierung: Eine umbenannte oder neu nummerierte Datei behält ihre ffprobe-Analyse und wird beim nächsten Durchlauf nicht erneut analysiert.
+- Diagnose: /api/perf zeigt jetzt die Größe der im Speicher gehaltenen Strukturen, alle 30 Minuten erfasst, um zu erkennen, was mit der Zeit wächst.
+
 ## v1.28.150 — 15. November 2026
 
 ### Bibliothek

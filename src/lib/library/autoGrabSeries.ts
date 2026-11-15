@@ -8,6 +8,8 @@ import { encodeLibraryRef, decodeLibraryRef, type LibrarySeries, type LibrarySea
 import { planAnimeResync, type CatalogEpisode, type ResyncFile } from "@/lib/library/animeResyncPlan";
 import { pathFor } from "@/lib/library/renamePath";
 import { renameResyncedFiles } from "@/lib/library/resyncRename";
+import { carryMediaProbeEntries } from "@/lib/playback/engine/mediaProbeCache";
+import { episodeMediaId } from "@/lib/playback/engine/probeLibrary";
 import { loadUsers } from "@/lib/auth/store";
 import { getWatchStatus, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
@@ -373,6 +375,24 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
       if (from) moves.set(from, `${dup.seasonNumber}-${dup.episodeNumber}`);
     }
     migrateWatchedEpisodes(getSeries(seriesId)!, moves);
+
+    // ---- The ffprobe analysis follows its file (new number, new name) ----
+    const finalPath = new Map<string, string>();
+    for (const s of getSeries(seriesId)!.seasons) for (const e of s.episodes) {
+      const p = physical(e.file);
+      if (p) finalPath.set(`${s.seasonNumber}-${e.episodeNumber}`, p);
+    }
+    const probeMoves: Array<{ fromId: string; fromPath: string; toId: string; toPath: string }> = [];
+    for (const s of plan.seasons) for (const e of s.episodes) {
+      const fromPath = physical(e.file);
+      const from = fromPath ? oldKeyOfPath.get(fromPath) : undefined;
+      const to = `${s.seasonNumber}-${e.episodeNumber}`;
+      const toPath = finalPath.get(to);
+      if (!fromPath || !from || !toPath || (from === to && fromPath === toPath)) continue;
+      const [fs0, fe0] = from.split("-").map(Number);
+      probeMoves.push({ fromId: episodeMediaId(seriesId, fs0, fe0), fromPath, toId: episodeMediaId(seriesId, s.seasonNumber, e.episodeNumber), toPath });
+    }
+    if (probeMoves.length > 0) carryMediaProbeEntries(probeMoves);
     if (renamedFiles > 0) void refreshPlexLibraryFor("tv").catch(() => {});
 
     console.log(`[resyncAnime] ${series.title} : ${plan.source}, ${series.seasons.length} → ${plan.seasons.length} saisons, ${plan.movedFiles} fichier(s) replacé(s), ${renamedFiles} renommé(s), ${duplicatesRemoved}/${plan.duplicates.length} doublon(s) en corbeille, ${plan.extras.length} hors catalogue`);

@@ -107,6 +107,9 @@ export async function register() {
         .catch(() => {});
     }, 3 * 60_000).unref?.();
 
+    // Recensement des structures en mémoire toutes les 30 min (lu dans /api/perf) : ce qui grossit.
+    void import("@/lib/memoryCensus").then(({ startMemoryCensus }) => startMemoryCensus()).catch(() => {});
+
     // Réparation unique : saisons 0 retirées par la resynchronisation TVDB de la v1.28.147 (épisodes spéciaux désactivés).
     setTimeout(() => {
       void import("@/lib/library/restoreResyncSpecials")
@@ -188,6 +191,11 @@ export async function register() {
           stopAllRemuxSessions();
         } catch { /* module not loaded yet — nothing to stop */ }
         console.log(`[shutdown] ${signal} reçu — sessions ffmpeg actives arrêtées`);
+        try {
+          // ffprobe results kept in memory between two cache writes (mediaProbeCache.ts).
+          const { flushMediaProbeCache } = await import("@/lib/playback/engine/mediaProbeCache");
+          flushMediaProbeCache();
+        } catch { /* module not loaded yet — nothing to write */ }
         try {
           // Data first: every JSON store change still waiting to be written.
           const { prepareJsonShutdown, flushPendingJsonWritesSync } = await import("@/lib/fsJsonCache");

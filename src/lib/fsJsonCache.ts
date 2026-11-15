@@ -51,11 +51,21 @@ const g = globalThis as typeof globalThis & {
   __movvizJsonWriteFailures?: Map<string, number>;
   __movvizJsonWritesStopping?: boolean;
   __movvizJsonWritePromises?: Map<string, Promise<void>>;
+  __movvizJsonWriteGen?: Map<string, number>;
 };
 const cache: Map<string, CacheEntry> = (g.__movvizFsJsonCache ??= new Map());
 export const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
 const memoCacheAsync: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCacheAsync ??= new Map());
 const memoInFlightAsync: Map<string, Promise<unknown>> = (g.__movvizMemoInFlightAsync ??= new Map());
+/**
+ * Counts the writeJsonCached() calls per file. The stores change their
+ * cached array IN PLACE and pass the same reference back (updateSeries:
+ * `list[i] = updated`), so "is the value on disk the cached one?" cannot be
+ * answered by comparing references: a finished write of an OLDER state
+ * carries the very same reference as the newer one still waiting. Only a
+ * write started after the last call may declare the cache equal to the disk.
+ */
+const writeGen: Map<string, number> = (g.__movvizJsonWriteGen ??= new Map());
 /** Writes scheduled but not yet started — see the coalescing comment on writeJsonCached(). */
 const pendingWrites: Map<string, { value: unknown; timer: ReturnType<typeof setTimeout> }> =
   (g.__movvizPendingWrites ??= new Map());
@@ -207,6 +217,7 @@ export function resetAllCaches(): void {
   pendingFileWrites.clear();
   lastKnownSize.clear();
   writeFailures.clear();
+  writeGen.clear();
 }
 
 /**
@@ -244,6 +255,7 @@ export function resetAllCaches(): void {
 export function writeJsonCached(file: string, value: unknown): void {
   if (factoryResetActive()) throw new Error("factory_reset_in_progress");
   cache.set(file, { mtimeMs: -1, size: -1, value, pending: true });
+  writeGen.set(file, (writeGen.get(file) ?? 0) + 1);
   readFailures.delete(file);
 
   const existing = pendingWrites.get(file);
@@ -326,12 +338,19 @@ function startFileWrite(file: string, val: unknown) {
   }
 
   writeInFlight.set(file, true);
+  const gen = writeGen.get(file) ?? 0;
 
   const applyResult = (stat: { mtimeMs: number; size: number }) => {
     writeFailures.delete(file);
     lastKnownSize.set(file, stat.size);
     const current = cache.get(file);
-    if (current?.value === val) {
+    // A change made since this write started (same reference, mutated in
+    // place — see writeGen) keeps the entry pending: its own write is already
+    // scheduled and will confirm it. Clearing the flag here made the next
+    // read see the file change under it and re-read + re-parse the whole
+    // store from disk (25 MB of library-series.json, 0.6–1.3 s of frozen
+    // server each time) — and hand out that older copy.
+    if (current?.value === val && (writeGen.get(file) ?? 0) === gen) {
       cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value: val });
     }
   };

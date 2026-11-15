@@ -1,3 +1,12 @@
+## v1.28.151 — 15 novembre 2026
+
+### Performances
+
+- Serveur figé par à-coups de 1 à 4 s pendant les tâches de fond : quand deux modifications de la bibliothèque se suivaient de près, le fichier des séries (25 Mo) était relu et redécodé en entier au lieu d'être servi depuis la mémoire. La bibliothèque n'est plus jamais relue du disque à cause de ses propres écritures.
+- Analyse des fichiers (ffprobe) : plus aucune lecture disque bloquante sur les fichiers vidéo, recherche instantanée dans les analyses déjà faites, une seule écriture de bibliothèque par série, et les analyses sont enregistrées par lots au lieu d'une réécriture complète à chaque fichier.
+- Resynchronisation des animés : un fichier renommé ou renuméroté garde son analyse ffprobe, il n'est plus ré-analysé au passage suivant.
+- Diagnostic : /api/perf indique désormais la taille des structures gardées en mémoire, relevée toutes les 30 minutes, pour repérer ce qui grossit avec le temps.
+
 ## v1.28.150 — 15 novembre 2026
 
 ### Bibliothèque

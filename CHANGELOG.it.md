@@ -1,3 +1,12 @@
+## v1.28.151 — 15 novembre 2026
+
+### Prestazioni
+
+- Server bloccato a scatti di 1-4 s durante le attività in background: quando due modifiche della libreria erano ravvicinate, il file delle serie (25 MB) veniva riletto e decodificato per intero invece di essere servito dalla memoria. La libreria non viene più riletta dal disco a causa delle proprie scritture.
+- Analisi dei file (ffprobe): nessuna lettura su disco bloccante sui file video, ricerca istantanea nelle analisi già fatte, una sola scrittura della libreria per serie, e le analisi vengono salvate a lotti invece di una riscrittura completa per ogni file.
+- Risincronizzazione degli anime: un file rinominato o rinumerato conserva la sua analisi ffprobe e non viene più rianalizzato al passaggio successivo.
+- Diagnostica: /api/perf indica ora la dimensione delle strutture tenute in memoria, rilevata ogni 30 minuti, per individuare ciò che cresce nel tempo.
+
 ## v1.28.150 — 15 novembre 2026
 
 ### Libreria

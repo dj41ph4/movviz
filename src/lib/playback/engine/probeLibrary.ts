@@ -29,7 +29,7 @@ function probedLanguage(descriptor: MediaDescriptor): string | null {
   return isFfprobeEnabled() ? deriveLanguageFromTracks(descriptor.audioTracks, descriptor.subtitleTracks) : null;
 }
 
-function episodeMediaId(seriesId: string, seasonNumber: number, episodeNumber: number): string {
+export function episodeMediaId(seriesId: string, seasonNumber: number, episodeNumber: number): string {
   return `${seriesId}:s${seasonNumber}e${episodeNumber}`;
 }
 
@@ -92,15 +92,30 @@ function enrichMovieFromDescriptor(movieId: string, descriptor: MediaDescriptor)
  *  policy on resolution/videoCodec/audioCodec/hdr, but patches `episode.file`
  *  directly (no setPrimaryFile/versions[] — episodes don't have that concept). */
 function enrichEpisodeFromDescriptor(seriesId: string, seasonNumber: number, episodeNumber: number, descriptor: MediaDescriptor): void {
+  enrichEpisodesFromDescriptors(seriesId, new Map([[`${seasonNumber}-${episodeNumber}`, { descriptor, filePath: null }]]));
+}
+
+/**
+ * Several episodes of one series in ONE library write. The library walk used
+ * to write the whole series store once per enriched episode — each write of
+ * that store clones it on the main thread (fsJsonCache's write worker), so a
+ * pass over a freshly renamed anime froze the server for seconds per episode.
+ * `filePath`, when known, must still be the episode's file: a resync that
+ * renumbered the series meanwhile never gets another file's tracks.
+ */
+function enrichEpisodesFromDescriptors(seriesId: string, probed: Map<string, { descriptor: MediaDescriptor; filePath: string | null }>): void {
+  if (probed.size === 0) return;
   const series = getSeries(seriesId);
   if (!series) return;
 
-  const enriched = fileFieldsFromDescriptor(descriptor);
   let changed = false;
   const seasons = series.seasons.map((season) => {
-    if (season.seasonNumber !== seasonNumber) return season;
     const episodes = season.episodes.map((ep) => {
-      if (ep.episodeNumber !== episodeNumber || !ep.file) return ep;
+      const hit = ep.file ? probed.get(`${season.seasonNumber}-${ep.episodeNumber}`) : undefined;
+      if (!hit || !ep.file) return ep;
+      if (hit.filePath && (ep.file.diskPath ?? ep.file.path) !== hit.filePath) return ep;
+      const enriched = fileFieldsFromDescriptor(hit.descriptor);
+      const descriptor = hit.descriptor;
       const current = ep.file;
       const nextFile: LibraryFile = {
         ...current,
@@ -149,6 +164,13 @@ export async function probeAllLibrarySeries(
   let probed = 0;
   let skipped = 0;
   let failed = 0;
+  // Episodes come grouped by series: one library write per series walked.
+  let batchSeries: string | null = null;
+  let batch = new Map<string, { descriptor: MediaDescriptor; filePath: string | null }>();
+  const flushBatch = () => {
+    if (batchSeries) enrichEpisodesFromDescriptors(batchSeries, batch);
+    batch = new Map();
+  };
 
   for (let i = 0; i < episodeRefs.length; i++) {
     if (opts?.shouldCancel?.()) break;
@@ -158,6 +180,7 @@ export async function probeAllLibrarySeries(
     await yieldToEventLoop();
 
     const ref = episodeRefs[i];
+    if (ref.seriesId !== batchSeries) { flushBatch(); batchSeries = ref.seriesId; }
     const filePath = ref.file.diskPath ?? ref.file.path;
     if (!filePath) {
       skipped++;
@@ -168,7 +191,7 @@ export async function probeAllLibrarySeries(
       const descriptor = await getOrProbeMediaDescriptor(mediaId, filePath, opts?.force);
       if (descriptor) {
         probed++;
-        enrichEpisodeFromDescriptor(ref.seriesId, ref.seasonNumber, ref.episodeNumber, descriptor);
+        batch.set(`${ref.seasonNumber}-${ref.episodeNumber}`, { descriptor, filePath });
       } else {
         skipped++;
       }
@@ -177,6 +200,7 @@ export async function probeAllLibrarySeries(
       console.error(`[media-probe] échec pour l'épisode S${ref.seasonNumber}E${ref.episodeNumber} (${ref.seriesId}) : ${probeErrorSummary(err)}`);
     }
   }
+  flushBatch();
 
   onProgress?.(total, total);
   return { probed, skipped, failed, total, seriesCount: allSeries.length };

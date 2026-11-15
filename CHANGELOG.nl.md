@@ -1,3 +1,12 @@
+## v1.28.151 — 15 november 2026
+
+### Prestaties
+
+- Server bevroor met schokken van 1 tot 4 s tijdens achtergrondtaken: wanneer twee wijzigingen van de bibliotheek kort op elkaar volgden, werd het seriebestand (25 MB) volledig opnieuw gelezen en gedecodeerd in plaats van uit het geheugen te komen. De bibliotheek wordt nooit meer van schijf herlezen door haar eigen schrijfacties.
+- Bestandsanalyse (ffprobe): geen blokkerende schijflezingen meer op videobestanden, directe opzoeking in bestaande analyses, één bibliotheekschrijfactie per serie, en analyses worden in batches opgeslagen in plaats van een volledige herschrijving per bestand.
+- Anime-hersynchronisatie: een hernoemd of hernummerd bestand behoudt zijn ffprobe-analyse en wordt bij de volgende doorloop niet opnieuw geanalyseerd.
+- Diagnose: /api/perf toont nu de grootte van de structuren in het geheugen, elke 30 minuten gemeten, om te zien wat mettertijd groeit.
+
 ## v1.28.150 — 15 november 2026
 
 ### Bibliotheek

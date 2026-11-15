@@ -83,6 +83,16 @@ addSeries({
   ],
 } as never);
 
+// ffprobe analyses already known for the two files the resync will rename.
+const { getFfprobeVersion } = await import("../src/lib/playback/engine/mediaProbe.ts");
+const probeCache = await import("../src/lib/playback/engine/mediaProbeCache.ts");
+const ffprobeVersion = await getFfprobeVersion();
+fs.writeFileSync(path.join(config, "media-probe-cache.json"), JSON.stringify([5, 6].map((e) => {
+  const st = fs.statSync(file(1, e));
+  return { mediaId: `sr_e2e:s1e${e}`, path: file(1, e), size: st.size, mtimeMs: st.mtimeMs, probeVersion: 1, ffprobeVersion, updatedAt: 1,
+    descriptor: { mediaId: `sr_e2e:s1e${e}`, source: { type: "local" }, container: `probed-ep${e}`, video: {}, audioTracks: [], subtitleTracks: [] } };
+})));
+
 test("full resync without Plex: one structure, duplicate trashed, moved files renamed, order recorded for later", async () => {
   const result = await resyncAnimeSeasonsFromTvdb("sr_e2e");
   assert.equal(result.ok, true, JSON.stringify(result));
@@ -108,6 +118,11 @@ test("full resync without Plex: one structure, duplicate trashed, moved files re
   assert.equal(s2[1].plexRatingKey, "plex-1-5");
   assert.equal(s2[2].monitored, false);
   assert.equal(s2[1].title, "Mon titre 1x5");
+  // The analysis followed each renamed file: answered from the cache (these
+  // are not videos — a real ffprobe run would fail), under its new number.
+  assert.equal((await probeCache.getOrProbeMediaDescriptor("sr_e2e:s2e2", s2[1].file!.path, false, { priority: "background" }))?.container, "probed-ep5");
+  assert.equal((await probeCache.getOrProbeMediaDescriptor("sr_e2e:s2e3", s2[2].file!.path, false, { priority: "background" }))?.container, "probed-ep6");
+  assert.equal(probeCache.hasCachedMediaDescriptor("sr_e2e:s1e5"), false);
   assert.equal(s2[1].file!.addedAt, 7);
   assert.equal(s.seasons[1].name, "Arc Deux");
   assert.ok(fs.existsSync(path.join(config, "repair-snapshots", result.snapshot!)));

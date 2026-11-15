@@ -1,3 +1,12 @@
+## v1.28.151 — November 15, 2026
+
+### Performance
+
+- Server freezing in 1 to 4 s bursts during background tasks: when two library changes came close together, the series file (25 MB) was re-read and re-parsed in full instead of being served from memory. The library is never re-read from disk because of its own writes anymore.
+- File analysis (ffprobe): no blocking disk read on video files anymore, instant lookup of existing analyses, a single library write per series, and analyses are saved in batches instead of a full rewrite per file.
+- Anime resync: a renamed or renumbered file keeps its ffprobe analysis and is no longer re-analysed on the next pass.
+- Diagnostics: /api/perf now reports the size of the structures kept in memory, sampled every 30 minutes, to spot what grows over time.
+
 ## v1.28.150 — November 15, 2026
 
 ### Library

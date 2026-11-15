@@ -4,6 +4,7 @@ import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { aggregatePerf, recordPerf, perfLabel, getPerfEntries } from "@/lib/perf";
 import { getEventLoopHistory, getEventLoopLive } from "@/lib/eventLoopMonitor";
 import { getPlaybackTelemetry } from "@/lib/playbackTelemetry";
+import { getMemoryCensus } from "@/lib/memoryCensus";
 import { getBlockLog, getBlockTimeline, getActiveOps, getGcLog, getGcTotals } from "@/lib/blockProbe";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,8 @@ export async function GET(req: NextRequest) {
       externalMb: mb(mem.external),
       arrayBuffersMb: mb(mem.arrayBuffers),
       heapSpaces: v8.getHeapSpaceStatistics().map((s) => ({ name: s.space_name, usedMb: mb(s.space_used_size) })),
+      // Entry counts of the long-lived structures, now and every 30 min: what grows.
+      census: getMemoryCensus(),
     },
   });
 }

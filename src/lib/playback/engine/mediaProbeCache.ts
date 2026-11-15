@@ -50,8 +50,63 @@ function writeJson(file: string, data: unknown) {
 function loadAll(): CacheEntry[] {
   return readJson<CacheEntry[]>(FILE, []);
 }
-function saveAll(entries: CacheEntry[]) {
-  writeJson(FILE, entries);
+
+/**
+ * The cache holds one entry per file of the library (~40 000 on a real
+ * one). Two costs used to freeze the server while media-probe-library
+ * walked it, 1 to 4 s at a time:
+ *  - every lookup scanned the whole array (40 000 × 40 000 comparisons per
+ *    pass) → an index by mediaId, rebuilt only when the array itself is
+ *    replaced (read from disk, or a flush below);
+ *  - every newly probed file rewrote the whole cache, and handing ~50 MB to
+ *    the write worker clones it ON the main thread → new entries wait in an
+ *    in-memory overlay and reach the file at most every FLUSH_EVERY_MS.
+ * Losing the overlay to a hard kill only costs a re-probe of those files
+ * (this is a cache); a clean stop flushes it (instrumentation.ts).
+ */
+const FLUSH_EVERY_MS = 30_000;
+const gc = globalThis as typeof globalThis & {
+  __movvizProbeOverlay?: Map<string, CacheEntry | null>;
+  __movvizProbeIndex?: { source: CacheEntry[]; byId: Map<string, CacheEntry> };
+  __movvizProbeFlushTimer?: ReturnType<typeof setTimeout> | null;
+  __movvizProbeLastFlush?: number;
+};
+/** mediaId → entry not yet written (null: removed). */
+const overlay = (gc.__movvizProbeOverlay ??= new Map());
+
+function diskIndex(): Map<string, CacheEntry> {
+  const source = loadAll();
+  if (gc.__movvizProbeIndex?.source !== source) {
+    const byId = new Map<string, CacheEntry>();
+    for (const e of source) byId.set(e.mediaId, e);
+    gc.__movvizProbeIndex = { source, byId };
+  }
+  return gc.__movvizProbeIndex.byId;
+}
+
+function lookup(mediaId: string): CacheEntry | undefined {
+  if (overlay.has(mediaId)) return overlay.get(mediaId) ?? undefined;
+  return diskIndex().get(mediaId);
+}
+
+/** Writes the overlay into the file now (one clone, whatever its size). */
+export function flushMediaProbeCache(): void {
+  if (gc.__movvizProbeFlushTimer) { clearTimeout(gc.__movvizProbeFlushTimer); gc.__movvizProbeFlushTimer = null; }
+  if (overlay.size === 0) return;
+  const next = loadAll().filter((e) => !overlay.has(e.mediaId));
+  for (const e of overlay.values()) if (e) next.push(e);
+  overlay.clear();
+  gc.__movvizProbeLastFlush = Date.now();
+  writeJson(FILE, next);
+}
+
+function put(mediaId: string, entry: CacheEntry | null): void {
+  overlay.set(mediaId, entry);
+  if (gc.__movvizProbeFlushTimer) return;
+  const wait = Math.max(0, (gc.__movvizProbeLastFlush ?? 0) + FLUSH_EVERY_MS - Date.now());
+  const timer = setTimeout(() => { gc.__movvizProbeFlushTimer = null; flushMediaProbeCache(); }, wait);
+  timer.unref?.();
+  gc.__movvizProbeFlushTimer = timer;
 }
 
 /**
@@ -111,17 +166,18 @@ const ZERO_HEAD_BYTES = 4096;
 /** Un média valide ne commence jamais par 4 Ko de zéros (en-têtes EBML/MP4/AVI
  *  non nuls) : c'est un fichier pré-alloué, jamais rempli ou écrasé. Inutile de
  *  lancer ffprobe pour obtenir « EBML header parsing failed ». */
-function assertReadableHead(filePath: string): void {
-  let fd: number | null = null;
+async function assertReadableHead(filePath: string): Promise<void> {
+  // Never a synchronous read of a media file: on a NAS whose disks are busy
+  // (or waking up) it takes seconds, and the whole server waits with it.
+  const handle = await fs.promises.open(filePath, "r");
   try {
-    fd = fs.openSync(filePath, "r");
     const buf = Buffer.alloc(ZERO_HEAD_BYTES);
-    const n = fs.readSync(fd, buf, 0, ZERO_HEAD_BYTES, 0);
-    if (n > 0 && buf.subarray(0, n).every((b) => b === 0)) {
+    const { bytesRead } = await handle.read(buf, 0, ZERO_HEAD_BYTES, 0);
+    if (bytesRead > 0 && buf.subarray(0, bytesRead).every((b) => b === 0)) {
       throw new Error("début du fichier vide (téléchargement incomplet ou fichier corrompu)");
     }
   } finally {
-    if (fd !== null) try { fs.closeSync(fd); } catch { /* already closed */ }
+    await handle.close().catch(() => { /* already closed */ });
   }
 }
 
@@ -138,7 +194,7 @@ function cacheMatches(existing: CacheEntry | undefined, filePath: string, stat: 
 
 /** Cheap in-memory check (no disk stat): has this media ever been probed successfully? */
 export function hasCachedMediaDescriptor(mediaId: string): boolean {
-  return loadAll().some((e) => e.mediaId === mediaId);
+  return !!lookup(mediaId);
 }
 
 export async function getOrProbeMediaDescriptor(
@@ -150,13 +206,15 @@ export async function getOrProbeMediaDescriptor(
   const priority = opts?.priority ?? "foreground";
   let stat: fs.Stats;
   try {
-    stat = fs.statSync(filePath);
+    // Asynchronous for the same reason as assertReadableHead: the library
+    // pass asks this for every file, and a slow disk must not freeze requests.
+    stat = await fs.promises.stat(filePath);
   } catch {
     return null;
   }
 
   const ffprobeVersion = await getFfprobeVersion();
-  const existing = loadAll().find((e) => e.mediaId === mediaId);
+  const existing = lookup(mediaId);
   if (!force && cacheMatches(existing, filePath, stat, ffprobeVersion)) return existing.descriptor;
 
   if (priority === "background" && !force) {
@@ -178,14 +236,14 @@ export async function getOrProbeMediaDescriptor(
     // Re-check once a slot is ours: the file may have been probed while this task waited.
     let fresh: fs.Stats;
     try {
-      fresh = fs.statSync(filePath);
+      fresh = await fs.promises.stat(filePath);
     } catch {
       return null; // moved or deleted while queued
     }
-    const cached = loadAll().find((e) => e.mediaId === mediaId);
+    const cached = lookup(mediaId);
     if (!force && cacheMatches(cached, filePath, fresh, ffprobeVersion)) return cached.descriptor;
     try {
-      assertReadableHead(filePath);
+      await assertReadableHead(filePath);
       const descriptor = await probeMediaFile(mediaId, filePath);
       ensureFailedLoaded();
       if (failed.delete(mediaId)) persistFailed();
@@ -218,18 +276,38 @@ function saveEntry(mediaId: string, filePath: string, stat: fs.Stats, ffprobeVer
     descriptor,
     updatedAt: Date.now(),
   };
-  // Always merge into the latest cache, never a snapshot taken before the
-  // probe: other probes finish in between, and writing "old snapshot + my
-  // entry" used to silently drop their results. writeJsonCached updates its
-  // in-memory copy synchronously (fsJsonCache.ts), so this merge isn't racy.
-  saveAll([...loadAll().filter((e) => e.mediaId !== mediaId), next]);
+  // Merged into the latest cache at flush time, never into a snapshot taken
+  // before the probe: other probes finish in between (see put/flush above).
+  put(mediaId, next);
+}
+
+/**
+ * A file renamed and/or renumbered by Movviz itself (anime resync) keeps its
+ * analysis: same bytes, so the entry simply follows it to its new id and
+ * path. Without this, every renamed file looked "never probed" and the next
+ * library pass re-ran ffprobe on thousands of episodes at once. A rename
+ * keeps size and date; if they differ after all, the usual staleness check
+ * re-probes the file — nothing wrong can be served.
+ */
+export function carryMediaProbeEntries(moves: Array<{ fromId: string; fromPath: string; toId: string; toPath: string }>): number {
+  // Read every source first: ids are swapped within one batch (E09→E10, E10→E11).
+  const carried = moves.flatMap((m) => {
+    const entry = lookup(m.fromId);
+    return entry && entry.path === m.fromPath ? [{ m, entry }] : [];
+  });
+  const targets = new Set(carried.map((c) => c.m.toId));
+  for (const { m } of carried) if (!targets.has(m.fromId)) put(m.fromId, null);
+  for (const { m, entry } of carried) {
+    put(m.toId, { ...entry, mediaId: m.toId, path: m.toPath, descriptor: { ...entry.descriptor, mediaId: m.toId }, updatedAt: Date.now() });
+  }
+  return carried.length;
 }
 
 /** Explicit invalidation — e.g. after a file is replaced by a manual re-grab
  *  that happens to keep the exact same size+mtime (rare, but possible) and
  *  would otherwise slip past the automatic staleness check above. */
 export function invalidateMediaDescriptor(mediaId: string): void {
-  saveAll(loadAll().filter((e) => e.mediaId !== mediaId));
+  put(mediaId, null);
 }
 
 
