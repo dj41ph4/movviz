@@ -1,3 +1,10 @@
+## v1.28.149 — November 15, 2026
+
+### Library
+
+- Anime: the season 0 (specials) removed by the v1.28.147 resync while specials are switched off is put back automatically at start-up, exactly as it was, files included; a season-0 file is never left behind any more.
+- Resync: a file another library show owns and that carries another title is no longer attached to the show (Saint Seiya took the 39 files of The Lost Canvas for its own); the show's own files take their place again, without trashing anything.
+
 ## v1.28.148 — November 15, 2026
 
 ### Library

@@ -456,7 +456,9 @@ export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
   for (const f of extras) {
     const owner = oldEpisodes.find((o) => physical(o.file) === f.path || o.file?.path === f.path);
     const at = f.literal ?? (owner ? { seasonNumber: owner.seasonNumber, episodeNumber: owner.episodeNumber } : null);
-    if (!at || (at.seasonNumber === 0 && !includeSpecials)) continue;
+    // A file is never left behind, season 0 included (specials off only stops
+    // the catalogue from ADDING specials).
+    if (!at) continue;
     const list = seasonsOut.get(at.seasonNumber) ?? [];
     if (list.some((e) => e.episodeNumber === at.episodeNumber)) continue;
     list.push({

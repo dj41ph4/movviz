@@ -1,3 +1,10 @@
+## v1.28.149 — 15 november 2026
+
+### Bibliotheek
+
+- Anime: het seizoen 0 (specials) dat de synchronisatie van v1.28.147 verwijderde terwijl specials uitgeschakeld zijn, wordt bij het opstarten automatisch teruggezet, precies zoals het was, bestanden inbegrepen; een bestand van seizoen 0 blijft nooit meer achter.
+- Synchronisatie: een bestand dat bij een andere serie in de bibliotheek hoort en een andere titel draagt, wordt niet langer aan de serie gekoppeld (Saint Seiya hield de 39 bestanden van The Lost Canvas voor de eigen); de eigen bestanden van de serie nemen hun plaats weer in, zonder iets naar de prullenbak te sturen.
+
 ## v1.28.148 — 15 november 2026
 
 ### Bibliotheek

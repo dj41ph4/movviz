@@ -1,3 +1,10 @@
+## v1.28.149 — 15 novembre 2026
+
+### Bibliothèque
+
+- Animés : la saison 0 (épisodes spéciaux) retirée par la resynchronisation de la v1.28.147 quand les spéciaux sont désactivés est remise en place automatiquement au démarrage, telle qu'elle était, fichiers compris ; un fichier de saison 0 n'est plus jamais laissé de côté.
+- Resynchronisation : un fichier qu'une autre série de la bibliothèque possède et qui porte un autre titre n'est plus rattaché à la série (Saint Seiya prenait les 39 fichiers de The Lost Canvas pour les siens) ; ses propres fichiers reprennent leur place, sans rien mettre à la corbeille.
+
 ## v1.28.148 — 15 novembre 2026
 
 ### Bibliothèque

@@ -107,6 +107,13 @@ export async function register() {
         .catch(() => {});
     }, 3 * 60_000).unref?.();
 
+    // Réparation unique : saisons 0 retirées par la resynchronisation TVDB de la v1.28.147 (épisodes spéciaux désactivés).
+    setTimeout(() => {
+      void import("@/lib/library/restoreResyncSpecials")
+        .then(({ restoreResyncSpecialsOnce }) => restoreResyncSpecialsOnce())
+        .catch(() => {});
+    }, 2 * 60_000).unref?.();
+
     // Un épisode qui devient disponible (téléchargé, déposé dans le dossier, importé de Plex) fait recharger
     // aussitôt son titre et son synopsis depuis TMDb.
     const { registerEpisodeMetaListener } = await import("@/lib/library/episodeMeta");

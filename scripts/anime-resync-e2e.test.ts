@@ -24,8 +24,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   // Two more shows for the library-wide pass: 4 episodes, TMDb flat, TVDB 2 + 2.
-  const extra = [990002, 990003, 990004].find((id) => url.pathname.startsWith(`/3/tv/${id}`));
-  const extraTvdb = [880002, 880003, 880004].find((id) => url.pathname.includes(`/series/${id}`));
+  const extra = [990002, 990003, 990004, 990005].find((id) => url.pathname.startsWith(`/3/tv/${id}`));
+  const extraTvdb = [880002, 880003, 880004, 880005].find((id) => url.pathname.includes(`/series/${id}`));
   if (extra) {
     const eps = Array.from({ length: 4 }, (_, i) => ({ season_number: 1, episode_number: i + 1, name: `Old ${i + 1}`, air_date: day(100 + i), overview: "x" }));
     if (url.pathname.endsWith("/season/1")) return json({ name: "Saison 1", episodes: eps });
@@ -238,4 +238,23 @@ test("marks left on old TMDb numbers by an earlier resync are caught up, even wh
   const result = await resyncAnimeSeasonsFromTvdb("sr_watch");
   assert.equal(result.ok && result.unchanged, true, JSON.stringify(result));
   assert.ok(getWatchStatus("viewer")!.episodes.some((e) => e.tmdbId === 990004 && e.season === 2 && e.episode === 2));
+});
+
+test("Saint Seiya / Lost Canvas: another show's files wrongly shared are let go, this show's own files take their place", async () => {
+  const lc = (e: number) => path.join(media, "Spin Off", "Saison 1", `Spin Off - S01E0${e}.mkv`);
+  const own = (e: number) => path.join(media, "Main Show", "Saison 1", `Main Show - S01E0${e}.mkv`);
+  for (let e = 1; e <= 4; e++) { write(lc(e), `spin${e}`); write(own(e), `main${e}`); }
+  // The spin-off owns its files…
+  addSeries({ ...{ imdbId: null, year: 2009, releaseDate: null, overview: "", posterPath: null, backdropPath: null, rating: 0, genres: [], isAnime: true, tvStatus: "Ended", monitored: true, qualityProfileId: "default", addedAt: 1, plexRatingKey: null },
+    id: "sr_spin", tmdbId: 990099, title: "Spin Off", seasons: [{ seasonNumber: 1, name: "S1", monitored: true, episodes: [1, 2, 3, 4].map((e) => ep(1, e, lc(e))) }] } as never);
+  // …and the main show links them too (episodes 1–2), its own files 3–4.
+  addSeries({ id: "sr_main", tmdbId: 990005, imdbId: null, title: "Main Show", year: 2017, releaseDate: day(100), overview: "", posterPath: null, backdropPath: null, rating: 0, genres: ["Animation"], isAnime: true, tvStatus: "Ended", monitored: true, qualityProfileId: "default", addedAt: 1, plexRatingKey: null,
+    seasons: [{ seasonNumber: 1, name: "Saison 1", monitored: true, episodes: [1, 2, 3, 4].map((e) => ({ ...ep(1, e, e <= 2 ? lc(e) : own(e)), airDate: day(99 + e) })) }] } as never);
+  const result = await resyncAnimeSeasonsFromTvdb("sr_main");
+  assert.equal(result.ok, true, JSON.stringify(result));
+  const main = getSeries("sr_main")!;
+  const linked = main.seasons.flatMap((x) => x.episodes).map((e) => e.file && fs.readFileSync(e.file.path, "utf8"));
+  assert.deepEqual(linked, ["main1", "main2", "main3", "main4"], "only the main show's own files");
+  assert.ok(getSeries("sr_spin")!.seasons[0].episodes.every((e, i) => e.file!.path === lc(i + 1)), "spin-off untouched");
+  for (let e = 1; e <= 4; e++) assert.ok(fs.existsSync(lc(e)), "nothing trashed");
 });

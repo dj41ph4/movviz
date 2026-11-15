@@ -245,14 +245,20 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
     const physical = (f: LibraryFile | null | undefined) => f?.diskPath ?? f?.path ?? null;
     const files = new Map<string, ResyncFile>();
     const baseDirs = new Set<string>();
+    // A file another library series also links, named after another title,
+    // is that series' file wrongly shared (Saint Seiya 1986 linked the 39
+    // files of The Lost Canvas): it is not this series' and not scanned for.
+    const aliases = [series.originalTitle].filter((t): t is string => !!t);
+    const elsewhere = new Set(loadSeries().filter((o) => o.id !== seriesId).flatMap((o) => o.seasons.flatMap((s) => s.episodes.flatMap((e) => [e.file?.path, e.file?.diskPath].filter((x): x is string => !!x)))));
     for (const ep of oldFlat) {
       const p = physical(ep.file);
       if (!p) continue;
       const pp = pathFor(p);
+      const parsed = parseRelease(pp.basename(p));
+      if ((elsewhere.has(p) || (ep.file?.path && elsewhere.has(ep.file.path))) && parsed.title && !releaseTitleMatches(parsed.title, series.title, aliases)) continue;
       const dir = pp.dirname(p);
       baseDirs.add(SEASON_DIR.test(pp.basename(dir)) ? pp.dirname(dir) : dir);
       if (files.has(p)) continue;
-      const parsed = parseRelease(pp.basename(p));
       files.set(p, {
         path: p,
         literal: parsed.episode != null && parsed.season != null ? { seasonNumber: parsed.season, episodeNumber: parsed.episode } : null,
@@ -265,7 +271,7 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
         if (knownPaths.has(f.path) || files.has(f.path)) continue;
         // Two shows can share a folder (a franchise kept together on disk):
         // a file named after another title is never pulled into this one.
-        if (f.title && !releaseTitleMatches(f.title, series.title, [series.originalTitle].filter((t): t is string => !!t))) continue;
+        if (f.title && !releaseTitleMatches(f.title, series.title, aliases)) continue;
         const diskFile = diskLibraryFile(f.path);
         files.set(f.path, { path: f.path, literal: { seasonNumber: f.seasonNumber, episodeNumber: f.episodeNumber }, size: diskFile.size, diskFile });
       }
