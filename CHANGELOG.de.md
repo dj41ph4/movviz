@@ -4,6 +4,7 @@
 
 - Animes mit TVDB-Nummerierung: Die Titelseiten (Web, Android TV, Android Mobil und Samsung) zeigen jetzt die Staffeln und Folgen der Bibliothek — TVDB-Arc-Namen, die richtige Folgenzahl — statt der von TMDb; Vorschaubilder, Zusammenfassungen und Laufzeiten stammen von der TMDb-Folge, die am selben Tag lief, nie von einer anderen Folge mit derselben Nummer. Dieselbe Zuordnung gilt für die Vorschaubilder von „Weiterschauen“ und für gesehene Folgen, die aus Netflix, LifeHub oder über den Assistenten importiert werden.
 - Die manuelle Reparatur der TMDb-Staffeln bringt die Serie zur TMDb-Nummerierung zurück und stellt die Plex-Reihenfolge wieder um.
+- Neusynchronisierung bei deaktivierten Specials: Eine vorhandene Staffel 0 bleibt unverändert, statt entfernt zu werden.
 
 ## v1.28.147 — 15. November 2026
 

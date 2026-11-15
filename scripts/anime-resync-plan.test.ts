@@ -251,3 +251,13 @@ test("Chobits : a healthy TMDb library is never reshuffled because TMDb renumber
   assert.equal(plan.movedFiles, 0);
   assert.deepEqual(plan.seasons.map((s) => s.episodes.map((e) => e.file?.path)), old.map((s) => s.episodes.map((e) => e.file?.path)));
 });
+
+test("specials switched off: an existing season 0 is kept untouched, never deleted", () => {
+  const tmdb = catalog([12]);
+  const tvdb = catalog([6, 6]);
+  const special: LibraryEpisode = { ...ep(0, 1, null, null), title: "OVA" };
+  const old = [...seasonsFrom(tmdb.map((c) => ep(1, c.episodeNumber, c.airDate, null))), { seasonNumber: 0, name: "Spéciaux", monitored: false, episodes: [special] }];
+  const plan = run(old, tvdb, tmdb, [], false);
+  assert.equal(counts(plan), "0:1 1:6 2:6");
+  assert.equal(find(plan, 0, 1)!.title, "OVA");
+});

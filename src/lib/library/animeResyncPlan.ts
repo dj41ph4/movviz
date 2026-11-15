@@ -445,6 +445,11 @@ export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
   }
   if (blocked) return { ok: false, error: "combined_files" };
 
+  // Specials switched off means « never add a season 0 », not « delete the
+  // one the library already has »: it stays exactly as it was.
+  const oldSpecials = oldSeasons.find((x) => x.seasonNumber === 0);
+  if (!includeSpecials && oldSpecials && !seasonsOut.has(0)) seasonsOut.set(0, oldSpecials.episodes.map((e) => ({ ...e, seasonNumber: 0 })));
+
   // Files no catalogue entry fits are never unlinked: they stay visible as
   // extra episodes at the number their filename gives, when that slot is free.
   const extraPaths: string[] = [];
