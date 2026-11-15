@@ -261,3 +261,18 @@ test("specials switched off: an existing season 0 is kept untouched, never delet
   assert.equal(counts(plan), "0:1 1:6 2:6");
   assert.equal(find(plan, 0, 1)!.title, "OVA");
 });
+
+test("Saint Seiya: when TVDB's dates can't host every file, the show stays on TMDb's structure", () => {
+  // Same total (10) but TVDB packs it into 8 consecutive weeks and adds two
+  // episodes TMDb doesn't list, while TMDb's last two aired months later.
+  // TMDb skips weeks 4–5 (two episodes only TVDB lists, mid-run) and airs its last two months later.
+  const tmdb = [...catalog([8]).map((e) => ({ ...e, airDate: date(e.episodeNumber <= 4 ? e.episodeNumber - 1 : e.episodeNumber + 1) })), { seasonNumber: 1, episodeNumber: 9, title: "Poséidon 1", airDate: date(40) }, { seasonNumber: 1, episodeNumber: 10, title: "Poséidon 2", airDate: date(41) }];
+  const tvdb = [...catalog([4]), ...catalog([6], 4).map((e) => ({ ...e, seasonNumber: 2 }))];
+  const old = seasonsFrom(tmdb.map((c) => ep(1, c.episodeNumber, c.airDate, pathOf(1, c.episodeNumber))));
+  const plan = run(old, tvdb, tmdb);
+  assert.equal(plan.source, "tmdb");
+  assert.deepEqual(plan.extras, []);
+  assert.equal(counts(plan), "1:10");
+  noDuplicateFiles(plan);
+  assert.ok(plan.seasons[0].episodes.every((e) => e.file));
+});

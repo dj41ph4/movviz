@@ -1,3 +1,9 @@
+## v1.28.150 — 15 novembre 2026
+
+### Libreria
+
+- Risincronizzazione degli anime: la numerazione TVDB viene scelta solo se può accogliere tutti i file. Quando TVDB e TMDb si contraddicono su una serie (Saint Seiya: TVDB concentra 41 episodi nel 1988 mentre TMDb li distribuisce fino ad aprile 1989, e 11 episodi dell'arco di Poseidone restavano fuori catalogo), la serie mantiene o ritrova la numerazione TMDb, i suoi file vengono rinominati di conseguenza e Plex torna all'ordine TMDb.
+
 ## v1.28.149 — 15 novembre 2026
 
 ### Libreria

@@ -1,3 +1,9 @@
+## v1.28.150 — 15 november 2026
+
+### Bibliotheek
+
+- Anime-synchronisatie: de TVDB-nummering wordt alleen gekozen als die alle bestanden kan plaatsen. Spreken TVDB en TMDb elkaar tegen over een serie (Saint Seiya: TVDB propt 41 afleveringen in 1988 terwijl TMDb ze tot april 1989 spreidt, en 11 afleveringen van de Poseidon-arc bleven buiten de catalogus), dan houdt of krijgt de serie de TMDb-nummering terug, worden de bestanden overeenkomstig hernoemd en schakelt Plex terug naar de TMDb-volgorde.
+
 ## v1.28.149 — 15 november 2026
 
 ### Bibliotheek

@@ -1,3 +1,9 @@
+## v1.28.150 — November 15, 2026
+
+### Library
+
+- Anime resync: TVDB numbering is only chosen when it can hold every file. When TVDB and TMDb contradict each other on a show (Saint Seiya: TVDB packs 41 episodes into 1988 where TMDb spreads them until April 1989, and 11 Poseidon-arc episodes were left outside the catalogue), the show keeps or returns to TMDb numbering, its files are renamed accordingly and Plex switches back to TMDb order.
+
 ## v1.28.149 — November 15, 2026
 
 ### Library

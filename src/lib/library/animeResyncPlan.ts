@@ -199,7 +199,21 @@ function patchTitlesOnly(oldSeasons: LibrarySeason[], tvdb: CatalogEpisode[], tm
   return { ok: true, source: "tmdb", seasons, duplicates: [], extras: [], movedFiles: 0 };
 }
 
+/**
+ * TVDB is only chosen when its structure can hold the files. When TVDB and
+ * TMDb disagree on a show's episodes (Saint Seiya 1986: TVDB packs 41
+ * weekly episodes into 1988 that TMDb spreads until April 1989), files TVDB
+ * has no place for would be left as stray extras — then TMDb's structure,
+ * which places more of them, wins, and the show goes (back) to TMDb numbering.
+ */
 export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
+  const plan = planWithSource(input);
+  if (!plan.ok || plan.source !== "tvdb" || plan.extras.length === 0 || !input.tmdb?.length) return plan;
+  const alternative = planWithSource(input, "tmdb");
+  return alternative.ok && alternative.extras.length < plan.extras.length ? alternative : plan;
+}
+
+function planWithSource(input: ResyncPlanInput, forced?: "tmdb"): ResyncPlanResult {
   const { oldSeasons, tmdb, includeSpecials } = input;
   // TVDB files a whole franchise under one entry (Saint Seiya 1986 holds
   // Hades, The Lost Canvas, Omega… as seasons 4–12) where TMDb, and the
@@ -231,9 +245,9 @@ export function planAnimeResync(input: ResyncPlanInput): ResyncPlanResult {
   const tvdbKeys = new Set(real(tvdb).map((e) => keyOf(e.seasonNumber, e.episodeNumber)));
   const granular = tvdb.length > 0 && (tmdb == null || realSeasonCount(tvdb) > realSeasonCount(tmdb));
   const inTvdbLayout = tvdbKeys.size > 0 && oldReal.length > 0 && oldReal.every((e) => tvdbKeys.has(keyOf(e.seasonNumber, e.episodeNumber)));
-  const useTvdb = granular || inTvdbLayout;
+  const useTvdb = !forced && (granular || inTvdbLayout);
   if (!useTvdb && (tmdb == null || tmdb.length === 0)) return { ok: false, error: "no_catalog" };
-  if (!useTvdb && oldReal.length > 0 && oldReal.length <= Math.max(real(tmdb!).length, tvdbKeys.size)) {
+  if (!forced && !useTvdb && oldReal.length > 0 && oldReal.length <= Math.max(real(tmdb!).length, tvdbKeys.size)) {
     return patchTitlesOnly(oldSeasons, tvdb, tmdb!, input.files, input.isCjk);
   }
   const source = useTvdb ? "tvdb" : "tmdb";
