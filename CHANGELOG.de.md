@@ -5,6 +5,10 @@
 - Animes: Die Staffel 0 (Specials), die die Neusynchronisierung der v1.28.147 bei deaktivierten Specials entfernt hat, wird beim Start automatisch wiederhergestellt, genau wie sie war, Dateien inklusive; eine Datei der Staffel 0 wird nie mehr zurückgelassen.
 - Neusynchronisierung: Eine Datei, die einer anderen Serie der Bibliothek gehört und einen anderen Titel trägt, wird der Serie nicht mehr zugeordnet (Saint Seiya hielt die 39 Dateien von The Lost Canvas für die eigenen); die eigenen Dateien der Serie nehmen wieder ihren Platz ein, ohne dass etwas in den Papierkorb wandert.
 
+### Oberfläche
+
+- Serienseite auf dem Handy (375 px): Folgentitel werden vollständig auf zwei Zeilen angezeigt statt nach wenigen Buchstaben abgeschnitten, und die Schaltflächen einer Staffel passen ohne Überlauf in eine Zeile.
+
 ## v1.28.148 — 15. November 2026
 
 ### Bibliothek

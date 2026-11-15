@@ -274,7 +274,7 @@ function SeasonRow({
             {t(`status.${STATUS_LABEL[status]}`)}
           </span>
         </div>
-        <div className="flex items-center gap-3 pl-8 sm:contents sm:pl-0">
+        <div className="flex flex-wrap items-center gap-2 sm:contents">
           <span className="shrink-0 whitespace-nowrap rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-dim">
             {season.episodeCount} {t("title.episodes")}
           </span>
@@ -375,7 +375,7 @@ function SeasonRow({
                         )}
                         <div className="min-w-0 flex-1 py-0.5">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{ep.title ?? `${t("title.episode")} ${epNumber - (season.episodeOffset ?? 0)}`}</span>
+                            <span className="min-w-0 basis-full line-clamp-2 text-sm font-semibold text-ink sm:basis-auto sm:flex-1 sm:line-clamp-1">{ep.title ?? `${t("title.episode")} ${epNumber - (season.episodeOffset ?? 0)}`}</span>
                             {!readOnly && <button
                               onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWatched([{ season: season.seasonNumber, episode: epNumber }], !watched, epKey); }}
                               title={watched ? t("watch.markUnwatched") : t("watch.markWatched")}

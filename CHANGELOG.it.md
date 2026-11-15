@@ -5,6 +5,10 @@
 - Anime: la stagione 0 (speciali) rimossa dalla risincronizzazione della v1.28.147 con gli speciali disattivati viene ripristinata automaticamente all'avvio, esattamente com'era, file compresi; un file della stagione 0 non viene mai più lasciato indietro.
 - Risincronizzazione: un file che appartiene a un'altra serie della libreria e porta un altro titolo non viene più collegato alla serie (Saint Seiya prendeva per suoi i 39 file di The Lost Canvas); i file propri della serie riprendono il loro posto, senza mettere nulla nel cestino.
 
+### Interfaccia
+
+- Scheda della serie su telefono (375 px): i titoli degli episodi si vedono per intero su due righe invece di essere tagliati dopo poche lettere, e i pulsanti di una stagione stanno su una riga senza uscire dal bordo.
+
 ## v1.28.148 — 15 novembre 2026
 
 ### Libreria
