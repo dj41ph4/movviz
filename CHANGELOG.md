@@ -1,3 +1,11 @@
+## v1.28.155 — 16 novembre 2026
+
+### Plex
+
+- Ordre des épisodes : une série que Plex refusait de basculer ne bloque plus toutes les suivantes (78 séries restaient en attente) ; celles qui attendent depuis le plus longtemps passent en premier.
+- Chaque bascule d'ordre refusée par Plex est désormais expliquée dans le journal de diagnostic (série absente de Plex, ordre non proposé, écriture refusée…), une seule fois par série et par raison.
+- « Forcer TMDb » indique précisément ce que Plex a répondu pour la série, y compris quand Plex ne propose pas l'ordre TMDb.
+
 ## v1.28.154 — 16 novembre 2026
 
 ### Bibliothèque

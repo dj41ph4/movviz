@@ -1,3 +1,11 @@
+## v1.28.155 — November 16, 2026
+
+### Plex
+
+- Episode order: a show Plex refused to switch no longer blocks every show behind it (78 shows were left waiting); the ones waiting longest go first.
+- Every order switch Plex refuses is now explained in the diagnostic log (show missing from Plex, order not offered, write refused…), once per show and per reason.
+- “Force TMDb” states exactly what Plex answered for the show, including when Plex does not offer TMDb order.
+
 ## v1.28.154 — November 16, 2026
 
 ### Library

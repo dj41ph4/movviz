@@ -1,3 +1,11 @@
+## v1.28.155 — 16. November 2026
+
+### Plex
+
+- Episodenreihenfolge: Eine Serie, deren Umstellung Plex verweigerte, blockiert nicht mehr alle folgenden (78 Serien blieben in der Warteschlange); die am längsten wartenden kommen zuerst.
+- Jede von Plex verweigerte Umstellung der Reihenfolge wird jetzt im Diagnoseprotokoll erklärt (Serie fehlt in Plex, Reihenfolge nicht angeboten, Schreiben verweigert…), einmal pro Serie und Grund.
+- „TMDb erzwingen“ gibt genau an, was Plex für die Serie geantwortet hat, auch wenn Plex die TMDb-Reihenfolge nicht anbietet.
+
 ## v1.28.154 — 16. November 2026
 
 ### Bibliothek

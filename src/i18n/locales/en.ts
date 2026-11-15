@@ -891,6 +891,7 @@ export const en: Dictionary = {
     forceTmdbDone: "Show put back in TMDb numbering; no TVDB sync will apply to it anymore.",
     forceTmdbPlexApplied: "Plex now uses TMDb order.",
     forceTmdbPlexPending: "Plex will switch to TMDb order at its next sync.",
+    forceTmdbPlexUnsupported: "Plex does not offer TMDb order for this show: nothing to change on its side.",
     forceTmdbPending: "Choice saved: no TVDB sync anymore. The return to TMDb numbering will finish automatically as soon as possible.",
     forceTmdbPendingDownloads: "Choice saved: no TVDB sync anymore. The return to TMDb numbering will happen once the current downloads finish.",
     forceTmdbLifted: "TMDb is no longer forced: TVDB sync is possible again.",

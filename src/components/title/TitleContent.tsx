@@ -887,7 +887,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
         setResyncResult([
           t("library.forceTmdbDone"),
           data.renamedFiles > 0 ? t("library.resyncAnimeRenamed", { renamed: data.renamedFiles }) : null,
-          data.plexOrder === "applied" ? t("library.forceTmdbPlexApplied") : data.plexOrder === "pending" ? t("library.forceTmdbPlexPending") : null,
+          data.plexOrder === "applied" ? t("library.forceTmdbPlexApplied") : data.plexOrder === "pending" ? t("library.forceTmdbPlexPending") : data.plexOrder === "unsupported" ? t("library.forceTmdbPlexUnsupported") : null,
         ].filter(Boolean).join(" "));
       }
       await mutateLibrary();

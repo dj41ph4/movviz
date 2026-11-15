@@ -891,6 +891,7 @@ export const de: Dictionary = {
     forceTmdbDone: "Serie wieder in TMDb-Nummerierung; es wird keine TVDB-Synchronisierung mehr darauf angewendet.",
     forceTmdbPlexApplied: "Plex nutzt jetzt die TMDb-Reihenfolge.",
     forceTmdbPlexPending: "Plex wechselt bei der nächsten Synchronisierung zur TMDb-Reihenfolge.",
+    forceTmdbPlexUnsupported: "Plex bietet für diese Serie keine TMDb-Reihenfolge an: dort ist nichts zu ändern.",
     forceTmdbPending: "Auswahl gespeichert: keine TVDB-Synchronisierung mehr. Die Rückkehr zur TMDb-Nummerierung wird so bald wie möglich automatisch abgeschlossen.",
     forceTmdbPendingDownloads: "Auswahl gespeichert: keine TVDB-Synchronisierung mehr. Die Rückkehr zur TMDb-Nummerierung erfolgt, sobald die laufenden Downloads beendet sind.",
     forceTmdbLifted: "TMDb ist nicht mehr erzwungen: Die TVDB-Synchronisierung ist wieder möglich.",

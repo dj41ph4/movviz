@@ -21,6 +21,7 @@ import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix"
 import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
 import { isFfprobeEnabled } from "@/lib/settings/ffprobe";
 import { hasCachedMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { learnPathMapping, applyLearnedPathMapping, loadPathMappings, pruneContradictedMappings, type PathMapping } from "./pathMappingStore";
 import { yieldToUser, yieldToEventLoop } from "@/lib/priority/userActivity";
 import { runBackground } from "@/lib/priority/lane";
@@ -995,16 +996,39 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
  * unreachable server or a write that didn't stick stays pending for the next one.
  */
 const ORDERING_PER_SYNC = 20;
+/** When each series was last tried (memory only): the ones waiting longest go first. */
+const orderingAttempts: Map<string, number> = ((globalThis as { __movvizPlexOrderAttempts?: Map<string, number> }).__movvizPlexOrderAttempts ??= new Map());
+
+const orderingReasons: Map<string, string> = ((globalThis as { __movvizPlexOrderReasons?: Map<string, string> }).__movvizPlexOrderReasons ??= new Map());
+
 export async function applyPendingPlexOrdering(cfg: PlexServerConfig, token: string, limit = ORDERING_PER_SYNC): Promise<number> {
-  const pending = loadSeries().filter((s) => s.plexOrderPending && s.plexRatingKey && s.tmdbId !== BLEACH_TMDB_ID).slice(0, limit);
+  // Longest-waiting first: taking the same first 20 every time let 20 shows
+  // Plex kept refusing block every other one forever (78 stuck on 2026-11-15).
+  const pending = loadSeries()
+    .filter((s) => s.plexOrderPending && s.plexRatingKey && s.tmdbId !== BLEACH_TMDB_ID)
+    .sort((a, b) => (orderingAttempts.get(a.id) ?? 0) - (orderingAttempts.get(b.id) ?? 0))
+    .slice(0, limit);
   let applied = 0;
   for (const series of pending) {
     await yieldToUser("ordre des épisodes Plex");
-    const result = await setPlexEpisodeOrdering(cfg, series.plexRatingKey!, token, series.plexOrderPending!);
-    if (result === null) continue;
-    console.log(`[plexOrdering] ${series.title} : ordre ${series.plexOrderPending} → ${result}`);
+    orderingAttempts.set(series.id, Date.now());
+    let reason = "";
+    const result = await setPlexEpisodeOrdering(cfg, series.plexRatingKey!, token, series.plexOrderPending!, (r) => { reason = r; });
+    const wanted = series.plexOrderPending!;
+    // Every outcome that isn't a plain success is written where it can be
+    // read (Diagnostic → journal), with Plex's own reason.
+    // (Once per series and per reason — not at every 5-minute sync.)
+    if (result !== "applied" && result !== "already" && orderingReasons.get(series.id) !== reason) {
+      orderingReasons.set(series.id, reason);
+      recordSearchLog("info", "plex.ordering", `${series.title} : ordre ${wanted} non appliqué dans Plex — ${reason || "raison inconnue"}`);
+    }
+    // Plex no longer has the show under this key: the order stays wanted and
+    // is applied once a Plex sync has linked the show again.
+    if (result === null || result === "gone") continue;
+    console.log(`[plexOrdering] ${series.title} : ordre ${wanted} → ${result}`);
     if (result === "applied") applied++;
     updateSeries(series.id, { plexOrderPending: undefined });
+    orderingAttempts.delete(series.id);
   }
   return applied;
 }

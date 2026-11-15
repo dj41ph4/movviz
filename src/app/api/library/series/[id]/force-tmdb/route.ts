@@ -4,7 +4,7 @@ import { resyncAnimeSeasonsFromTvdb } from "@/lib/library/autoGrabSeries";
 import { getSeries, updateSeries } from "@/lib/library/store";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { plexConfigured, loadPlexConfig } from "@/lib/plex/store";
-import { applyPendingPlexOrdering } from "@/lib/plex/librarySync";
+import { setPlexEpisodeOrdering } from "@/lib/plex/client";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -39,15 +39,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // numbers): the daily passes finish it, always towards TMDb.
   if (!result.ok) return NextResponse.json({ ok: true, forced: true, pending: result.error });
 
-  let plexOrder: "applied" | "pending" | "none" = "none";
+  // This show only, now: what Plex really answered is what the page says.
+  let plexOrder: "applied" | "pending" | "unsupported" | "none" = "none";
   const after = getSeries(id);
   if (after?.plexOrderPending) {
     plexOrder = "pending";
-    if (plexConfigured()) {
-      const cfg = loadPlexConfig();
-      if (cfg.adminToken) {
-        await applyPendingPlexOrdering(cfg, cfg.adminToken, Number.MAX_SAFE_INTEGER).catch(() => 0);
-        if (!getSeries(id)?.plexOrderPending) plexOrder = "applied";
+    const cfg = plexConfigured() ? loadPlexConfig() : null;
+    if (cfg?.adminToken && after.plexRatingKey) {
+      const outcome = await setPlexEpisodeOrdering(cfg, after.plexRatingKey, cfg.adminToken, after.plexOrderPending).catch(() => null);
+      if (outcome === "applied" || outcome === "already" || outcome === "unsupported") {
+        updateSeries(id, { plexOrderPending: undefined });
+        plexOrder = outcome === "unsupported" ? "unsupported" : "applied";
       }
     }
   }

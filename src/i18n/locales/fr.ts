@@ -889,6 +889,7 @@ export const fr = {
     forceTmdbDone: "Série remise en numérotation TMDb ; plus aucune synchronisation TVDB ne s'y appliquera.",
     forceTmdbPlexApplied: "Plex est passé en ordre TMDb.",
     forceTmdbPlexPending: "Plex passera en ordre TMDb à sa prochaine synchronisation.",
+    forceTmdbPlexUnsupported: "Plex ne propose pas l'ordre TMDb pour cette série : rien à changer de son côté.",
     forceTmdbPending: "Choix enregistré : plus aucune synchronisation TVDB. La remise en numérotation TMDb se terminera automatiquement dès que possible.",
     forceTmdbPendingDownloads: "Choix enregistré : plus aucune synchronisation TVDB. La remise en numérotation TMDb se fera dès la fin des téléchargements en cours.",
     forceTmdbLifted: "TMDb n'est plus forcé : la synchronisation TVDB est de nouveau possible.",

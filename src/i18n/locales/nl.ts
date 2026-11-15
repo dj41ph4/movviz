@@ -891,6 +891,7 @@ export const nl: Dictionary = {
     forceTmdbDone: "Serie teruggezet naar TMDb-nummering; er wordt geen TVDB-synchronisatie meer op toegepast.",
     forceTmdbPlexApplied: "Plex gebruikt nu de TMDb-volgorde.",
     forceTmdbPlexPending: "Plex schakelt bij de volgende synchronisatie over op de TMDb-volgorde.",
+    forceTmdbPlexUnsupported: "Plex biedt geen TMDb-volgorde voor deze serie: daar hoeft niets te veranderen.",
     forceTmdbPending: "Keuze opgeslagen: geen TVDB-synchronisatie meer. De terugkeer naar TMDb-nummering wordt zo snel mogelijk automatisch afgerond.",
     forceTmdbPendingDownloads: "Keuze opgeslagen: geen TVDB-synchronisatie meer. De terugkeer naar TMDb-nummering gebeurt zodra de lopende downloads klaar zijn.",
     forceTmdbLifted: "TMDb is niet meer afgedwongen: TVDB-synchronisatie is weer mogelijk.",

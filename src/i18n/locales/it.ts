@@ -891,6 +891,7 @@ export const it: Dictionary = {
     forceTmdbDone: "Serie riportata alla numerazione TMDb; nessuna sincronizzazione TVDB verrà più applicata.",
     forceTmdbPlexApplied: "Plex usa ora l'ordine TMDb.",
     forceTmdbPlexPending: "Plex passerà all'ordine TMDb alla prossima sincronizzazione.",
+    forceTmdbPlexUnsupported: "Plex non propone l'ordine TMDb per questa serie: nulla da cambiare dal suo lato.",
     forceTmdbPending: "Scelta salvata: nessuna sincronizzazione TVDB. Il ritorno alla numerazione TMDb si completerà automaticamente appena possibile.",
     forceTmdbPendingDownloads: "Scelta salvata: nessuna sincronizzazione TVDB. Il ritorno alla numerazione TMDb avverrà al termine dei download in corso.",
     forceTmdbLifted: "TMDb non è più forzato: la sincronizzazione TVDB è di nuovo possibile.",

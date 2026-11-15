@@ -634,23 +634,30 @@ export function pickPlexOrdering(values: string[], wanted: "tvdb" | "tmdb"): str
  * legacy agent without the preference, or no matching value (nothing to do);
  * null = Plex unreachable or the write didn't stick (retry later).
  */
-export async function setPlexEpisodeOrdering(cfg: PlexServerConfig, showRatingKey: string, token: string, wanted: "tvdb" | "tmdb"): Promise<"applied" | "already" | "unsupported" | null> {
+export async function setPlexEpisodeOrdering(cfg: PlexServerConfig, showRatingKey: string, token: string, wanted: "tvdb" | "tmdb", why: (reason: string) => void = () => {}): Promise<"applied" | "already" | "unsupported" | "gone" | null> {
   try {
     const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}?includePreferences=1`, { headers: serverHeaders(cfg, token), cache: "no-store" });
-    if (!res.ok) return null;
+    // Plex answers 404 for an item it no longer has (the show was re-created
+    // under another key after its files were renamed): retrying that key
+    // can never work — the caller drops it and the next sync relinks.
+    if (res.status === 404) { why("série absente de Plex sous cette clé (404)"); return "gone"; }
+    if (!res.ok) { why(`lecture refusée (HTTP ${res.status})`); return null; }
     const show = (await res.json())?.MediaContainer?.Metadata?.[0];
-    if (!show) return null;
+    if (!show) { why("série absente de Plex sous cette clé (réponse vide)"); return "gone"; }
     const setting = (show.Preferences?.Setting ?? []).find((entry: { id: string }) => entry.id === "showOrdering");
     const value = pickPlexOrdering(plexOrderingValues(setting), wanted);
-    if (!value) return "unsupported";
+    if (!value) { why(`ordre ${wanted} non proposé par Plex pour cette série (valeurs : ${plexOrderingValues(setting).join(", ") || "aucune"})`); return "unsupported"; }
     const before = await getPlexEpisodeOrdering(cfg, showRatingKey, token);
     if (before?.order === value || (wanted === "tvdb" && before?.order && ["tvdbAiring", "aired"].includes(before.order))) return "already";
     const put = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}/prefs?showOrdering=${encodeURIComponent(value)}`, { method: "PUT", headers: serverHeaders(cfg, token), cache: "no-store" });
-    if (!put.ok) return null;
+    if (!put.ok) { why(`écriture refusée (HTTP ${put.status})`); return null; }
     await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}/refresh`, { method: "PUT", headers: serverHeaders(cfg, token), cache: "no-store" }).catch(() => null);
     const after = await getPlexEpisodeOrdering(cfg, showRatingKey, token);
-    return after?.order === value ? "applied" : null;
-  } catch {
+    if (after?.order === value) return "applied";
+    why(`écrit « ${value} », relu « ${after?.order ?? "rien"} » (avant : « ${before?.order ?? "rien"} »)`);
+    return null;
+  } catch (err) {
+    why(`Plex injoignable (${(err as Error).message})`);
     return null;
   }
 }

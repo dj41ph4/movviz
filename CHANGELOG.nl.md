@@ -1,3 +1,11 @@
+## v1.28.155 — 16 november 2026
+
+### Plex
+
+- Afleveringsvolgorde: een serie die Plex weigerde om te schakelen blokkeert niet langer alle volgende (78 series bleven wachten); de langst wachtende gaan eerst.
+- Elke door Plex geweigerde omschakeling wordt nu uitgelegd in het diagnoselogboek (serie ontbreekt in Plex, volgorde niet aangeboden, schrijven geweigerd…), één keer per serie en per reden.
+- “TMDb afdwingen” vermeldt precies wat Plex voor de serie antwoordde, ook wanneer Plex de TMDb-volgorde niet aanbiedt.
+
 ## v1.28.154 — 16 november 2026
 
 ### Bibliotheek

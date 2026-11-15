@@ -1,3 +1,11 @@
+## v1.28.155 — 16 novembre 2026
+
+### Plex
+
+- Ordine degli episodi: una serie che Plex rifiutava di cambiare non blocca più tutte le successive (78 serie restavano in attesa); quelle in attesa da più tempo passano per prime.
+- Ogni cambio d'ordine rifiutato da Plex è ora spiegato nel registro di diagnostica (serie assente da Plex, ordine non proposto, scrittura rifiutata…), una sola volta per serie e per motivo.
+- «Forza TMDb» indica con precisione cosa ha risposto Plex per la serie, anche quando Plex non propone l'ordine TMDb.
+
 ## v1.28.154 — 16 novembre 2026
 
 ### Libreria
