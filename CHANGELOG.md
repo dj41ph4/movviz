@@ -1,3 +1,9 @@
+## v1.28.159 — 16 novembre 2026
+
+### Diagnostic
+
+- Nouvel outil d'administration en lecture seule pour savoir où sont passés les fichiers d'une série : liens actuels, copies enregistrées avant chaque resynchronisation, dossiers sur le disque, corbeille, changements de statut des épisodes et contenu de la fiche Plex.
+
 ## v1.28.158 — 16 novembre 2026
 
 ### Bibliothèque

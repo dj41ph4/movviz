@@ -1,3 +1,9 @@
+## v1.28.159 — 16. November 2026
+
+### Diagnose
+
+- Neues schreibgeschütztes Admin-Werkzeug, um herauszufinden, wo die Dateien einer Serie geblieben sind: aktuelle Verknüpfungen, vor jeder Resynchronisierung gespeicherte Kopien, Ordner auf der Festplatte, Papierkorb, Statusänderungen der Episoden und Inhalt des Plex-Eintrags.
+
 ## v1.28.158 — 16. November 2026
 
 ### Bibliothek

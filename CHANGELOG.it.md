@@ -1,3 +1,9 @@
+## v1.28.159 — 16 novembre 2026
+
+### Diagnostica
+
+- Nuovo strumento di amministrazione in sola lettura per capire dove sono finiti i file di una serie: collegamenti attuali, copie salvate prima di ogni risincronizzazione, cartelle su disco, cestino, cambi di stato degli episodi e contenuto della scheda Plex.
+
 ## v1.28.158 — 16 novembre 2026
 
 ### Libreria

@@ -1,3 +1,9 @@
+## v1.28.159 — November 16, 2026
+
+### Diagnostics
+
+- New read-only admin tool to find where a show's files went: current links, copies saved before each resync, folders on disk, trash, episode status changes and the Plex show's content.
+
 ## v1.28.158 — November 16, 2026
 
 ### Library

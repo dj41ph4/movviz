@@ -1,3 +1,9 @@
+## v1.28.159 — 16 november 2026
+
+### Diagnose
+
+- Nieuw alleen-lezen beheerhulpmiddel om te achterhalen waar de bestanden van een serie zijn gebleven: huidige koppelingen, kopieën opgeslagen vóór elke hersynchronisatie, mappen op schijf, prullenbak, statuswijzigingen van afleveringen en de inhoud van het Plex-item.
+
 ## v1.28.158 — 16 november 2026
 
 ### Bibliotheek
