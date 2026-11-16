@@ -1,3 +1,13 @@
+## v1.28.156 — 16. November 2026
+
+### Plex
+
+- Episodenreihenfolge: Hat Plex eine Serie unter einem anderen Schlüssel neu angelegt (nach dem Umbenennen ihrer Dateien), findet Movviz sie über ihre Episoden wieder, aktualisiert den Schlüssel und wendet die gewünschte Reihenfolge an. 28 Serien hingen an einem Schlüssel, den Plex nicht mehr kannte.
+
+### Bibliothek
+
+- Anime-Resynchronisierung: Ein längst abgeschlossener Download, der noch an bereits verfügbaren Episoden hängt, gilt nicht mehr als laufender Download. Naruto Shippuden und Pokémon wurden bei jedem Durchlauf abgelehnt und blieben bei 500 Episoden stehen; nur echte laufende Downloads lassen die Resynchronisierung noch warten.
+
 ## v1.28.155 — 16. November 2026
 
 ### Plex

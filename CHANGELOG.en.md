@@ -1,3 +1,13 @@
+## v1.28.156 — November 16, 2026
+
+### Plex
+
+- Episode order: when Plex re-created a show under another key (after its files were renamed), Movviz finds it again through its episodes, updates its key and applies the requested order. 28 shows were stuck on a key Plex no longer knew.
+
+### Library
+
+- Anime resync: a download finished long ago, still attached to episodes that are already available, is no longer taken for a download in progress. Naruto Shippuden and Pokémon, refused at every pass, were stuck at 500 episodes; only real downloads in progress still make the resync wait.
+
 ## v1.28.155 — November 16, 2026
 
 ### Plex

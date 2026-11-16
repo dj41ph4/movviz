@@ -1,3 +1,13 @@
+## v1.28.156 — 16 novembre 2026
+
+### Plex
+
+- Ordine degli episodi: quando Plex ha ricreato una serie con un'altra chiave (dopo la rinomina dei suoi file), Movviz la ritrova tramite i suoi episodi, aggiorna la chiave e applica l'ordine richiesto. 28 serie restavano bloccate su una chiave che Plex non conosceva più.
+
+### Libreria
+
+- Risincronizzazione degli anime: un download terminato da tempo, ancora collegato a episodi già disponibili, non viene più scambiato per un download in corso. Naruto Shippuden e Pokémon, rifiutati a ogni passaggio, restavano bloccati a 500 episodi; solo i veri download in corso fanno ancora attendere la risincronizzazione.
+
 ## v1.28.155 — 16 novembre 2026
 
 ### Plex

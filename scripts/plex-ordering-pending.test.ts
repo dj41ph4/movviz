@@ -10,7 +10,7 @@ process.env.MOVVIZ_DATA_DIR = config;
 
 // A fake Plex: show 100 no longer exists (re-created under another key after
 // a rename), show 200 accepts the order, show 300 lists no TMDb order.
-const order = new Map<string, string>([["200", "tvdbAiring"], ["300", "aired"]]);
+const order = new Map<string, string>([["200", "tvdbAiring"], ["300", "aired"], ["110", "tvdbAiring"]]);
 const calls: string[] = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -20,6 +20,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (!m) return json({}, 404);
   const [, key, action] = m;
   calls.push(`${init?.method ?? "GET"} ${key}${action ?? ""}`);
+  // Episode 150 belongs to show 110 — the key Plex gave « Série 100 » when it re-created it.
+  if (key === "150" && !action) return json({ MediaContainer: { Metadata: [{ type: "episode", ratingKey: "150", grandparentRatingKey: "110" }] } });
   if (!order.has(key)) return json({}, 404);
   if (action === "/prefs") { order.set(key, url.searchParams.get("showOrdering")!); return json({}); }
   if (action === "/refresh") return json({});
@@ -66,4 +68,18 @@ test("the same refusal is logged once, not at every sync", async () => {
   await applyPendingPlexOrdering(cfg, "t", 5);
   assert.equal(getSearchLog().filter((l) => l.step === "plex.ordering").length, before);
   assert.ok(calls.filter((c) => c === "GET 100").length >= 3, "it is still retried at each pass");
+});
+
+test("a show Plex re-created under a new key is found again through its episodes, and its order is applied", async () => {
+  const { updateSeries } = await import("../src/lib/library/store.ts");
+  // « Série 100 » still wants TMDb order; one of its episodes is linked to Plex item 150.
+  updateSeries("sr_gone", { seasons: [{ seasonNumber: 1, name: "Saison 1", monitored: true, episodes: [
+    { seasonNumber: 1, episodeNumber: 1, title: "x", airDate: null, monitored: true, status: "available", file: null, activeInfoHash: null, plexRatingKey: "999" },
+    { seasonNumber: 1, episodeNumber: 2, title: "y", airDate: null, monitored: true, status: "available", file: null, activeInfoHash: null, plexRatingKey: "150" },
+  ] }] } as never);
+  assert.equal(await applyPendingPlexOrdering(cfg, "t", 5), 1);
+  const series = getSeries("sr_gone")!;
+  assert.equal(series.plexRatingKey, "110", "the stored show key now is the one Plex uses");
+  assert.equal(series.plexOrderPending, undefined);
+  assert.equal(order.get("110"), "tmdbAiring");
 });

@@ -18,6 +18,8 @@ const day = (n: number) => new Date(Date.UTC(2015, 6, 5) + n * 7 * 86_400_000).t
 const tmdbEpisodes: Array<Record<string, unknown>> = Array.from({ length: 6 }, (_, i) => ({ season_number: 1, episode_number: i + 1, name: `Épisode TMDb ${i + 1}`, air_date: day(i), overview: `Résumé TMDb ${i + 1}`, still_path: `/still${i + 1}.jpg` }));
 const tvdbEpisodes = Array.from({ length: 6 }, (_, i) => ({ seasonNumber: i < 3 ? 1 : 2, number: (i % 3) + 1, name: `Titre TVDB ${i + 1}`, aired: day(i) }));
 let tvdbDown = false;
+// The download engine, off by default (unreachable, like every other host here).
+let engineTorrents: Array<Record<string, unknown>> | null = null;
 
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -48,6 +50,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     if (url.pathname.startsWith("/v4/seasons/")) return json({ data: { name: url.pathname.includes("/1/") ? "Arc Un" : "Arc Deux" } });
     return json({}, 404);
   }
+  if (url.pathname === "/torrents" && engineTorrents) return json({ torrents: engineTorrents });
   // Anything else — Plex included — is unreachable in this test.
   throw new Error(`offline: ${url.href}`);
 }) as typeof fetch;
@@ -365,4 +368,44 @@ test("« Forcer TMDb » while a download is running: the choice holds, a later p
   assert.equal(later.ok && later.source, "tmdb", JSON.stringify(later));
   assert.deepEqual(getSeries("sr_old")!.seasons.map((x) => `${x.seasonNumber}:${x.episodes.length}`), ["1:4"]);
   assert.equal(getSeries("sr_old")!.episodeOrder, undefined);
+});
+
+test("a finished torrent still referenced by available episodes is not a download in progress (Naruto Shippuden / Pokémon were shut out of every resync)", async () => {
+  const { updateSeries } = await import("../src/lib/library/store.ts");
+  const { episodeHasLiveDownload, torrentIsSettled } = await import("../src/lib/library/autoGrabSeries.ts");
+  const now = Date.now();
+  // What "over" means, torrent by torrent.
+  assert.equal(torrentIsSettled(undefined, now), true, "the engine no longer has it");
+  assert.equal(torrentIsSettled({ state: "seeding", progress: 1, completedAt: now - 3_600_000 }, now), true);
+  assert.equal(torrentIsSettled({ state: "seeding", progress: 1, completedAt: now - 60_000 }, now), false, "just finished: its import may still be running");
+  assert.equal(torrentIsSettled({ state: "downloading", progress: 0.4, completedAt: null }, now), false);
+  assert.equal(torrentIsSettled({ state: "seeding", progress: 1, completedAt: null }, now), false, "no completion date: not trusted");
+  assert.equal(torrentIsSettled({ state: "paused", progress: 1, completedAt: now - 3_600_000 }, now), false);
+  assert.equal(torrentIsSettled({ state: "completed", progress: 1, completedAt: null, imported: true }, now), true);
+  // And episode by episode.
+  const base = getSeries("sr_old")!.seasons[0].episodes[0];
+  const settled = new Set(["aaa"]);
+  assert.equal(episodeHasLiveDownload({ ...base, activeInfoHash: "AAA" }, settled), false, "available, has its file, torrent over");
+  assert.equal(episodeHasLiveDownload({ ...base, activeInfoHash: "bbb" }, settled), true, "another torrent, not known to be over");
+  assert.equal(episodeHasLiveDownload({ ...base, status: "downloading", activeInfoHash: "aaa" }, settled), true);
+  assert.equal(episodeHasLiveDownload({ ...base, status: "missing", file: null, activeInfoHash: "aaa" }, settled), true, "no file yet: still expected from that torrent");
+  assert.equal(episodeHasLiveDownload({ ...base, status: "searching", activeInfoHash: null }, settled), true);
+  assert.equal(episodeHasLiveDownload({ ...base, activeInfoHash: null }, settled), false);
+
+  // Whole flow: « Old Show » is in TMDb numbering with TMDb forced lifted… put it back to a plain state first.
+  updateSeries("sr_old", { forceTmdbOrder: undefined });
+  const tag = (hash: string | null) => updateSeries("sr_old", { seasons: getSeries("sr_old")!.seasons.map((x) => ({ ...x, episodes: x.episodes.map((e) => ({ ...e, activeInfoHash: hash })) })) });
+  tag("deadbeef");
+  // Engine unreachable: nobody can tell, so the hash still counts as a download.
+  engineTorrents = null;
+  assert.deepEqual(await resyncAnimeSeasonsFromTvdb("sr_old"), { ok: false, error: "active_downloads" });
+  // Engine up, torrent really downloading: still refused.
+  engineTorrents = [{ infoHash: "DEADBEEF", state: "downloading", progress: 0.5, completedAt: null }];
+  assert.deepEqual(await resyncAnimeSeasonsFromTvdb("sr_old"), { ok: false, error: "active_downloads" });
+  // Engine up and it no longer has that torrent: the resync goes through.
+  engineTorrents = [];
+  const done = await resyncAnimeSeasonsFromTvdb("sr_old");
+  assert.equal(done.ok && done.source, "tvdb", JSON.stringify(done));
+  assert.deepEqual(getSeries("sr_old")!.seasons.map((x) => `${x.seasonNumber}:${x.episodes.length}`), ["1:2", "2:2"]);
+  engineTorrents = null;
 });

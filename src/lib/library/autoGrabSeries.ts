@@ -204,6 +204,51 @@ const RESYNC_SNAPSHOT_DIR = path.join(
  * copies are not tagged with different languages; any doubt keeps the file.
  * The whole previous record is snapshotted before anything is written.
  */
+/**
+ * A resync rewrites every episode and drops its torrent link, so it must not
+ * run while a download is in flight. But an episode that is available, has
+ * its file, and still carries the hash of a torrent that is OVER is not a
+ * download in progress: taken for one, it kept Naruto Shippuden and Pokémon
+ * out of every resync for good (stuck at exactly 500 episodes — the old
+ * TVDB page limit — with an 18-episode torrent the engine no longer had).
+ */
+export function episodeHasLiveDownload(e: LibraryEpisode, settled: ReadonlySet<string>): boolean {
+  if (e.status === "downloading" || e.status === "searching") return true;
+  if (!e.activeInfoHash) return false;
+  return !(e.status === "available" && !!e.file && settled.has(e.activeInfoHash.toLowerCase()));
+}
+
+/** A finished transfer is only trusted once its import has had time to run. */
+const SETTLED_AFTER_MS = 30 * 60 * 1000;
+
+/** Engine's view of one torrent, reduced to "is this transfer over?". */
+export function torrentIsSettled(t: { state?: string; progress?: number; completedAt?: number | null; imported?: boolean } | undefined, now = Date.now()): boolean {
+  if (!t) return true; // the engine no longer has it: nothing can still arrive
+  if (t.imported) return true;
+  if (!(t.progress != null && t.progress >= 1) || !(t.state === "seeding" || t.state === "completed")) return false;
+  return t.completedAt != null && now - t.completedAt >= SETTLED_AFTER_MS;
+}
+
+/**
+ * Among `hashes`, the torrents that are over. Engine unreachable or
+ * answering nonsense → none: every hash then still counts as a download.
+ */
+async function settledTorrents(hashes: string[]): Promise<Set<string>> {
+  const wanted = new Set(hashes.map((h) => h.toLowerCase()));
+  if (wanted.size === 0) return new Set();
+  try {
+    const res = await fetch(`${ENGINE_BASE}/torrents`, { headers: engineHeaders(), signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS) });
+    if (!res.ok) return new Set();
+    const body = await res.json();
+    const list: Array<{ infoHash?: string; state?: string; progress?: number; completedAt?: number | null; imported?: boolean }> | null = Array.isArray(body) ? body : Array.isArray(body?.torrents) ? body.torrents : null;
+    if (!list) return new Set();
+    const byHash = new Map(list.filter((t) => typeof t.infoHash === "string").map((t) => [t.infoHash!.toLowerCase(), t]));
+    return new Set([...wanted].filter((h) => torrentIsSettled(byHash.get(h))));
+  } catch {
+    return new Set();
+  }
+}
+
 export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { background?: boolean; forceTmdb?: boolean } = {}): Promise<ResyncAnimeResult> {
   const initial = getSeries(seriesId);
   if (!initial) return { error: "not_found", ok: false };
@@ -244,11 +289,15 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
   if (!tmdb && tvdbEpisodes.length === 0) return { ok: false, error: "no_tvdb_match" };
   const tvdbSeasonNames = tvdbId && tvdbEpisodes.length > 0 ? await getTvdbSeasonNames(tvdbId) : new Map<number, string>();
 
+  // Torrents still referenced by episodes that already have their file:
+  // which of them are really over (asked once, outside the lock).
+  const settled = await settledTorrents(initial.seasons.flatMap((s) => s.episodes).filter((e) => e.activeInfoHash && e.status === "available" && e.file).map((e) => e.activeInfoHash!));
+
   return withKeyLock(`series:${seriesId}`, async (): Promise<ResyncAnimeResult> => {
     const series = getSeries(seriesId);
     if (!series) return { error: "not_found", ok: false };
     const oldFlat = series.seasons.flatMap((s) => s.episodes);
-    if (oldFlat.some((e) => e.status === "downloading" || e.status === "searching" || e.activeInfoHash)) {
+    if (oldFlat.some((e) => episodeHasLiveDownload(e, settled))) {
       return { error: "active_downloads", ok: false };
     }
 

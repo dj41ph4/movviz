@@ -3,7 +3,7 @@ import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { plexArrivalDate } from "./arrivalDate";
 import { loadPlexConfig, savePlexConfig } from "./store";
 import { loadSyncState, saveSyncState } from "./syncState";
-import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds, setPlexEpisodeOrdering } from "./client";
+import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds, setPlexEpisodeOrdering, getRawItemDetail } from "./client";
 import type { PlexServerConfig, PlexSection, PlexLibraryItem } from "./types";
 import {
   getMovieByTmdbId, addMovie, updateMovie, updateMovies, loadMovies,
@@ -999,6 +999,18 @@ const ORDERING_PER_SYNC = 20;
 /** When each series was last tried (memory only): the ones waiting longest go first. */
 const orderingAttempts: Map<string, number> = ((globalThis as { __movvizPlexOrderAttempts?: Map<string, number> }).__movvizPlexOrderAttempts ??= new Map());
 
+/** The show a series' episodes belong to in Plex today (null: none of them is known to Plex). */
+async function currentPlexShowKey(cfg: PlexServerConfig, token: string, series: LibrarySeries): Promise<string | null> {
+  const episodeKeys = [...new Set(series.seasons.flatMap((s) => s.episodes.map((e) => e.plexRatingKey)).filter((k): k is string => !!k))];
+  // A few are enough: they all point to the same show, and a dead one just means "try the next".
+  for (const key of episodeKeys.slice(0, 5)) {
+    const item = await getRawItemDetail(cfg, key, token);
+    const show = item?.grandparentRatingKey;
+    if (show) return String(show);
+  }
+  return null;
+}
+
 const orderingReasons: Map<string, string> = ((globalThis as { __movvizPlexOrderReasons?: Map<string, string> }).__movvizPlexOrderReasons ??= new Map());
 
 export async function applyPendingPlexOrdering(cfg: PlexServerConfig, token: string, limit = ORDERING_PER_SYNC): Promise<number> {
@@ -1013,8 +1025,21 @@ export async function applyPendingPlexOrdering(cfg: PlexServerConfig, token: str
     await yieldToUser("ordre des épisodes Plex");
     orderingAttempts.set(series.id, Date.now());
     let reason = "";
-    const result = await setPlexEpisodeOrdering(cfg, series.plexRatingKey!, token, series.plexOrderPending!, (r) => { reason = r; });
     const wanted = series.plexOrderPending!;
+    let result = await setPlexEpisodeOrdering(cfg, series.plexRatingKey!, token, wanted, (r) => { reason = r; });
+    // Plex re-creates a show under a new key when its files are renamed, and
+    // nothing ever refreshed the key stored here (28 shows answered 404 on
+    // 2026-11-16). Its episodes are still linked file by file: any of them
+    // names the show it belongs to now.
+    if (result === "gone") {
+      const showKey = await currentPlexShowKey(cfg, token, series);
+      if (showKey && showKey !== series.plexRatingKey) {
+        updateSeries(series.id, { plexRatingKey: showKey });
+        console.log(`[plexOrdering] ${series.title} : clé Plex ${series.plexRatingKey} → ${showKey}`);
+        reason = "";
+        result = await setPlexEpisodeOrdering(cfg, showKey, token, wanted, (r) => { reason = r; });
+      }
+    }
     // Every outcome that isn't a plain success is written where it can be
     // read (Diagnostic → journal), with Plex's own reason.
     // (Once per series and per reason — not at every 5-minute sync.)

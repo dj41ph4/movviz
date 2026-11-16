@@ -1,3 +1,13 @@
+## v1.28.156 — 16 november 2026
+
+### Plex
+
+- Afleveringsvolgorde: wanneer Plex een serie onder een andere sleutel opnieuw heeft aangemaakt (na het hernoemen van de bestanden), vindt Movviz haar terug via haar afleveringen, werkt de sleutel bij en past de gevraagde volgorde toe. 28 series zaten vast op een sleutel die Plex niet meer kende.
+
+### Bibliotheek
+
+- Anime-hersynchronisatie: een download die al lang klaar is en nog aan reeds beschikbare afleveringen hangt, wordt niet meer als lopende download gezien. Naruto Shippuden en Pokémon werden bij elke doorloop geweigerd en bleven op 500 afleveringen steken; alleen echte lopende downloads laten de hersynchronisatie nog wachten.
+
 ## v1.28.155 — 16 november 2026
 
 ### Plex
