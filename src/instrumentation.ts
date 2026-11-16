@@ -110,6 +110,14 @@ export async function register() {
     // Recensement des structures en mémoire toutes les 30 min (lu dans /api/perf) : ce qui grossit.
     void import("@/lib/memoryCensus").then(({ startMemoryCensus }) => startMemoryCensus()).catch(() => {});
 
+    // Réparation unique : épisodes liés au fichier d'un autre épisode par un pack dont chaque fichier
+    // portait la plage du torrent (S01E10-E19). Aucun fichier n'est supprimé, seuls ces liens sont retirés.
+    setTimeout(() => {
+      void import("@/lib/library/repairSharedFileLinks")
+        .then(({ repairSharedFileLinksOnce }) => repairSharedFileLinksOnce())
+        .catch((err) => console.error("[repairSharedFileLinks]", err));
+    }, 30_000).unref?.();
+
     // Réparation unique : fichiers détachés de leur série par la resynchronisation automatique (nuit du 2026-11-16).
     // Très tôt (20 s) : avant que les recherches automatiques ne prennent ces épisodes pour des manquants.
     setTimeout(() => {

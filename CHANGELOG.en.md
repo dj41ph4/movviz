@@ -1,3 +1,11 @@
+## v1.28.160 — November 16, 2026
+
+### Library
+
+- Pack import: when a pack's files carry no episode number, the engine copied the range from the torrent name (“S01E10-E19”) onto each of them, and Movviz then linked the first file to every episode of the range. Those episodes looked available without being so and were never searched. Only the season is now taken from the torrent name, a file numbered exactly like the episode wins over a range, and a range carried by several files is ignored.
+- Automatic repair at start-up: episodes linked to another episode's file this way (51 across 5 shows) go back to “missing”. No file is deleted, only these wrong links are removed; the previous state is saved. Links made by Plex, real double episodes and files without a number are left alone.
+- Show file diagnostics: number of distinct files behind the linked episodes, to spot wrong links.
+
 ## v1.28.159 — November 16, 2026
 
 ### Diagnostics

@@ -74,7 +74,9 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       return {
         name, createdAt: json.createdAt ?? null, order: s?.episodeOrder ?? "tmdb",
         seasons: s?.seasons.length ?? 0, episodes: s?.seasons.reduce((n, x) => n + x.episodes.length, 0) ?? 0,
-        linked: paths.length, existOnDisk: exist, withPlexKey: s?.seasons.reduce((n, x) => n + x.episodes.filter((e) => e.plexRatingKey).length, 0) ?? 0,
+        linked: paths.length, existOnDisk: exist,
+        // Episodes linked vs distinct files behind them: the gap is links sharing one file.
+        distinctFiles: new Set(paths).size, distinctOnDisk: new Set(paths.filter((p) => fs.existsSync(p))).size, withPlexKey: s?.seasons.reduce((n, x) => n + x.episodes.filter((e) => e.plexRatingKey).length, 0) ?? 0,
         samplePaths: paths.slice(0, 2).concat(paths.slice(-2)),
         duplicates: (json.plan?.duplicates ?? []).length, extras: (json.plan?.extras ?? []).length, source: json.plan?.source ?? null,
       };
@@ -109,7 +111,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   }
 
   return NextResponse.json({
-    series: { id, title: series.title, monitored: series.monitored, order: series.episodeOrder ?? "tmdb", plexRatingKey: series.plexRatingKey ?? null, linkedNow: now.length, sampleNow: now.slice(0, 2) },
+    series: { id, title: series.title, monitored: series.monitored, order: series.episodeOrder ?? "tmdb", plexRatingKey: series.plexRatingKey ?? null, linkedNow: now.length, distinctNow: new Set(now).size, sampleNow: now.slice(0, 2) },
     disk: roots.slice(0, 6).map(diskInventory),
     snapshots,
     transitions: { total: transitions.length, byHour: byDay, last: transitions.slice(0, 5) },

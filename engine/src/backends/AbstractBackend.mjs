@@ -1175,7 +1175,16 @@ export class AbstractBackend {
         // matchedTarget ci-dessous mute `info` — l'objet partagé corromprait
         // tous les fichiers suivants (confirmé live : un pack Trigun entier
         // renommé 25× "S01E03" puis "S01E04").
-        const info = { ...(fileInfo.season != null || fileInfo.episode != null ? fileInfo : releaseInfo) };
+        const fromRelease = !(fileInfo.season != null || fileInfo.episode != null);
+        const info = { ...(fromRelease ? releaseInfo : fileInfo) };
+        // The release name describes the whole torrent: its episode (or range,
+        // « S01E10-E19 ») belongs to no single file of a multi-file pack.
+        // Stamped on each of them, every file claimed the whole range and the
+        // library linked the first one to all those episodes (Beavis and
+        // Butt-Head, The Beast, Close Enough… 2026-11-16). Only its season is
+        // kept; the episode comes from the matched target below, or stays
+        // unknown — an unplaced file is safer than a wrongly placed one.
+        if (fromRelease && targets.length > 1) { info.episode = null; info.episodeEnd = null; }
         if (m.title) info.title = m.title;
         if (m.year) info.year = String(m.year);
         const kaamelottEpisode = kaamelottLongEpisode(file.name);

@@ -141,6 +141,26 @@ function movedFileCoversEpisode(f: ImportedFile, episodeNumber: number): boolean
 }
 
 /**
+ * Several files of one import carrying the very same range (S01E10-E19 on
+ * each) did not each hold ten episodes: the range was the release's, copied
+ * onto every file. Kept, it linked the first file to every episode of the
+ * range. Such a range is dropped — each file then only stands for its first
+ * episode, and the duplicates claim nothing they cannot prove. A range only
+ * one file carries (a real double episode) is untouched.
+ */
+export function dropSharedRanges<T extends { season?: number | null; episode?: number | null; episodeEnd?: number | null }>(files: T[]): T[] {
+  const key = (f: T) => `${f.season ?? "?"}:${f.episode}-${f.episodeEnd}`;
+  const counts = new Map<string, number>();
+  for (const f of files) if (f.episodeEnd != null && f.episode != null) counts.set(key(f), (counts.get(key(f)) ?? 0) + 1);
+  return files.map((f) => (f.episodeEnd != null && (counts.get(key(f)) ?? 0) > 1 ? { ...f, episodeEnd: null } : f));
+}
+
+/** The file for an episode: one numbered exactly like it first, a range only as a fallback. */
+export function fileForEpisode<T extends ImportedFile>(files: T[], episodeNumber: number): T | undefined {
+  return files.find((f) => f.episode === episodeNumber) ?? files.find((f) => movedFileCoversEpisode(f, episodeNumber));
+}
+
+/**
  * Season-part normalization for SINGLE-SEASON series only (DVD-ordering
  * splits — e.g. Disjointed: a "S02" release covering S1E11-20, matched via
  * partPackInfo in matching.ts). A file parsed as season N ≥ 2 of a
@@ -825,7 +845,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
 
   // Season-part normalization (single-season series only) — see
   // normalizePartFiles. Every branch below works on the normalized list.
-  const normalizedFiles = normalizePartFiles(series, validateBleachImportedFiles(series, await dropSupersededPackFiles(files), infoHash));
+  const normalizedFiles = dropSharedRanges(normalizePartFiles(series, validateBleachImportedFiles(series, await dropSupersededPackFiles(files), infoHash)));
 
   // The association picked at grab time is normally authoritative, but it is
   // still client state: a stale modal or a manually selected S02 result from
@@ -868,12 +888,12 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // Remplacement des épisodes qui avaient déjà un fichier — voir
     // prepareEpisodeReplacements (suppression de l'ancien + retour au nom final).
     const renamedPaths = await prepareEpisodeReplacements(series, (seasonNumber, episodeNumber) =>
-      seasonNumber === ref.season ? seasonFiles.find((f) => movedFileCoversEpisode(f, episodeNumber)) ?? null : null);
+      seasonNumber === ref.season ? fileForEpisode(seasonFiles, episodeNumber) ?? null : null);
     const probedEpisodes: { season: number; episode: number; path: string }[] = [];
     const seasons = series.seasons.map((season) => {
       if (season.seasonNumber !== ref.season) return season;
       const episodes = season.episodes.map((ep) => {
-        const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
+        const match = fileForEpisode(seasonFiles, ep.episodeNumber);
         if (!match) return releaseIfOrphaned(ep, infoHash);
         const filePath = renamedPaths.get(match.path) ?? match.path;
         probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: filePath });
@@ -929,12 +949,12 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // across multiple seasons. Files without season/episode metadata are
     // skipped (they don't belong to any tracked episode).
     const renamedPaths = await prepareEpisodeReplacements(series, (seasonNumber, episodeNumber) =>
-      normalizedFiles.find((f) => f.season === seasonNumber && movedFileCoversEpisode(f, episodeNumber)) ?? null);
+      fileForEpisode(normalizedFiles.filter((f) => f.season === seasonNumber), episodeNumber) ?? null);
     const probedEpisodes: { season: number; episode: number; path: string }[] = [];
     const seasons = series.seasons.map((season) => {
       const seasonFiles = normalizedFiles.filter((f) => f.season === season.seasonNumber);
       const episodes = season.episodes.map((ep) => {
-        const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
+        const match = fileForEpisode(seasonFiles, ep.episodeNumber);
         if (!match) return releaseIfOrphaned(ep, infoHash);
         const filePath = renamedPaths.get(match.path) ?? match.path;
         probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: filePath });
@@ -1006,7 +1026,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   const renamedPaths = await prepareEpisodeReplacements(series, (seasonNumber, episodeNumber) => {
     if (seasonNumber !== ref.season) return null;
     if (singleFile) return episodeNumber === ref.episode ? singleFile : null;
-    return seasonFiles.find((f) => movedFileCoversEpisode(f, episodeNumber)) ?? null;
+    return fileForEpisode(seasonFiles, episodeNumber) ?? null;
   });
   const probedEpisodes: { season: number; episode: number; path: string }[] = [];
   const seasons = series.seasons.map((season) => {
@@ -1035,7 +1055,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
           },
         };
       }
-      const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
+      const match = fileForEpisode(seasonFiles, ep.episodeNumber);
       if (!match) return releaseIfOrphaned(ep, infoHash);
       const filePath = renamedPaths.get(match.path) ?? match.path;
       probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: filePath });

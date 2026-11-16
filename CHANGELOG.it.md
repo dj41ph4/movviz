@@ -1,3 +1,11 @@
+## v1.28.160 — 16 novembre 2026
+
+### Libreria
+
+- Importazione dei pack: quando i file di un pack non riportano il numero di episodio, il motore copiava l'intervallo dal nome del torrent («S01E10-E19») su ciascuno di essi, e Movviz collegava allora il primo file a tutti gli episodi dell'intervallo. Quegli episodi sembravano disponibili senza esserlo e non venivano mai cercati. Ora dal nome del torrent viene presa solo la stagione, un file numerato esattamente come l'episodio ha la precedenza su un intervallo, e un intervallo riportato da più file viene ignorato.
+- Riparazione automatica all'avvio: gli episodi collegati in questo modo al file di un altro episodio (51 su 5 serie) tornano «mancanti». Nessun file viene eliminato, vengono rimossi solo questi collegamenti errati; lo stato precedente viene salvato. I collegamenti creati da Plex, i veri episodi doppi e i file senza numero non vengono toccati.
+- Diagnostica dei file di una serie: numero di file distinti dietro gli episodi collegati, per individuare i collegamenti errati.
+
 ## v1.28.159 — 16 novembre 2026
 
 ### Diagnostica

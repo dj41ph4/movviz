@@ -1,3 +1,11 @@
+## v1.28.160 — 16. November 2026
+
+### Bibliothek
+
+- Pack-Import: Trugen die Dateien eines Packs keine Episodennummer, übernahm die Engine den Bereich aus dem Torrent-Namen („S01E10-E19“) für jede einzelne, und Movviz verknüpfte dann die erste Datei mit allen Episoden des Bereichs. Diese Episoden wirkten verfügbar, waren es aber nicht, und wurden nie gesucht. Aus dem Torrent-Namen wird jetzt nur noch die Staffel übernommen, eine genau wie die Episode nummerierte Datei hat Vorrang vor einem Bereich, und ein von mehreren Dateien getragener Bereich wird ignoriert.
+- Automatische Reparatur beim Start: So mit der Datei einer anderen Episode verknüpfte Episoden (51 in 5 Serien) gelten wieder als „fehlend“. Es wird keine Datei gelöscht, nur diese falschen Verknüpfungen werden entfernt; der vorherige Zustand wird gesichert. Von Plex erstellte Verknüpfungen, echte Doppelepisoden und Dateien ohne Nummer bleiben unberührt.
+- Dateidiagnose einer Serie: Anzahl unterschiedlicher Dateien hinter den verknüpften Episoden, um falsche Verknüpfungen zu erkennen.
+
 ## v1.28.159 — 16. November 2026
 
 ### Diagnose

@@ -1,3 +1,11 @@
+## v1.28.160 — 16 novembre 2026
+
+### Bibliothèque
+
+- Import des packs : quand les fichiers d'un pack ne portent pas de numéro d'épisode, le moteur reprenait la plage du nom du torrent (« S01E10-E19 ») pour chacun d'eux, et Movviz liait alors le premier fichier à tous les épisodes de la plage. Ces épisodes paraissaient disponibles sans l'être et n'étaient jamais recherchés. Seule la saison est désormais reprise du nom du torrent, un fichier numéroté exactement comme l'épisode passe avant une plage, et une plage portée par plusieurs fichiers est ignorée.
+- Réparation automatique au démarrage : les épisodes liés au fichier d'un autre épisode de cette façon (51 sur 5 séries) repassent en « manquant ». Aucun fichier n'est supprimé, seuls ces faux liens sont retirés ; l'état d'avant est sauvegardé. Les liens établis par Plex, les vrais doubles épisodes et les fichiers sans numéro ne sont pas touchés.
+- Diagnostic des fichiers d'une série : nombre de fichiers distincts derrière les épisodes liés, pour repérer les faux liens.
+
 ## v1.28.159 — 16 novembre 2026
 
 ### Diagnostic

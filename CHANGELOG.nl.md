@@ -1,3 +1,11 @@
+## v1.28.160 — 16 november 2026
+
+### Bibliotheek
+
+- Pack-import: als de bestanden van een pack geen afleveringsnummer droegen, nam de engine het bereik uit de torrentnaam (“S01E10-E19”) over voor elk ervan, en Movviz koppelde dan het eerste bestand aan alle afleveringen van het bereik. Die afleveringen leken beschikbaar zonder het te zijn en werden nooit gezocht. Uit de torrentnaam wordt nu alleen het seizoen overgenomen, een bestand dat precies als de aflevering is genummerd gaat vóór een bereik, en een bereik dat door meerdere bestanden wordt gedragen, wordt genegeerd.
+- Automatisch herstel bij het opstarten: afleveringen die zo aan het bestand van een andere aflevering waren gekoppeld (51 in 5 series) worden weer “ontbrekend”. Er wordt geen bestand verwijderd, alleen deze foute koppelingen worden weggehaald; de vorige toestand wordt bewaard. Koppelingen van Plex, echte dubbele afleveringen en bestanden zonder nummer blijven ongemoeid.
+- Bestandsdiagnose van een serie: aantal verschillende bestanden achter de gekoppelde afleveringen, om foute koppelingen te herkennen.
+
 ## v1.28.159 — 16 november 2026
 
 ### Diagnose
