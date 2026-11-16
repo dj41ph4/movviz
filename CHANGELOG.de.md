@@ -1,3 +1,10 @@
+## v1.28.157 — 16. November 2026
+
+### Geplante Aufgaben
+
+- Eine geplante Aufgabe, die nicht mehr zurückkehrt, hält nicht länger alle schweren Aufgaben hinter sich auf. Zwei hängengebliebene leichte Aufgaben ließen den Plex-Abgleich, den Festplattenscan und sieben weitere Aufgaben dauerhaft in der Warteschlange, bis der Server neu gestartet wurde; nach 10 Minuten ohne Lebenszeichen wartet die Warteschlange nicht mehr auf sie.
+- Diagnose: Wartet ein Vorgang länger als eine Minute auf die Sperre einer Serie oder eines Films, nennt das Protokoll, wer sie hält und seit wann.
+
 ## v1.28.156 — 16. November 2026
 
 ### Plex

@@ -84,6 +84,18 @@ const g = globalThis as typeof globalThis & { __movvizJobQueue?: QueueState };
 const state: QueueState = (g.__movvizJobQueue ??= { jobs: [], pending: new Map(), runningCount: 0 });
 const live: Set<string> = (state.live ??= new Set());
 const heavyLive: Set<string> = (state.heavyLive ??= new Set());
+/**
+ * Runners the watchdog declared stuck (10 min without a sign of life) but
+ * that have not really ended. They stay in `live` — nothing may relaunch
+ * them — yet they no longer reserve the scheduled lane: on 2026-11-16 two
+ * light tasks that never returned kept every heavy task (Plex reconcile,
+ * disk scan, …) queued « lane » for good, until the server was restarted.
+ */
+const stuckLive: Set<string> = ((state as { stuckLive?: Set<string> }).stuckLive ??= new Set());
+/** Is a scheduled, non-immediate job really occupying the background lane? */
+function scheduledLaneBusy(): boolean {
+  return [...live].some((id) => !stuckLive.has(id) && jobOptions.get(id)?.scheduled && !jobOptions.get(id)?.immediate);
+}
 const jobOptions: Map<string, EnqueueOptions> = (state.options ??= new Map());
 let backgroundRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -197,7 +209,7 @@ function rankOf(job: Job): number {
 function pickNextQueued(immediate = false): { job: Job; runner: Runner } | null {
   let best: Job | null = null;
   const heavyBusy = heavyLive.size > 0;
-  const scheduledBusy = [...live].some((id) => jobOptions.get(id)?.scheduled && !jobOptions.get(id)?.immediate);
+  const scheduledBusy = scheduledLaneBusy();
   for (const job of state.jobs) {
     if (job.status !== "queued") continue;
     const options = jobOptions.get(job.id);
@@ -254,6 +266,9 @@ function runJob(job: Job, runner: Runner) {
     job.error = `Délai dépassé (>${Math.round(JOB_TIMEOUT_MS / 60000)} min sans avancement) — la tâche est restée bloquée, libération de la file`;
     job.completedAt = Date.now();
     state.runningCount--;
+    // « Libération de la file » for real: the lane too, not only the slot.
+    stuckLive.add(job.id);
+    recordSearchLog("warn", "jobs.stuck", `« ${job.label} » n'a donné aucun signe de vie depuis ${Math.round(JOB_TIMEOUT_MS / 60000)} min : la file des tâches planifiées ne l'attend plus`);
     void dispatch();
   }, delayMs);
   timeoutTimer = heavy || immediate
@@ -269,6 +284,7 @@ function runJob(job: Job, runner: Runner) {
       // Vraie fin du runner (même après le délai de garde) : seulement ici
       // la place lourde se libère et la tâche peut être relancée.
       live.delete(job.id);
+      stuckLive.delete(job.id);
       unregisterJobProgress(job.id);
       heavyLive.delete(job.id);
       jobOptions.delete(job.id);
@@ -390,7 +406,7 @@ export type JobHold =
 export function getJobHolds(): Record<string, JobHold> {
   const holds: Record<string, JobHold> = {};
   const heavyBusy = heavyLive.size > 0;
-  const scheduledBusy = [...live].some((id) => jobOptions.get(id)?.scheduled && !jobOptions.get(id)?.immediate);
+  const scheduledBusy = scheduledLaneBusy();
   const runningHeavy = [...heavyLive].map((id) => state.jobs.find((j) => j.id === id)?.label).find(Boolean);
   const activity = describeBackgroundHold();
   for (const job of state.jobs) {

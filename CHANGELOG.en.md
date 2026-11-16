@@ -1,3 +1,10 @@
+## v1.28.157 — November 16, 2026
+
+### Scheduled tasks
+
+- A scheduled task that never returns no longer holds every heavy task behind it. Two light tasks left hanging kept the Plex reconcile, the disk scan and seven other tasks queued for good, until the server was restarted; after 10 minutes without a sign of life, the queue no longer waits for them.
+- Diagnostics: when an operation waits more than a minute for a show's or movie's lock, the log states which one holds it and since when.
+
 ## v1.28.156 — November 16, 2026
 
 ### Plex

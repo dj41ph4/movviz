@@ -1,3 +1,10 @@
+## v1.28.157 — 16 novembre 2026
+
+### Attività pianificate
+
+- Un'attività pianificata che non restituisce più il controllo non trattiene più tutte le attività pesanti dietro di sé. Due attività leggere rimaste bloccate lasciavano la riconciliazione Plex, la scansione del disco e altre sette attività in coda a tempo indeterminato, fino al riavvio del server; dopo 10 minuti senza segni di vita, la coda non le attende più.
+- Diagnostica: quando un'operazione attende più di un minuto il blocco di una serie o di un film, il registro indica chi lo detiene e da quando.
+
 ## v1.28.156 — 16 novembre 2026
 
 ### Plex

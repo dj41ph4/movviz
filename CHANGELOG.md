@@ -1,3 +1,10 @@
+## v1.28.157 — 16 novembre 2026
+
+### Tâches planifiées
+
+- Une tâche planifiée qui ne rend plus la main ne retient plus toutes les tâches lourdes derrière elle. Deux tâches légères restées figées laissaient la réconciliation Plex, l'analyse du disque et sept autres tâches en file d'attente indéfiniment, jusqu'au redémarrage du serveur ; passé 10 minutes sans signe de vie, la file ne les attend plus.
+- Diagnostic : quand une opération attend plus d'une minute le verrou d'une série ou d'un film, le journal indique laquelle le retient et depuis quand.
+
 ## v1.28.156 — 16 novembre 2026
 
 ### Plex

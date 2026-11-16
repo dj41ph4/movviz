@@ -1,3 +1,10 @@
+## v1.28.157 — 16 november 2026
+
+### Geplande taken
+
+- Een geplande taak die niet meer terugkeert, houdt niet langer alle zware taken achter zich tegen. Twee vastgelopen lichte taken lieten de Plex-afstemming, de schijfscan en zeven andere taken voorgoed in de wachtrij staan, tot de server opnieuw werd gestart; na 10 minuten zonder teken van leven wacht de wachtrij niet meer op ze.
+- Diagnose: wanneer een bewerking langer dan een minuut wacht op de vergrendeling van een serie of film, vermeldt het logboek wie die vasthoudt en sinds wanneer.
+
 ## v1.28.156 — 16 november 2026
 
 ### Plex
