@@ -184,7 +184,7 @@ function diskLibraryFile(filePath: string): LibraryFile {
 
 export type ResyncAnimeResult =
   | { ok: true; oldSeasonCount: number; newSeasonCount: number; source: "tvdb" | "tmdb"; movedFiles: number; duplicatesRemoved: number; duplicatesKept: number; renamedFiles: number; unchanged: boolean; snapshot: string | null }
-  | { ok: false; error: "not_found" | "no_tvdb_match" | "active_downloads" | "no_disk_seasons" | "bleach_repair_required" | "tmdb_unavailable" | "tvdb_unavailable" | "combined_files" | "needs_review" };
+  | { ok: false; error: "not_found" | "no_tvdb_match" | "active_downloads" | "no_disk_seasons" | "bleach_repair_required" | "tmdb_unavailable" | "tvdb_unavailable" | "combined_files" | "needs_review" | "files_would_be_lost" };
 
 const RESYNC_SNAPSHOT_DIR = path.join(
   process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"),
@@ -304,6 +304,8 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
     // ---- Every physical file: library links first, then the season folders ----
     const physical = (f: LibraryFile | null | undefined) => f?.diskPath ?? f?.path ?? null;
     const files = new Map<string, ResyncFile>();
+    /** Files left to the other series that also links them (never « lost »). */
+    const letGo = new Set<string>();
     const baseDirs = new Set<string>();
     // A file another library series also links, named after another title,
     // is that series' file wrongly shared (Saint Seiya 1986 linked the 39
@@ -315,7 +317,7 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
       if (!p) continue;
       const pp = pathFor(p);
       const parsed = parseRelease(pp.basename(p));
-      if ((elsewhere.has(p) || (ep.file?.path && elsewhere.has(ep.file.path))) && parsed.title && !releaseTitleMatches(parsed.title, series.title, aliases)) continue;
+      if ((elsewhere.has(p) || (ep.file?.path && elsewhere.has(ep.file.path))) && parsed.title && !releaseTitleMatches(parsed.title, series.title, aliases)) { letGo.add(p); continue; }
       const dir = pp.dirname(p);
       baseDirs.add(SEASON_DIR.test(pp.basename(dir)) ? pp.dirname(dir) : dir);
       if (files.has(p)) continue;
@@ -350,6 +352,22 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
       forceTmdb: !!series.forceTmdbOrder,
     });
     if (!plan.ok) return { ok: false, error: plan.error === "no_catalog" ? "no_tvdb_match" : plan.error };
+    // ---- Last line of defence: a resync never detaches a file ----
+    // Whatever the plan concluded, every file the series links must still be
+    // linked afterwards — or be a copy set aside as a duplicate, or a file
+    // left to the other series that owns it. Otherwise nothing is written
+    // (Naruto Shippuden lost 464 of its 482 links on 2026-11-16, its
+    // episodes turning « missing » and searchable again).
+    {
+      const kept = new Set(plan.seasons.flatMap((x) => x.episodes).flatMap((e) => [e.file?.path, e.file?.diskPath]).filter((p): p is string => !!p));
+      const setAside = new Set(plan.duplicates.map((d) => d.droppedPath));
+      const detached = [...new Set(oldFlat.map((e) => physical(e.file)).filter((p): p is string => !!p))]
+        .filter((p) => !kept.has(p) && !setAside.has(p) && !letGo.has(p));
+      if (detached.length > 0) {
+        recordSearchLog("warn", "library.resync_refused", `${series.title} : resynchronisation refusée — elle aurait détaché ${detached.length} fichier(s) de la série (ex. ${detached.slice(0, 3).map((p) => pathFor(p).basename(p)).join(", ")}) ; source ${plan.source}, ${series.seasons.length} → ${plan.seasons.length} saisons`);
+        return { ok: false, error: "files_would_be_lost" };
+      }
+    }
     // The daily pass applies everything on its own — new episodes, moved
     // files, renames, the Plex order — except discarding a file: a show
     // holding duplicate copies waits for a click, which alone trashes them

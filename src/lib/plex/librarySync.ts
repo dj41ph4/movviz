@@ -3,7 +3,7 @@ import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import { plexArrivalDate } from "./arrivalDate";
 import { loadPlexConfig, savePlexConfig } from "./store";
 import { loadSyncState, saveSyncState } from "./syncState";
-import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds, setPlexEpisodeOrdering, getRawItemDetail } from "./client";
+import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds, setPlexEpisodeOrdering, getRawItemDetail, getEpisodeIdentities } from "./client";
 import type { PlexServerConfig, PlexSection, PlexLibraryItem } from "./types";
 import {
   getMovieByTmdbId, addMovie, updateMovie, updateMovies, loadMovies,
@@ -925,6 +925,17 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
 
     if (changed || needsLanguageBackfill) {
       const probedEpisodes: { season: number; episode: number; path: string }[] = [];
+      // An episode this Plex show does not list is only detached when Plex
+      // no longer knows the item at all. One series can sit in Plex as two
+      // shows (a second one created for freshly renamed or re-downloaded
+      // files): syncing the small one used to wipe the file of every episode
+      // it didn't hold — Naruto Shippuden went from 482 linked files to 18 on
+      // 2026-11-16, its episodes turning « missing » and searchable again.
+      const stillInPlex = await plexItemsStillKnown(cfg, token, existing.seasons.flatMap((season) => season.episodes
+        .filter((ep) => !(ep.combinedFile && hasValidLocalFile(ep.file)) && ep.plexRatingKey && (ep.status === "available" || ep.file)
+          && (isRemoved(season.seasonNumber, ep.episodeNumber) ? false : !plexFor(season.seasonNumber, ep.episodeNumber)))
+        .map((ep) => ep.plexRatingKey!)));
+      let keptFromOtherShow = 0;
       const newSeasons = existing.seasons.map((season) => {
         const seasonStatuses = seasonEpisodeStatuses(season.episodes);
         return {
@@ -957,6 +968,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           }
           if (bleach && !bleach.complete) return ep;
           if (ep.status === "available" || ep.file || ep.plexRatingKey) {
+            if (ep.plexRatingKey && stillInPlex.has(ep.plexRatingKey)) { keptFromOtherShow++; return ep; }
             if (hasValidLocalFile(ep.file)) {
               return {
                 ...ep,
@@ -974,6 +986,9 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         }),
         };
       });
+      if (keptFromOtherShow > 0) {
+        recordSearchLog("info", "plex.sync_kept", `${existing.title} : ${keptFromOtherShow} épisode(s) absents de la fiche Plex « ${show.title} » (clé ${show.ratingKey}) mais toujours connus de Plex — liens conservés`);
+      }
       updateSeries(existing.id, { seasons: newSeasons, plexRatingKey: existing.plexRatingKey ?? show.ratingKey, ...bleachPlexKeysPatch(existing, bleach) });
       matched++;
       for (const pe of probedEpisodes) probeEpisodeInBackground(existing.id, pe.season, pe.episode, pe.path);
@@ -998,6 +1013,27 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
 const ORDERING_PER_SYNC = 20;
 /** When each series was last tried (memory only): the ones waiting longest go first. */
 const orderingAttempts: Map<string, number> = ((globalThis as { __movvizPlexOrderAttempts?: Map<string, number> }).__movvizPlexOrderAttempts ??= new Map());
+
+/**
+ * Among these Plex item keys, the ones Plex still has (asked in batches).
+ * Plex unreachable → every key counts as known: nothing is detached on the
+ * strength of an answer that never came.
+ */
+export async function plexItemsStillKnown(cfg: PlexServerConfig, token: string, ratingKeys: string[]): Promise<Set<string>> {
+  const keys = [...new Set(ratingKeys)];
+  if (keys.length === 0) return new Set();
+  try {
+    const known = await getEpisodeIdentities(cfg, token, keys);
+    // Not one of them answered: a failed call, not hundreds of deletions at once.
+    if (known.size === 0 && keys.length > 3) {
+      const probe = await getRawItemDetail(cfg, keys[0], token);
+      if (!probe && !(await getServerIdentity(cfg))) return new Set(keys);
+    }
+    return new Set(known.keys());
+  } catch {
+    return new Set(keys);
+  }
+}
 
 /** The show a series' episodes belong to in Plex today (null: none of them is known to Plex). */
 async function currentPlexShowKey(cfg: PlexServerConfig, token: string, series: LibrarySeries): Promise<string | null> {

@@ -110,6 +110,29 @@ export async function register() {
     // Recensement des structures en mémoire toutes les 30 min (lu dans /api/perf) : ce qui grossit.
     void import("@/lib/memoryCensus").then(({ startMemoryCensus }) => startMemoryCensus()).catch(() => {});
 
+    // Réparation unique : fichiers détachés de leur série par la resynchronisation automatique (nuit du 2026-11-16).
+    // Très tôt (20 s) : avant que les recherches automatiques ne prennent ces épisodes pour des manquants.
+    setTimeout(() => {
+      void (async () => {
+        const { restoreLostResyncFilesOnce, unlinkedSnapshotPlexKeys } = await import("@/lib/library/restoreLostResyncFiles");
+        // Files only Plex can reach: Plex itself says which episodes it still holds
+        // (strictly — an unreachable Plex confirms nothing, and nothing is restored on its word).
+        let plexKnown = new Set<string>();
+        try {
+          const keys = unlinkedSnapshotPlexKeys();
+          const { plexConfigured, loadPlexConfig } = await import("@/lib/plex/store");
+          if (keys.length > 0 && plexConfigured()) {
+            const cfg = loadPlexConfig();
+            if (cfg.adminToken) {
+              const { getEpisodeIdentities } = await import("@/lib/plex/client");
+              plexKnown = new Set((await getEpisodeIdentities(cfg, cfg.adminToken, keys)).keys());
+            }
+          }
+        } catch { /* Plex is optional: files readable on disk are still restored */ }
+        restoreLostResyncFilesOnce(plexKnown);
+      })().catch((err) => console.error("[restoreLostResyncFiles]", err));
+    }, 20_000).unref?.();
+
     // Réparation unique : saisons 0 retirées par la resynchronisation TVDB de la v1.28.147 (épisodes spéciaux désactivés).
     setTimeout(() => {
       void import("@/lib/library/restoreResyncSpecials")

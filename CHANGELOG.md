@@ -1,3 +1,11 @@
+## v1.28.158 — 16 novembre 2026
+
+### Bibliothèque
+
+- Synchronisation Plex : un épisode absent de la fiche Plex en cours de traitement n'est plus détaché de son fichier tant que Plex connaît toujours cet épisode. Une série présente dans Plex sous deux fiches (une seconde créée pour des fichiers renommés ou retéléchargés) perdait les fichiers de tous les épisodes que la petite fiche ne contenait pas : Naruto Shippuden était passé de 482 fichiers liés à 18, ses épisodes redevenant « manquants ».
+- Réparation automatique au démarrage : les fichiers ainsi détachés sont reliés à leur série d'après la copie enregistrée avant chaque resynchronisation — fichiers présents sur le disque, ou épisodes que Plex confirme toujours détenir. L'état remplacé est lui-même sauvegardé.
+- Resynchronisation des animés : dernier garde-fou — une resynchronisation qui détacherait un fichier de la série (hors doublon mis de côté ou fichier laissé à la série qui le possède) est refusée, sans rien modifier.
+
 ## v1.28.157 — 16 novembre 2026
 
 ### Tâches planifiées

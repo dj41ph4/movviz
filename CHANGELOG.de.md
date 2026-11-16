@@ -1,3 +1,11 @@
+## v1.28.158 — 16. November 2026
+
+### Bibliothek
+
+- Plex-Synchronisierung: Eine Episode, die in der gerade verarbeiteten Plex-Serie fehlt, wird nicht mehr von ihrer Datei gelöst, solange Plex diese Episode noch kennt. Eine Serie, die in Plex als zwei Einträge vorlag (ein zweiter für umbenannte oder erneut geladene Dateien), verlor die Dateien aller Episoden, die der kleine Eintrag nicht enthielt: Naruto Shippuden fiel von 482 verknüpften Dateien auf 18, die Episoden galten wieder als „fehlend“.
+- Automatische Reparatur beim Start: So gelöste Dateien werden anhand der vor jeder Resynchronisierung gespeicherten Kopie wieder mit ihrer Serie verknüpft — Dateien auf der Festplatte oder Episoden, die Plex nachweislich noch hält. Der ersetzte Zustand wird ebenfalls gesichert.
+- Anime-Resynchronisierung: letzte Sicherung — eine Resynchronisierung, die eine Datei von der Serie lösen würde (außer einem beiseitegelegten Duplikat oder einer Datei, die der Serie überlassen wird, der sie gehört), wird abgelehnt, ohne etwas zu ändern.
+
 ## v1.28.157 — 16. November 2026
 
 ### Geplante Aufgaben

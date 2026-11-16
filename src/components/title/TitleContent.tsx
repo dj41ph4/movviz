@@ -854,6 +854,8 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
         setResyncResult(t("library.resyncAnimeTvdbUnavailable"));
       } else if (data.error === "combined_files") {
         setResyncResult(t("library.resyncAnimeCombinedFiles"));
+      } else if (data.error === "files_would_be_lost") {
+        setResyncResult(t("library.resyncAnimeFilesWouldBeLost"));
       } else if (data.error === "no_disk_seasons") {
         setResyncResult(t("library.resyncAnimeNoDiskSeasons"));
       } else {

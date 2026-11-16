@@ -884,6 +884,7 @@ export const nl: Dictionary = {
     resyncAnimeTvdbUnavailable: "TVDB reageert nu niet; de synchronisatie is uitgesteld zodat er niets stukgaat.",
     resyncAnimeRenamed: "{renamed} bestand(en) hernoemd naar hun nieuwe nummer.",
     resyncAnimeRenameHint: "Sommige bestanden houden hun oude naam (naam al bezet of bestand onleesbaar): een bibliotheek-hernoeming neemt ze mee.",
+    resyncAnimeFilesWouldBeLost: "Hersynchronisatie geannuleerd: ze zou bestanden van de serie hebben losgekoppeld. Er is niets gewijzigd.",
     forceTmdb: "TMDb afdwingen",
     forceTmdbHint: "TMDb-nummering behouden voor deze serie: bestanden hernoemd, Plex op TMDb gezet, geen TVDB-synchronisatie meer.",
     forceTmdbOn: "TMDb afgedwongen",

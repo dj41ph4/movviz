@@ -1,3 +1,11 @@
+## v1.28.158 — 16 november 2026
+
+### Bibliotheek
+
+- Plex-synchronisatie: een aflevering die ontbreekt in de Plex-serie die wordt verwerkt, wordt niet meer losgekoppeld van haar bestand zolang Plex die aflevering nog kent. Een serie die in Plex als twee items bestond (een tweede voor hernoemde of opnieuw gedownloade bestanden) verloor de bestanden van alle afleveringen die het kleine item niet bevatte: Naruto Shippuden ging van 482 gekoppelde bestanden naar 18, met afleveringen die weer “ontbrekend” werden.
+- Automatisch herstel bij het opstarten: zo losgekoppelde bestanden worden weer aan hun serie gekoppeld op basis van de kopie die vóór elke hersynchronisatie is opgeslagen — bestanden op schijf, of afleveringen waarvan Plex bevestigt dat het ze nog heeft. De vervangen toestand wordt zelf ook bewaard.
+- Anime-hersynchronisatie: laatste vangnet — een hersynchronisatie die een bestand van de serie zou loskoppelen (behalve een opzijgezet duplicaat of een bestand dat aan de eigenaar-serie wordt gelaten) wordt geweigerd, zonder iets te wijzigen.
+
 ## v1.28.157 — 16 november 2026
 
 ### Geplande taken

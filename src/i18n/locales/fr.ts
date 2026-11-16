@@ -882,6 +882,7 @@ export const fr = {
     resyncAnimeTvdbUnavailable: "TVDB ne répond pas pour le moment, la resynchronisation est reportée pour ne rien casser.",
     resyncAnimeRenamed: "{renamed} fichier(s) renommé(s) d'après leur nouveau numéro.",
     resyncAnimeRenameHint: "Certains fichiers gardent leur ancien nom (nom déjà pris ou fichier illisible) : un Renommage de bibliothèque les reprendra.",
+    resyncAnimeFilesWouldBeLost: "Resynchronisation annulée : elle aurait détaché des fichiers de la série. Rien n'a été modifié.",
     forceTmdb: "Forcer TMDb",
     forceTmdbHint: "Garder la numérotation TMDb pour cette série : fichiers renommés, Plex basculé en TMDb, plus aucune synchronisation TVDB.",
     forceTmdbOn: "TMDb forcé",

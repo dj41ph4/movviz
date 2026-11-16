@@ -1,3 +1,11 @@
+## v1.28.158 — 16 novembre 2026
+
+### Libreria
+
+- Sincronizzazione Plex: un episodio assente dalla serie Plex in elaborazione non viene più scollegato dal suo file finché Plex conosce ancora quell'episodio. Una serie presente in Plex come due schede (una seconda creata per file rinominati o riscaricati) perdeva i file di tutti gli episodi che la scheda piccola non conteneva: Naruto Shippuden era passato da 482 file collegati a 18, con gli episodi di nuovo «mancanti».
+- Riparazione automatica all'avvio: i file scollegati in questo modo vengono ricollegati alla loro serie dalla copia salvata prima di ogni risincronizzazione — file presenti su disco, o episodi che Plex conferma di avere ancora. Anche lo stato sostituito viene salvato.
+- Risincronizzazione degli anime: ultima protezione — una risincronizzazione che scollegherebbe un file dalla serie (tranne un duplicato messo da parte o un file lasciato alla serie che lo possiede) viene rifiutata, senza modificare nulla.
+
 ## v1.28.157 — 16 novembre 2026
 
 ### Attività pianificate

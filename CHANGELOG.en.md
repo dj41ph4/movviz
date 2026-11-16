@@ -1,3 +1,11 @@
+## v1.28.158 — November 16, 2026
+
+### Library
+
+- Plex sync: an episode missing from the Plex show being processed is no longer detached from its file while Plex still knows that episode. A series present in Plex as two shows (a second one created for renamed or re-downloaded files) lost the files of every episode the small show did not hold: Naruto Shippuden went from 482 linked files to 18, its episodes turning “missing” again.
+- Automatic repair at start-up: files detached this way are linked back to their series from the copy saved before each resync — files present on disk, or episodes Plex confirms it still holds. The replaced state is itself saved.
+- Anime resync: last line of defence — a resync that would detach a file from the series (other than a duplicate set aside or a file left to the series that owns it) is refused, without changing anything.
+
 ## v1.28.157 — November 16, 2026
 
 ### Scheduled tasks

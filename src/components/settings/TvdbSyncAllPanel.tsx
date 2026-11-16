@@ -33,6 +33,7 @@ const REASON_KEYS: Record<string, string> = {
   combined_files: "library.resyncAnimeCombinedFiles",
   no_tvdb_match: "library.resyncAnimeNoMatch",
   no_disk_seasons: "library.resyncAnimeNoDiskSeasons",
+  files_would_be_lost: "library.resyncAnimeFilesWouldBeLost",
 };
 
 export function TvdbSyncAllPanel() {
