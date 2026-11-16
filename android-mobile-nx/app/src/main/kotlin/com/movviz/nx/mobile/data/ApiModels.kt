@@ -32,6 +32,8 @@ data class LibraryMovieDto(
     val vfReleaseDate: String? = null,
     val runtime: Int? = null,
     val addedAt: Long = 0L,
+    /** Arrivée du fichier (compact dashboard) : date d'entrée dans « Ajouts récents ». */
+    val latestAvailableAt: Long = 0L,
     // Identifiant de saga TMDb : présent dans le snapshot compact afin que
     // l'onglet Mon espace puisse ouvrir les films possédés d'une saga.
     val tmdbCollectionId: Int? = null,
@@ -74,6 +76,9 @@ data class LibrarySeriesDto(
     val genres: List<String> = emptyList(),
     val addedAt: Long = 0L,
     val latestAvailableAt: Long = 0L,
+    /** Premier épisode arrivé : date d'entrée dans « Ajouts récents ». Un nouvel
+     *  épisode ne la change pas (il va dans « Épisodes récemment ajoutés »). */
+    val firstAvailableAt: Long = 0L,
     val hasAvailableEpisode: Boolean = false,
     val customBackdropPath: String? = null,
     val customLogoPath: String? = null,
@@ -166,6 +171,7 @@ data class InterfaceMovieDto(
     val vfReleaseDate: String? = null,
     val runtime: Int? = null,
     val addedAt: Long? = null,
+    val latestAvailableAt: Long? = null,
     val customBackdropPath: String? = null,
     val customLogoPath: String? = null,
     val posterPath: String? = null,
@@ -191,6 +197,7 @@ data class InterfaceMovieDto(
             vfReleaseDate = vfReleaseDate,
             runtime = runtime,
             addedAt = addedAt ?: 0L,
+            latestAvailableAt = latestAvailableAt ?: 0L,
             customBackdropPath = customBackdropPath,
             customLogoPath = customLogoPath,
             posterPath = posterPath,
@@ -213,6 +220,7 @@ data class InterfaceSeriesDto(
     val title: String? = null,
     val year: Int? = null,
     val addedAt: Long? = null,
+    val firstAvailableAt: Long? = null,
     val hasAvailableEpisode: Boolean? = null,
     val customBackdropPath: String? = null,
     val customLogoPath: String? = null,
@@ -231,6 +239,7 @@ data class InterfaceSeriesDto(
             title = safeTitle,
             year = year,
             addedAt = addedAt ?: 0L,
+            firstAvailableAt = firstAvailableAt ?: 0L,
             hasAvailableEpisode = hasAvailableEpisode ?: false,
             customBackdropPath = customBackdropPath,
             customLogoPath = customLogoPath,
@@ -273,6 +282,8 @@ data class LibraryFileDto(
     val audioCodec: String? = null,
     val hdr: String? = null,
     val source: String? = null,
+    /** Arrivée du fichier (routes /api/library complètes seulement). */
+    val addedAt: Long = 0L,
 )
 
 @JsonClass(generateAdapter = true)

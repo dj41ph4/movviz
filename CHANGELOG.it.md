@@ -1,3 +1,10 @@
+## v1.28.161 — 16 novembre 2026
+
+### Home
+
+- «Aggiunti di recente» mostra ora solo i nuovi titoli: un film all'arrivo del suo file, una serie all'arrivo del suo primo episodio, anche se erano già in libreria come mancanti. Un nuovo episodio di una serie già presente non la fa più entrare né risalire in questa riga: compare solo in «Episodi aggiunti di recente». Star Academy compariva in entrambe le righe per un solo episodio arrivato.
+- Stessa regola ovunque: sito (home e righe delle pagine Film e Serie), Android TV — compresa la riga «Aggiunti di recente in Serie TV», che iniziava con le serie che avevano appena ricevuto un episodio —, Android mobile e Samsung.
+
 ## v1.28.160 — 16 novembre 2026
 
 ### Libreria

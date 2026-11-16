@@ -1,4 +1,5 @@
 import type { DashboardInterfaceData } from "./interfaceTypes";
+import { selectRecentlyAdded } from "./recentlyAdded";
 
 /** Same count as the "recently added" rows of the TV and mobile home screens. */
 const HEAD_COUNT = 20;
@@ -16,11 +17,7 @@ export function selectDashboardHomeHead(payload: DashboardInterfaceData): Dashbo
     .filter((movie) => movie.status === "available")
     .sort((a, b) => b.addedAt - a.addedAt)
     .slice(0, HEAD_COUNT);
-  const latest = (show: DashboardInterfaceData["series"][number]) => show.latestAvailableAt || show.addedAt;
-  const newest = new Set(payload.series
-    .filter((show) => show.hasAvailableEpisode)
-    .sort((a, b) => latest(b) - latest(a))
-    .slice(0, HEAD_COUNT));
+  const newest = new Set(selectRecentlyAdded([], payload.series, HEAD_COUNT).map(({ item }) => item));
   const withRecentEpisode = new Set(payload.recentEpisodes.map((episode) => episode.tmdbId));
   return {
     movies,

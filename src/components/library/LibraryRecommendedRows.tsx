@@ -11,6 +11,7 @@ import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import { RecentEpisodesRow } from "@/components/dashboard/RecentEpisodesRow";
+import { selectRecentlyAdded } from "@/lib/dashboard/recentlyAdded";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
 
 type MediaType = "movie" | "series";
@@ -54,7 +55,10 @@ export function LibraryRecommendedRows({ type }: { type: MediaType }) {
     .filter((item): item is LibraryItem => !!item)
     .slice(0, 20), [recommendations, byTmdbId]);
   const bestRated = useMemo(() => [...items].sort((a, b) => b.rating - a.rating).slice(0, 20), [items]);
-  const recentlyAdded = useMemo(() => [...items].sort((a, b) => (b.latestAvailableAt ?? b.addedAt) - (a.latestAvailableAt ?? a.addedAt)).slice(0, 20), [items]);
+  // Même règle que l'accueil : premier téléchargement, jamais le dernier épisode.
+  const recentlyAdded = useMemo<LibraryItem[]>(() => (type === "movie"
+    ? selectRecentlyAdded(items as DashboardLibraryMovie[], [])
+    : selectRecentlyAdded([], items as DashboardLibrarySeries[])).map(({ item }) => item), [items, type]);
   const leadingGenres = useMemo(() => {
     const counts = new Map<string, number>();
     items.forEach((item) => item.genres.forEach((genre) => counts.set(genre, (counts.get(genre) ?? 0) + 1)));

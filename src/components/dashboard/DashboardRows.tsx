@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { selectRecentlyAdded } from "@/lib/dashboard/recentlyAdded";
 import { PosterRow } from "@/components/media/PosterRow";
 import { DashboardPosterCard, type DashboardCardPlayback, type DashboardCardTechnical } from "./DashboardPosterCard";
 import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
@@ -210,20 +211,9 @@ export function DashboardRows({
   })();
 
   const recentlyAdded = useMemo(
-    () => {
-      const availableMovies: EditorialLibraryItem[] = movies
-        .filter((m) => m.status === "available")
-        .map((item) => ({ type: "movie", item }));
-      const availableSeries: EditorialLibraryItem[] = series
-        .filter((s) => s.hasAvailableEpisode)
-        .map((item) => ({ type: "series", item }));
-      const availableAt = (entry: EditorialLibraryItem) => entry.item.latestAvailableAt
-        ?? (entry.type === "movie" ? entry.item.file?.addedAt : undefined)
-        ?? entry.item.addedAt;
-      return [...availableMovies, ...availableSeries]
-        .sort((a, b) => availableAt(b) - availableAt(a))
-        .slice(0, 20);
-    },
+    // Séries : par leur premier épisode arrivé — un nouvel épisode va dans
+    // « Épisodes récemment ajoutés », pas ici (voir lib/dashboard/recentlyAdded).
+    (): EditorialLibraryItem[] => selectRecentlyAdded(movies, series),
     [movies, series]
   );
 

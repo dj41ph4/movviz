@@ -26,6 +26,7 @@ import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import { mergeNxDashboardLayout } from "@/lib/dashboard/homeLayout";
 import { recentEpisodePage } from "@/lib/library/recentEpisodes";
+import { seriesFirstAvailableAt } from "@/lib/dashboard/recentlyAdded";
 import { Compass } from "lucide-react";
 
 const SPLASH_SEEN_KEY = "movviz-splash-seen";
@@ -69,6 +70,7 @@ export default function DashboardPage() {
         addedAt: show.addedAt,
         latestAvailableAt: show.seasons.reduce((latest, season) => season.episodes.reduce((time, episode) =>
           episode.status === "available" && episode.file ? Math.max(time, episode.file.addedAt) : time, latest), 0),
+        firstAvailableAt: seriesFirstAvailableAt(show.seasons),
         hasAvailableEpisode: show.seasons.some((season) => season.episodes.some((episode) => episode.status === "available")),
         availableBySeason: Object.fromEntries(show.seasons.map((season) => [season.seasonNumber, season.episodes.filter((episode) => episode.status === "available" && episode.file).length])),
       }));

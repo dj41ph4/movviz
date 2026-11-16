@@ -1,3 +1,10 @@
+## v1.28.161 — 16 novembre 2026
+
+### Accueil
+
+- « Ajouts récents » ne montre plus que les nouveaux titres : un film à l'arrivée de son fichier, une série à l'arrivée de son premier épisode, même s'ils étaient déjà dans la bibliothèque comme manquants. Un nouvel épisode d'une série déjà présente ne la fait plus entrer ni remonter dans cette rangée : il n'apparaît que dans « Épisodes récemment ajoutés ». Star Academy figurait dans les deux rangées pour un seul épisode arrivé.
+- Même règle partout : site (accueil et rangées des pages Films et Séries), Android TV — dont la rangée « Récemment ajouté dans Séries TV », qui commençait par les séries ayant reçu un épisode —, Android mobile et Samsung.
+
 ## v1.28.160 — 16 novembre 2026
 
 ### Bibliothèque

@@ -2408,6 +2408,7 @@ private fun List<LibrarySeriesDto>.replaceOrAppendSeries(item: LibrarySeriesDto)
         hasAvailableEpisode = item.hasAvailableEpisode ||
             if (item.seasons.isNotEmpty()) availableNow else previous?.hasAvailableEpisode == true,
         latestAvailableAt = item.latestAvailableAt.takeIf { it > 0L } ?: previous?.latestAvailableAt ?: 0L,
+        firstAvailableAt = item.firstAvailableAt.takeIf { it > 0L } ?: previous?.firstAvailableAt ?: 0L,
     )
     return replaceOrAppend(merged) { it.tmdbId }
 }

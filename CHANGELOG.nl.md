@@ -1,3 +1,10 @@
+## v1.28.161 — 16 november 2026
+
+### Start
+
+- „Recent toegevoegd” toont nu alleen nieuwe titels: een film bij aankomst van zijn bestand, een serie bij aankomst van haar eerste aflevering, ook als ze al als ontbrekend in de bibliotheek stonden. Een nieuwe aflevering van een serie die er al was, brengt haar niet meer in deze rij en laat haar niet meer stijgen: ze verschijnt alleen in „Recent toegevoegde afleveringen”. Star Academy stond door één nieuwe aflevering in beide rijen.
+- Overal dezelfde regel: website (start en de rijen van de pagina's Films en Series), Android TV — inclusief de rij „Recent toegevoegd in Series”, die begon met de series die net een aflevering hadden gekregen —, Android mobiel en Samsung.
+
 ## v1.28.160 — 16 november 2026
 
 ### Bibliotheek

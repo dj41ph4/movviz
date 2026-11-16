@@ -4,8 +4,8 @@ import { selectDashboardHomeHead } from "../src/lib/dashboard/homeHead.ts";
 import type { DashboardInterfaceData } from "../src/lib/dashboard/interfaceTypes.ts";
 
 const movie = (tmdbId: number, addedAt: number, status = "available") => ({ tmdbId, addedAt, status }) as DashboardInterfaceData["movies"][number];
-const show = (tmdbId: number, latestAvailableAt: number, hasAvailableEpisode = true, addedAt = 1) =>
-  ({ tmdbId, latestAvailableAt, hasAvailableEpisode, addedAt }) as DashboardInterfaceData["series"][number];
+const show = (tmdbId: number, firstAvailableAt: number, hasAvailableEpisode = true, addedAt = 1) =>
+  ({ tmdbId, firstAvailableAt, hasAvailableEpisode, addedAt }) as DashboardInterfaceData["series"][number];
 const payload = (partial: Partial<DashboardInterfaceData>) => ({ movies: [], series: [], recentEpisodes: [], ...partial }) as unknown as DashboardInterfaceData;
 
 test("home head keeps the 20 newest available movies, newest first", () => {

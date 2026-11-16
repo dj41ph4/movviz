@@ -1,3 +1,10 @@
+## v1.28.161 — November 16, 2026
+
+### Home
+
+- “Recently added” now only shows new titles: a movie when its file arrives, a series when its first episode arrives, even if they were already in the library as missing. A new episode of a series already there no longer brings it into this row or moves it up: it only appears in “Recently added episodes”. Star Academy showed up in both rows for a single new episode.
+- Same rule everywhere: website (home and the Movies and Series page rows), Android TV — including the “Recently added in TV Shows” row, which used to start with the series that had just received an episode —, Android mobile and Samsung.
+
 ## v1.28.160 — November 16, 2026
 
 ### Library

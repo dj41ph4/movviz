@@ -20,7 +20,7 @@ interface Window {
   type MediaType = "movie" | "series";
   type SeriesPart = "original" | "tybw";
   interface Media {
-    id?: string; tmdbId: number; type?: MediaType; title: string; overview?: string; addedAt?: number;
+    id?: string; tmdbId: number; type?: MediaType; title: string; overview?: string; addedAt?: number; latestAvailableAt?: number; firstAvailableAt?: number;
     posterPath?: string; backdropPath?: string; year?: number; rating?: number;
     plexRatingKey?: string; playbackSource?: string; status?: string; file?: unknown;
     seasonNumber?: number; episodeNumber?: number; similar?: Media[]; runtime?: number; genres?: string[]; logoPath?: string;
@@ -331,8 +331,12 @@ interface Window {
       });
     }
     row(t("tizen.continueWatching"), normalizeDeck(onDeck.items || []));
-    row(t("tizen.recentMovies"), (dashboard.movies || []).filter(Boolean).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 25), "movie");
-    row(t("tizen.recentSeries"), (dashboard.series || []).filter(Boolean).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 25), "series");
+    // « Récemment ajouté » : premier téléchargement (fichier du film, premier
+    // épisode de la série). Un nouvel épisode ne fait pas remonter une série.
+    const movieAt = (item: Media) => item.latestAvailableAt || item.addedAt || 0;
+    const seriesAt = (item: Media) => item.firstAvailableAt || item.addedAt || 0;
+    row(t("tizen.recentMovies"), (dashboard.movies || []).filter(Boolean).sort((a, b) => movieAt(b) - movieAt(a)).slice(0, 25), "movie");
+    row(t("tizen.recentSeries"), (dashboard.series || []).filter(Boolean).sort((a, b) => seriesAt(b) - seriesAt(a)).slice(0, 25), "series");
     // Same order as the site and the Android apps: editorial rows, then
     // « Prochainement » (every announced film), then « Vos prochaines
     // sorties » (the user's requests not out yet). Slots keep that order

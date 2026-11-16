@@ -51,6 +51,8 @@ export interface DashboardLibrarySeries {
   addedAt: number;
   /** Newest playable episode arrival, independent of when the show was created. */
   latestAvailableAt?: number;
+  /** First playable episode arrival: the date the show enters "recently added". */
+  firstAvailableAt?: number;
   hasAvailableEpisode: boolean;
   /** Available episode count per season number. */
   availableBySeason?: Record<number, number>;

@@ -2196,6 +2196,7 @@ private fun List<LibrarySeriesDto>.replaceOrAppendSeries(item: LibrarySeriesDto)
         hasAvailableEpisode = item.hasAvailableEpisode ||
             if (item.seasons.isNotEmpty()) availableBySeasonNow.isNotEmpty() else previous?.hasAvailableEpisode == true,
         latestAvailableAt = item.latestAvailableAt.takeIf { it > 0L } ?: previous?.latestAvailableAt ?: 0L,
+        firstAvailableAt = item.firstAvailableAt.takeIf { it > 0L } ?: previous?.firstAvailableAt ?: 0L,
         availableBySeason = item.availableBySeason.ifEmpty {
             if (item.seasons.isNotEmpty()) availableBySeasonNow else previous?.availableBySeason.orEmpty()
         },

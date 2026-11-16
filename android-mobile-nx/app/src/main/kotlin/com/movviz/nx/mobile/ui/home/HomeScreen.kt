@@ -86,6 +86,7 @@ import android.os.Looper
 import android.util.Log
 import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.data.QueueItemDto
+import com.movviz.nx.mobile.data.recentlyAddedAt
 import com.movviz.nx.mobile.data.TrailerSourceDto
 import com.movviz.nx.mobile.data.TvPreviewDto
 import com.movviz.nx.mobile.ui.theme.MovvizAmber
@@ -472,7 +473,7 @@ fun HomeScreen(
 
     val availableNowCards = remember(movies, series, watchedMovieIds) {
         val movie = movies.filter { it.status == "available" }.map {
-            it.addedAt to TvTitleCard(
+            it.recentlyAddedAt() to TvTitleCard(
                 id = "available-movie-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
                 backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = true,
                 year = it.year, rating = it.rating, genres = it.genres, status = it.status,
@@ -480,7 +481,7 @@ fun HomeScreen(
             )
         }
         val shows = series.filter { it.hasAvailableEpisode }.map {
-            (it.latestAvailableAt.takeIf { time -> time > 0L } ?: it.addedAt) to TvTitleCard(
+            it.recentlyAddedAt() to TvTitleCard(
                 id = "available-series-${it.tmdbId}-${it.seriesPart.orEmpty()}", seriesPart = it.seriesPart, title = it.title, posterPath = it.posterPath,
                 backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = false,
                 year = it.year, rating = it.rating, genres = it.genres,

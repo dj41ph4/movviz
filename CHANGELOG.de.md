@@ -1,3 +1,10 @@
+## v1.28.161 — 16. November 2026
+
+### Startseite
+
+- „Neu hinzugefügt“ zeigt nur noch neue Titel: einen Film bei Ankunft seiner Datei, eine Serie bei Ankunft ihrer ersten Episode, auch wenn sie bereits als fehlend in der Bibliothek waren. Eine neue Episode einer bereits vorhandenen Serie bringt diese nicht mehr in diese Reihe und schiebt sie nicht mehr nach vorn: Sie erscheint nur unter „Kürzlich hinzugefügte Episoden“. Star Academy stand wegen einer einzigen neuen Episode in beiden Reihen.
+- Überall dieselbe Regel: Website (Startseite und Reihen der Film- und Serienseiten), Android TV — einschließlich der Reihe „Kürzlich hinzugefügt in Serien“, die mit den Serien begann, die gerade eine Episode erhalten hatten —, Android Mobile und Samsung.
+
 ## v1.28.160 — 16. November 2026
 
 ### Bibliothek
