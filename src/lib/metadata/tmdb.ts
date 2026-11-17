@@ -27,7 +27,7 @@ import { BLEACH_TMDB_ID, bleachToTmdb, bleachFromTmdb, bleachSeasonSummaries, ty
 import { bleachSeasonContent } from "./bleachSeasonContent";
 import { longCutEpisodeCount, toLongCutSeason } from "./longCutSeasons";
 import {
-  fankaiSearchResult, fankaiSeason, fankaiSeries, fankaiTagline, fankaiVersionsOf, fankaiWikiUrl, getCachedFankaiEntry, getFankaiEntry,
+  fankaiLogoPath, fankaiSearchResult, fankaiSeason, fankaiSeries, fankaiTagline, fankaiVersionsOf, fankaiWikiUrl, getCachedFankaiEntry, getFankaiEntry,
   isFankaiId, searchFankai, type FankaiEntry,
 } from "./fankai";
 import { hasFanMarker } from "./fankaiWikitext";
@@ -1208,13 +1208,40 @@ function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string
     });
 }
 
+const fankaiLogoFailures = new Map<string, number>();
+const FANKAI_LOGO_RETRY_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * A Fan-Kai pack logo, offered only once it sits in the image cache: the
+ * pack is listed by folder, and a folder without logo.png (or GitLab
+ * refusing for a while) must leave the fiche on its text title, never on a
+ * broken image. Downloaded once, then served from disk; a failure is
+ * retried after six hours, not on every page view.
+ */
+async function usableFankaiLogo(entry: FankaiEntry): Promise<string | null> {
+  const logoPath = fankaiLogoPath(entry);
+  if (!logoPath) return null;
+  const failedAt = fankaiLogoFailures.get(logoPath);
+  if (failedAt && Date.now() - failedAt < FANKAI_LOGO_RETRY_MS) return null;
+  const { prefetchTmdbImage } = await import("./tmdbImageCache");
+  if (await prefetchTmdbImage("w500", logoPath)) return logoPath;
+  fankaiLogoFailures.set(logoPath, Date.now());
+  return null;
+}
+
 /** Alternate backdrops/logos for a title — feeds the artwork picker. */
 export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string, extraLanguages: string[] = []): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
   if (type === "series" && isFankaiId(tmdbId)) {
     // The series' backdrops, never its logos: « Death Note » written over
-    // the fiche of « Death Note Kaï » would name the wrong title.
-    const parentId = (await getFankaiEntry(tmdbId))?.parentTmdbId;
-    return { backdrops: parentId ? (await getTitleImages(parentId, "series", locale, extraLanguages)).backdrops : [], logos: [] };
+    // the fiche of « Death Note Kaï » would name the wrong title. The
+    // version's own logo comes from the Fan-Kai pack, when it has one.
+    const entry = await getFankaiEntry(tmdbId);
+    const parentId = entry?.parentTmdbId;
+    const [backdrops, logoPath] = await Promise.all([
+      parentId ? getTitleImages(parentId, "series", locale, extraLanguages).then((images) => images.backdrops) : Promise.resolve([]),
+      entry ? usableFankaiLogo(entry) : Promise.resolve(null),
+    ]);
+    return { backdrops, logos: logoPath ? [{ filePath: logoPath, width: 0, height: 0, language: null, voteAverage: 10 }] : [] };
   }
   const preferredLocale = toTmdbLanguage(locale);
   const lang = preferredLocale.split("-")[0];

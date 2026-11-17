@@ -1,3 +1,9 @@
+## v1.28.164 — November 17, 2026
+
+### Fan versions of anime (Fan-Kai)
+
+- Fan-Kai pages have their title logo, taken from Fan-Kai's official metadata pack (86 versions out of 101), on the website, Android TV, Android mobile and Samsung. A logo drawn in black (Death Note Kaï) is shown in white so it stays readable on a dark background; colored logos are kept as they are. A version missing from the pack keeps its text title.
+
 ## v1.28.163 — November 17, 2026
 
 ### Fan versions of anime (Fan-Kai)

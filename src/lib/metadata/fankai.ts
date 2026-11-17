@@ -29,6 +29,9 @@ const FILE = path.join(CONFIG_DIR, "fankai-catalog.json");
 const API = "https://fan-kai.fandom.com/fr/api.php";
 const WIKI = "https://fan-kai.fandom.com/fr/wiki/";
 const ANIME_LISTS = "https://raw.githubusercontent.com/Fribb/anime-lists/master/anime-list-full.json";
+/** Fan-Kai's own metadata pack (the one its wiki links for Plex/Emby): a folder per version with logo.png. */
+const PACK_TREE = "https://gitlab.com/api/v4/projects/51750670/repository/tree";
+const PACK_RAW = "https://gitlab.com/ElPouki/fankai_pack/-/raw/main/";
 const REFRESH_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 /** After a failed rebuild, wait before asking the wiki again. */
 const RETRY_AFTER_MS = 6 * 60 * 60 * 1000;
@@ -37,7 +40,13 @@ const CATALOG_VERSION = 1;
 /** Fandom refuses (403) an image asked without its wiki as Referer (hotlink protection), and an anonymous client. */
 export const FANKAI_FETCH_HEADERS = { "User-Agent": "Movviz (metadata)", Referer: "https://fan-kai.fandom.com/" };
 
-export interface FankaiImage { file: string; url: string; uploadedAt: string | null }
+export interface FankaiImage {
+  file: string;
+  url: string;
+  uploadedAt: string | null;
+  /** A title logo from the Fan-Kai pack (served lightened when drawn in black). */
+  kind?: "logo";
+}
 
 export interface FankaiEntry {
   id: number;
@@ -51,6 +60,8 @@ export interface FankaiEntry {
   parts: FankaiPart[];
   /** The TMDb series this version is cut from, via its MyAnimeList id. */
   parentTmdbId: number | null;
+  /** Image key of its title logo in the Fan-Kai pack, when the pack has one. */
+  logoKey?: string | null;
 }
 
 interface FankaiCatalog {
@@ -59,6 +70,8 @@ interface FankaiCatalog {
   entries: FankaiEntry[];
   /** Image key (`fankai-<hash>.<ext>`) → wiki file. */
   images: Record<string, FankaiImage>;
+  /** When the Fan-Kai pack (logos) was last read; absent in catalogues built before it was. */
+  packAt?: number;
 }
 
 const EMPTY: FankaiCatalog = { version: CATALOG_VERSION, fetchedAt: 0, entries: [], images: {} };
@@ -94,10 +107,10 @@ function index() {
   return g.__movvizFankaiIndex;
 }
 
-/** Starts a background rebuild when the catalogue is missing or a week old. */
+/** Starts a background rebuild when the catalogue is missing, a week old, or has never read the pack's logos. */
 function refreshIfStale(): void {
   const catalog = loadCatalog();
-  if (Date.now() - catalog.fetchedAt < REFRESH_AFTER_MS) return;
+  if (Date.now() - catalog.fetchedAt < REFRESH_AFTER_MS && (catalog.packAt || catalog.fetchedAt === 0)) return;
   if (Date.now() - (g.__movvizFankaiLastFailure ?? 0) < RETRY_AFTER_MS) return;
   void refreshFankaiCatalog();
 }
@@ -210,6 +223,16 @@ function imagePath(file: string | null): string | null {
   if (!file) return null;
   const key = imageKey(file);
   return key && loadCatalog().images[key] ? `/${key}` : null;
+}
+
+/** Title logo of a fan version (Fan-Kai pack), as a `/fankai-….png` path. */
+export function fankaiLogoPath(entry: FankaiEntry): string | null {
+  return entry.logoKey && loadCatalog().images[entry.logoKey] ? `/${entry.logoKey}` : null;
+}
+
+/** True for a Fan-Kai pack logo — the only images the image cache may lighten. */
+export function isFankaiLogo(filename: string): boolean {
+  return loadCatalog().images[filename]?.kind === "logo";
 }
 
 export function isFankaiImage(filename: string): boolean {
@@ -406,6 +429,86 @@ async function malToTmdb(malIds: number[]): Promise<Map<number, number>> {
   return out;
 }
 
+/**
+ * The pack's version folders (« Death Note Kaï », « Hunter x Hunter Kaï
+ * (2011) »), each with a logo.png. One API request a week: GitLab's API
+ * rate-limits anonymous clients hard (a recursive listing, ≈45 pages, got
+ * this address refused for 45 minutes). A folder without logo.png is caught
+ * when its logo is first downloaded (see fankaiLogoPath's callers).
+ */
+async function packFolders(): Promise<string[]> {
+  const url = new URL(PACK_TREE);
+  url.searchParams.set("path", "pack");
+  url.searchParams.set("per_page", "100");
+  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: { "User-Agent": FANKAI_FETCH_HEADERS["User-Agent"] }, cache: "no-store" });
+  if (!response.ok) throw new Error(`fankai_pack_http_${response.status}`);
+  const items = (await response.json()) as { name: string; type: string }[];
+  return items.filter((item) => item.type === "tree").map((item) => item.name);
+}
+
+/** The version a pack folder is for: its exact name first, else the version named so without its kaieur. */
+export function entryForPackFolder(folder: string, entries: FankaiEntry[]): { entry: FankaiEntry; exact: boolean } | null {
+  const names = (e: FankaiEntry) => [e.title, e.page, ...e.aliases];
+  const exact = normalizeTitle(folder);
+  const byExact = entries.find((e) => names(e).some((n) => normalizeTitle(n) === exact));
+  if (byExact) return { entry: byExact, exact: true };
+  // Same words in another order: « Hunter x Hunter Kaï (1999) » / « Hunter x Hunter (1999) Kaï ».
+  const words = (s: string) => normalizeTitle(s).split(" ").filter(Boolean).sort().join(" ");
+  const wordKey = words(folder);
+  const byWords = entries.find((e) => names(e).some((n) => words(n) === wordKey));
+  if (byWords) return { entry: byWords, exact: true };
+  const bare = normalizeTitle(fanReleaseName(folder));
+  const same = entries.filter((e) => names(e).some((n) => normalizeTitle(fanReleaseName(n)) === bare));
+  const entry = same.find((e) => normalizeTitle(e.page) === bare) ?? (same.length === 1 ? same[0] : null);
+  return entry ? { entry, exact: false } : null;
+}
+
+/** Registers each pack logo on its version. False when the pack could not be read (logos kept from before). */
+async function attachPackLogos(entries: FankaiEntry[], images: Record<string, FankaiImage>, previous: FankaiCatalog): Promise<boolean> {
+  let folders: string[];
+  try {
+    folders = await packFolders();
+  } catch (error) {
+    console.warn("[fankai] logos du pack non lus :", error instanceof Error ? error.message : error);
+    // Keep the logos the previous catalogue knew rather than dropping them.
+    const before = new Map(previous.entries.map((e) => [e.id, e.logoKey]));
+    for (const entry of entries) {
+      const key = before.get(entry.id);
+      if (key && previous.images[key]) { entry.logoKey = key; images[key] = previous.images[key]; }
+    }
+    return false;
+  }
+  const attach = (folder: string, entry: FankaiEntry) => {
+    const file = `fankai-pack/${folder}/logo.png`;
+    const key = imageKey(file);
+    if (!key || entry.logoKey) return false;
+    entry.logoKey = key;
+    images[key] = { file, url: `${PACK_RAW}pack/${encodeURIComponent(folder)}/logo.png`, uploadedAt: null, kind: "logo" };
+    return true;
+  };
+  const matches = folders.map((folder) => ({ folder, match: entryForPackFolder(folder, entries) }));
+  // Exact names first: « GTO Kai (Autres langues) » must not take the logo of « GTO Kaï ».
+  for (const { folder, match } of matches) if (match?.exact) attach(folder, match.entry);
+  for (const { folder, match } of matches) if (match && !match.exact) attach(folder, match.entry);
+  // Last resort, the series it is cut from: « Shingeki no Kyojin Henshū » is the
+  // wiki's « L'attaque des Titans Henshū ». Only when that series has a single
+  // version still without a logo.
+  const { searchTv } = await import("./tmdb");
+  for (const { folder, match } of matches) {
+    if (match) continue;
+    const base = fankaiBaseTitle(folder);
+    const results = (await searchTv(base).catch(() => null))?.results.filter((r) => !isFankaiId(r.tmdbId)) ?? [];
+    const named = results.find((r) => normalizeTitle(r.title) === normalizeTitle(base) || normalizeTitle(r.originalTitle ?? "") === normalizeTitle(base));
+    // TMDb answers in French (« L'Attaque des Titans »): its first result is
+    // accepted only for a version carrying the folder's own marker (Henshū).
+    const hit = named ?? results[0];
+    const marker = normalizeTitle(folder).split(" ").pop();
+    const candidates = hit ? entries.filter((e) => e.parentTmdbId === hit.tmdbId && !e.logoKey && (named || normalizeTitle(e.title).split(" ").pop() === marker)) : [];
+    if (candidates.length === 1) attach(folder, candidates[0]);
+  }
+  return true;
+}
+
 async function buildCatalog(): Promise<FankaiCatalog> {
   const titles = await allPageTitles();
   const contents = await pageContents(titles);
@@ -443,7 +546,8 @@ async function buildCatalog(): Promise<FankaiCatalog> {
       entry.parentTmdbId = hit?.tmdbId ?? null;
     }
   }
-  return { version: CATALOG_VERSION, fetchedAt: Date.now(), entries, images };
+  const packRead = await attachPackLogos(entries, images, loadCatalog());
+  return { version: CATALOG_VERSION, fetchedAt: Date.now(), entries, images, ...(packRead ? { packAt: Date.now() } : {}) };
 }
 
 /** Rebuilds the catalogue from the wiki (single flight). False when the wiki could not be read. */
@@ -454,6 +558,8 @@ export function refreshFankaiCatalog(): Promise<boolean> {
       const catalog = await buildCatalog();
       if (catalog.entries.length === 0) throw new Error("fankai_empty_catalog");
       writeJsonCached(FILE, catalog);
+      // Pack unreadable: the catalogue is fresh, but ask GitLab again only after the retry delay.
+      if (!catalog.packAt) g.__movvizFankaiLastFailure = Date.now();
       return true;
     } catch (error) {
       g.__movvizFankaiLastFailure = Date.now();

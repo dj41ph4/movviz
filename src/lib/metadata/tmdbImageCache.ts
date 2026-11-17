@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { FANKAI_FETCH_HEADERS, fankaiImageSource, isFankaiImage } from "./fankai";
+import { FANKAI_FETCH_HEADERS, fankaiImageSource, isFankaiImage, isFankaiLogo } from "./fankai";
+import { lightenDarkLogo } from "./pngLogoTint";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -169,8 +170,11 @@ async function ensureTmdbImage(size: string, rawPath: string): Promise<string | 
       if (!source) return null;
       const response = await fetch(source, { cache: "no-store", ...(isFankaiImage(filename) ? { signal: AbortSignal.timeout(15_000), headers: FANKAI_FETCH_HEADERS } : {}) });
       if (!response.ok) return null;
-      const body = Buffer.from(await response.arrayBuffer());
-      if (body.length === 0) return null;
+      const downloaded = Buffer.from(await response.arrayBuffer());
+      if (downloaded.length === 0) return null;
+      // A Fan-Kai pack logo drawn in black would vanish over the dark UI:
+      // stored once, lightened. TMDb images are never touched.
+      const body = isFankaiLogo(filename) ? lightenDarkLogo(downloaded) : downloaded;
       await fs.mkdir(path.dirname(target), { recursive: true });
       const tmp = `${target}.${process.pid}.${Date.now()}.tmp`;
       await fs.writeFile(tmp, body);
