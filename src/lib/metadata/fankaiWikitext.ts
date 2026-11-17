@@ -50,7 +50,7 @@ export interface FankaiPage {
 }
 
 /** Fan-version suffixes: the last word(s) of a fan version's title. */
-const FAN_MARKER = String.raw`(?:ka[iï]|hensh[uū]|yabai|fan[-/ ]?cut|recut)`;
+const FAN_MARKER = String.raw`(?:ka[iï]|hensh[uū]|yaba[iï]|fan[-/ ]?cut|recut)`;
 const FAN_MARKER_END_RE = new RegExp(String.raw`(?:^|[\s._-])${FAN_MARKER}(?:\s+ultime\s+pack)?\s*$`, "i");
 
 function stripAccents(value: string): string {

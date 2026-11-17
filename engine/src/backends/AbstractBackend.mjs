@@ -10,6 +10,7 @@ import {
   VIDEO_EXT_RE,
 } from "../naming.mjs";
 import { WEB_CALLBACK_URL, ENGINE_TOKEN, TORRENT_CACHE_DIR } from "../config.mjs";
+import { fankaiPartNumber, targetsLookLikeFanVersion } from "../fankaiNames.mjs";
 import { kaamelottLongEpisode } from "../kaamelottLongCut.mjs";
 import { ManualSeed, cacheMetainfo, retainMetainfo, torrentPath } from "../manualSeed.mjs";
 import { validateEpisodeTargets, resolveEpisodePlacement, ensurePresentationFolder } from "../episodePlacement.mjs";
@@ -1654,6 +1655,15 @@ export class AbstractBackend {
   _matchesEpisode(f, target, allTargets = [], titleMap = null) {
     const kaamelottEpisode = kaamelottLongEpisode(f.name);
     if (kaamelottEpisode != null) return target.season === 5 && target.episode === kaamelottEpisode;
+    // A Fan-Kai pack files its parts by saga (« Saison 2/[Johker] Bleach
+    // Yabaï - 05 - … ») but numbers them straight through, and the fan
+    // version's fiche holds them all in season 1: the number decides, never
+    // the folder. Only for such a fiche's targets (season 1, no absolute
+    // numbering) — any other grab reads the file exactly as before.
+    if (targetsLookLikeFanVersion(allTargets.length ? allTargets : [target])) {
+      const part = fankaiPartNumber(f.name);
+      if (part != null) return target.season === 1 && target.episode === part;
+    }
     const info = parseRelease(f.name);
     // Fichier de pack « à titres » : seul son titre décide (un fichier non apparié reste non apparié,
     // plutôt que rangé sous un autre épisode à cause de sa position dans le pack).

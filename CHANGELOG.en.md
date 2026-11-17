@@ -1,3 +1,10 @@
+## v1.28.165 — November 17, 2026
+
+### Fan versions of anime (Fan-Kai)
+
+- Fan-Kai complete packs: every film is now downloaded and filed. These packs sort films by saga into “Saison 1”, “Saison 2”… folders while numbering them straight through (Bleach Yabaï: 01 to 04 in “Saison 1”, 05 to 11 in “Saison 2”…); the engine took the folder for the season and only kept the first folder's films (4 of 28 for Bleach Yabai, 7 of 36 for Naruto Shippuden Yabai). The file's number is now the film's number, for Fan-Kai pages only: other series are read as before.
+- “Yabaï” (with a diaeresis) is recognized as “Yabai” in torrent and file names.
+
 ## v1.28.164 — November 17, 2026
 
 ### Fan versions of anime (Fan-Kai)
