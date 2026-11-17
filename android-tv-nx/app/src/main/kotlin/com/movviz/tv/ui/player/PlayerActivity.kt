@@ -697,7 +697,7 @@ ExoPlayer.Builder(context)
         return MediaMetadata.Builder()
             .setTitle(if (isEpisode && item.label != null) "$mainTitle — ${item.label}" else mainTitle)
             .setSubtitle(if (isEpisode && item.label != null) mainTitle else null)
-            .setArtworkUri(posterPath?.let { Uri.parse("$TMDB_IMAGE_BASE$it") })
+            .setArtworkUri(posterPath?.let { Uri.parse(com.movviz.tv.data.FankaiImages.rewrite("$TMDB_IMAGE_BASE$it")) })
             .build()
     }
 

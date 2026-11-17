@@ -7,7 +7,7 @@ import {
   parseFankaiPage, parseFankaiReleaseName, parseRedirect, splitTemplateArgs,
 } from "@/lib/metadata/fankaiWikitext";
 import { parseRelease } from "@/lib/naming/parser";
-import { fanVersionConflict, releaseTitleMatches } from "@/lib/library/matching";
+import { fanReleaseName, fanVersionConflict, releaseTitleMatches, releaseYearTarget, seriesNeedsReleaseYear, seriesSearchTitles, seriesYearIsCompatible } from "@/lib/library/matching";
 
 // Shapes of real Fan-Kai pages (fan-kai.fandom.com/fr), texts shortened.
 const DEATH_NOTE = `{{Fiche_Série|image1=Death note kai affiche.png|kaieur=[https://fan-kai.fandom.com/fr/wiki/Cat%C3%A9gorie:Odji-san Odji-san]|type=[https://fan-kai.fandom.com/fr/wiki/Lexique Kai]|statut=Terminé|source=Manga|épisodes=37|films=6|qualité=1080p|al_-_mal=[https://anilist.co/anime/1535/DEATH-NOTE AL] {{!}} [https://myanimelist.net/anime/1535/Death_Note MAL]|langue(s)=Multi-dubs (FR,EN)
@@ -226,4 +226,27 @@ test("the match worker mirrors the Fan-Kai reading", () => {
   assert.ok(worker.includes(`const FAN_MARKER = ${marker};`), "same marker");
   assert.ok(worker.includes("if (fanVersionConflict(parsedTitle, candidates)) return false;"));
   assert.ok(/function parseRelease\(rawName\) \{\s+const info = parseReleaseBase\(rawName\);/.test(worker));
+});
+
+test("indexer packs carrying the original anime's year (live names, C411 and Tr4ker)", () => {
+  assert.deepEqual(parseFankaiReleaseName("Naruto.Yabai.2002.INTEGRALE.MULTi.VFF.1080p.WEB.AAC.2.0.x264-FanKai"), { title: "Naruto Yabai", part: null });
+  assert.deepEqual(parseFankaiReleaseName("Naruto.Shippuden.Yabai.2007.INTEGRALE.MULTi.VFF.1080p.BluRay.HDLight.AAC.2.0.x264-FanKai"), { title: "Naruto Shippuden Yabai", part: null });
+  assert.deepEqual(parseFankaiReleaseName("Naruto.Yabai.iNTEGRALE.MULTi.1080p.BluRay.AAC.2.0.x264-FANKAI"), { title: "Naruto Yabai", part: null });
+  assert.deepEqual(parseFankaiReleaseName("Death Note Kaï 2006 - 03 - Second Kira 1080p"), { title: "Death Note Kaï", part: 3 });
+  // A year never turns an ordinary title into a fan version.
+  assert.equal(parseFankaiReleaseName("Jujutsu.Kaisen.2020.INTEGRALE.MULTi.1080p"), null);
+  assert.equal(releaseTitleMatches("Naruto Shippuden Yabai", "Naruto Yabai (Triggerforce)"), false);
+  assert.equal(releaseTitleMatches("Naruto Yabai", "Naruto Yabai (Triggerforce)"), true);
+});
+
+test("a fan version is searched under its bare name, with no year check", () => {
+  const naruto = { tmdbId: fankaiIdFor("Naruto Yabai (Triggerforce)"), title: "Naruto Yabai (Triggerforce)", year: 2023, aliases: [] };
+  assert.deepEqual(seriesSearchTitles(naruto), ["Naruto Yabai"]);
+  assert.equal(releaseYearTarget(naruto), null);
+  assert.equal(seriesNeedsReleaseYear(naruto, [{ tmdbId: 46260, title: "Naruto Yabai (Triggerforce)", year: 2002 }]), false);
+  assert.equal(seriesYearIsCompatible("2002", releaseYearTarget(naruto), false), true);
+  // Unchanged for TMDb series.
+  assert.deepEqual(seriesSearchTitles({ tmdbId: 46260, title: "Naruto", originalTitle: "NARUTO -ナルト-", aliases: [] }), ["Naruto"]);
+  assert.equal(releaseYearTarget({ tmdbId: 46260, year: 2002 }), 2002);
+  assert.equal(fanReleaseName("Death Note Kaï (Roro)"), "Death Note Kaï");
 });

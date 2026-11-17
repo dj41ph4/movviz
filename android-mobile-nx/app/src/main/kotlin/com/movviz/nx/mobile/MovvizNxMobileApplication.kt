@@ -26,7 +26,11 @@ class MovvizNxMobileApplication : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         // Logos plateformes SVG embarqués (assets/providers).
-        .components { add(coil.decode.SvgDecoder.Factory()) }
+        // Mapper Fan-Kai : réécrit vers le serveur les seules affiches « /fankai-… ».
+        .components {
+            add(com.movviz.nx.mobile.data.FankaiImageMapper())
+            add(coil.decode.SvgDecoder.Factory())
+        }
         // Client HTTP PARTAGÉ avec l'API (même CookieJar persistant) : les
         // avatars Plex/serveur protégés par la session (401 sans cookie)
         // chargent comme les posters publics — avant, Coil utilisait son

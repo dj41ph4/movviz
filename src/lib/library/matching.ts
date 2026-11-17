@@ -1,5 +1,5 @@
 import type { ReleaseInfo } from "@/lib/naming/types";
-import { hasFanMarker } from "@/lib/metadata/fankaiWikitext";
+import { hasFanMarker, isFankaiId } from "@/lib/metadata/fankaiWikitext";
 
 /**
  * Release-to-library matching — the piece most naive downloaders skip:
@@ -58,6 +58,33 @@ export function searchTitleVariants(title: string, originalTitle: string | null 
     seen.add(key);
     return true;
   }).slice(0, 3);
+}
+
+/** A Fan-Kai fiche title without its kaieur: « Naruto Yabai (Triggerforce) » → « Naruto Yabai ». */
+export function fanReleaseName(title: string): string {
+  return title.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
+/**
+ * Titles sent to the indexers for a series. A Fan-Kai version's fiche names
+ * its kaieur (« Naruto Yabai (Triggerforce) ») but its releases never do
+ * (« Naruto.Yabai.2002.INTEGRALE.MULTi…-FanKai »), and an indexer's text
+ * search needs every word: confirmed live on C411 and Tr4ker, 0 results with
+ * the kaieur, 6 without.
+ */
+export function seriesSearchTitles(series: { tmdbId: number; title: string; originalTitle?: string | null; aliases?: string[] }): string[] {
+  if (!isFankaiId(series.tmdbId)) return searchTitleVariants(series.title, series.originalTitle, series.aliases);
+  return [...new Set([series.title, ...(series.aliases ?? [])].map(fanReleaseName).filter(Boolean))].slice(0, 3);
+}
+
+/**
+ * The year a release of this series is checked against. A Fan-Kai version's
+ * releases carry the original anime's year (« Naruto.Yabai.2002… », the
+ * version itself dates from 2023), never the cut's: no year check — the fan
+ * marker in the title already tells the version from its series.
+ */
+export function releaseYearTarget(series: { tmdbId: number; year: number | null }): number | null {
+  return isFankaiId(series.tmdbId) ? null : series.year;
 }
 
 // The background searches (missing movies, release day, RSS) compare the
@@ -428,7 +455,7 @@ type SeriesIdentity = { tmdbId: number; title: string; originalTitle?: string | 
 
 /** A season number cannot distinguish two same-named shows in the library. */
 export function seriesNeedsReleaseYear(target: SeriesIdentity, library: SeriesIdentity[]): boolean {
-  if (!target.year) return false;
+  if (!target.year || isFankaiId(target.tmdbId)) return false;
   // normalizeTitle is Latin-only: Japanese/Chinese/etc names become "".
   // An empty key must never make every non-Latin original title a homonym.
   const names = new Set([target.title, target.originalTitle].filter((name): name is string => !!name).map(normalizeTitle).filter(Boolean));

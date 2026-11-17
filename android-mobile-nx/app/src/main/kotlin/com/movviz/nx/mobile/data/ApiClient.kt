@@ -64,7 +64,7 @@ object ApiClient {
         Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     }
 
-    private var cachedBaseUrl: String? = null
+    @Volatile private var cachedBaseUrl: String? = null
     private var cachedService: MovvizApiService? = null
 
     /** Le client OkHttp partagé — utilisé directement par le lecteur
@@ -100,6 +100,9 @@ object ApiClient {
     fun restoreSession(baseUrl: String, snapshot: String?) {
         runCatching { baseUrl.toHttpUrl().host }.getOrNull()?.let { cookieJar.restore(it, snapshot) }
     }
+
+    /** URL du serveur Movviz actuellement interrogé (sans / final), ou null avant le premier appel. */
+    fun currentBaseUrl(): String? = cachedBaseUrl
 
     fun service(baseUrl: String): MovvizApiService {
         val normalized = baseUrl.trim().trimEnd('/')

@@ -399,6 +399,8 @@ export function parseFankaiPage(wikitext: string): FankaiPage | null {
  * [Mixouille] ». Returns the fan version's title and the part number (null
  * for a whole-series pack). Only fires when the title ENDS with a fan marker,
  * so « Jujutsu Kaisen » or « Boku no Kokoro no Yabai Yatsu » never match.
+ * Indexer packs often carry the original anime's year after the marker
+ * (« Naruto.Yabai.2002.INTEGRALE.MULTi…-FanKai »).
  */
 export function parseFankaiReleaseName(rawName: string): { title: string; part: number | null } | null {
   const name = rawName
@@ -406,9 +408,9 @@ export function parseFankaiReleaseName(rawName: string): { title: string; part: 
     .replace(/^\s*(?:\[[^\]]*\]\s*)+/, "")
     .replace(/[._]+/g, (m) => (m.length === 1 ? " " : m))
     .trim();
-  const withPart = name.match(new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?:\s*\([^)]*\))?\s+-\s+(\d{1,4})(?:\s+-\s+|\s*$|\s+(?=\d{3,4}p\b))`, "i"));
+  const withPart = name.match(new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?:\s*\([^)]*\))?(?:\s+(?:19|20)\d{2})?\s+-\s+(\d{1,4})(?:\s+-\s+|\s*$|\s+(?=\d{3,4}p\b))`, "i"));
   if (withPart) return { title: withPart[1].trim(), part: Number(withPart[2]) };
-  const pack = name.match(new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?=\s*(?:\([^)]*\)\s*)?(?:\[|[-\s](?:int[ée]grale|complete|multi|vostfr|vf|\d{3,4}p)\b|$))`, "i"));
+  const pack = name.match(new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?=\s*(?:\([^)]*\)\s*)?(?:\s*(?:19|20)\d{2}\b)?(?:\[|[-\s](?:int[ée]grale|complete|multi|vostfr|vf|\d{3,4}p)\b|$))`, "i"));
   if (pack && !/\s-\s\d/.test(name.slice(pack[1].length, pack[1].length + 8))) return { title: pack[1].trim(), part: null };
   return null;
 }

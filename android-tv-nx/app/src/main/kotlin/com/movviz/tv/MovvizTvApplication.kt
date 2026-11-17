@@ -43,7 +43,11 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .components { add(SvgDecoder.Factory()) }
+        // Mapper Fan-Kai : réécrit vers le serveur les seules affiches « /fankai-… ».
+        .components {
+            add(com.movviz.tv.data.FankaiImageMapper())
+            add(SvgDecoder.Factory())
+        }
         // Client HTTP PARTAGÉ avec l'API (même CookieJar persistant), comme
         // sur le client mobile : les avatars protégés par la session (401 sans
         // cookie) se chargent comme les posters publics. Avec le client

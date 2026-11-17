@@ -229,7 +229,7 @@ object TvChannelProvider {
     private fun progressDescription(item: OnDeckEntryDto): String =
         if (item.progressPercent > 0) "${item.progressPercent}% regardé" else "Reprendre la lecture"
 
-    private fun posterUri(item: OnDeckEntryDto): Uri? = item.posterPath?.let { Uri.parse(TMDB_IMAGE_BASE + it) }
+    private fun posterUri(item: OnDeckEntryDto): Uri? = item.posterPath?.let { Uri.parse(com.movviz.tv.data.FankaiImages.rewrite(TMDB_IMAGE_BASE + it)) }
 
     /** Identifiant stable par titre (ou par épisode précis pour une série) —
      *  sert à la fois d'`internalProviderId` Watch Next (dédoublonnage/mise à

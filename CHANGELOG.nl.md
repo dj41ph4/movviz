@@ -1,3 +1,10 @@
+## v1.28.163 — 17 november 2026
+
+### Fanversies van anime (Fan-Kai)
+
+- Android TV en Android mobiel tonen de Fan-Kai-posters en -beelden (titelpagina, lijst van films, zoeken, suggesties, Movviz-kanaal op het Android TV-startscherm), net als de website en Samsung.
+- Zoeken in indexers: een fanversie wordt gezocht onder de naam van haar torrents, zonder kaieur of seizoensnummer („Naruto Yabai”, niet „Naruto Yabai (Triggerforce) S01”, dat niets vond), en het jaar van de originele anime in de torrent („Naruto.Yabai.2002.INTEGRALE…”) sluit hem niet meer uit. Hebben twee versies dezelfde naam, dan plaatst de tag van de kaieur („[Roro]”) de torrent bij de juiste.
+
 ## v1.28.162 — 17 november 2026
 
 ### Fanversies van anime (Fan-Kai)

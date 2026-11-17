@@ -1,8 +1,8 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { normalizeTitle } from "@/lib/library/matching";
+import { fanReleaseName, normalizeTitle } from "@/lib/library/matching";
 import {
-  fankaiBaseTitle, fankaiDisplayTitle, fankaiIdFor, isFankaiId, parseFankaiPage, parseFankaiReleaseName, parseRedirect,
+  fankaiBaseTitle, fankaiDisplayTitle, fankaiIdFor, hasFanMarker, isFankaiId, parseFankaiPage, parseFankaiReleaseName, parseRedirect,
   type FankaiFiche, type FankaiPart,
 } from "./fankaiWikitext";
 import type { MetaEpisode, MetaSearchResult, MetaSeason, MetaSeries } from "./types";
@@ -142,7 +142,37 @@ export function matchFankaiRelease(name: string): { entry: FankaiEntry; part: nu
   const parsed = parseFankaiReleaseName(name);
   if (!parsed) return null;
   const entry = findFankaiByTitle(parsed.title);
-  return entry ? { entry, part: parsed.part } : null;
+  if (!entry) return null;
+  return { entry: versionByKaieur(entry, name) ?? entry, part: parsed.part };
+}
+
+/**
+ * Two versions can share a name (« Death Note Kaï » by Odji-san, « Death
+ * Note Kaï (Roro) »): the kaieur's tag in the release name — « [Roro] » at
+ * the end, « [Odji-san] » at the start — tells which one it is. Without a
+ * tag naming a version of that name, the name's own entry stays.
+ */
+function versionByKaieur(entry: FankaiEntry, name: string): FankaiEntry | null {
+  const tags = [...name.matchAll(/\[([^\]]+)\]/g)].map((m) => normalizeTitle(m[1])).filter(Boolean);
+  if (tags.length === 0) return null;
+  const base = normalizeTitle(fanReleaseName(entry.title));
+  for (const other of index().byId.values()) {
+    if (normalizeTitle(fanReleaseName(other.title)) !== base) continue;
+    const kaieur = normalizeTitle(other.title.match(/\(([^)]*)\)\s*$/)?.[1] ?? other.fiche.kaieur ?? "");
+    if (kaieur && tags.includes(kaieur)) return other;
+  }
+  return null;
+}
+
+/**
+ * The bare name a Fan-Kai version is released under, when this search text
+ * names one the wiki knows: « Naruto Yabai (Triggerforce) S01 » → « Naruto
+ * Yabai ». Releases carry neither the kaieur nor a season code. Null otherwise.
+ */
+export function fankaiSearchName(text: string): string | null {
+  const title = text.replace(/\s+S\d{1,2}(?:E\d{1,3})?\s*$/i, "").trim();
+  if (!hasFanMarker(title) || !findFankaiByTitle(title)) return null;
+  return fanReleaseName(title) || null;
 }
 
 /** Search: every word of the query in the version's title or the series it comes from. */

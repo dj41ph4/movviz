@@ -5,7 +5,8 @@ import { encodeLibraryRef, type LibrarySeries } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches, seasonEpisodeMatches, seriesNeedsReleaseYear, seriesYearIsCompatible } from "@/lib/library/matching";
+import { releaseTitleMatches, seasonEpisodeMatches, seriesNeedsReleaseYear, seriesYearIsCompatible, releaseYearTarget, seriesSearchTitles } from "@/lib/library/matching";
+import { isFankaiId } from "@/lib/metadata/fankaiWikitext";
 import { withinSizeLimit, loadReleaseRules, normalizeCodec } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { searchTv } from "@/lib/indexers/torznab";
@@ -74,7 +75,7 @@ function computeSafeEpisodeMatches(
     .filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, episodeNumber))
     // Seulement s'il existe un homonyme : sinon l'année d'une release de série (année de la
     // saison ou de la première diffusion selon les groupes) ne doit jamais écarter une release légitime.
-    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || !requireYear || seriesYearIsCompatible(parsed.year, series.year, true))
+    .filter(({ parsed }) => series.tmdbId === BLEACH_TMDB_ID || !requireYear || seriesYearIsCompatible(parsed.year, releaseYearTarget(series), true))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
     .filter(({ parsed }) => parsed.resolution && profile.allowedResolutions.includes(parsed.resolution))
     // Equal or better resolution only — a "replace" is never a downgrade in quality.
@@ -180,7 +181,7 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
         recordSearchLog("info", "search_and_replace_series.language_fallback_direct", `${label} — ${currentLanguage ?? "?"} détecté, cache sans ${targetLanguage}, recherche directe sur ${indexers.length} indexeur(s)`);
         const directReleases: IndexerRelease[] = [];
         for (const ix of indexers) {
-          const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, episodeNumber) : [{ title: series.title, season: seasonNumber, episode: episodeNumber, tmdbId: series.tmdbId, tvdbId: series.tvdbId ?? null, imdbId: series.imdbId ?? null }];
+          const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, episodeNumber) : [{ title: seriesSearchTitles(series)[0] ?? series.title, season: seasonNumber, episode: episodeNumber, tmdbId: isFankaiId(series.tmdbId) ? null : series.tmdbId, tvdbId: series.tvdbId ?? null, imdbId: series.imdbId ?? null }];
           const results: IndexerRelease[] = [];
           for (const query of queries) results.push(...await searchTv(ix, query, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
           directReleases.push(...results);
@@ -239,7 +240,7 @@ export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<E
         recordSearchLog("info", "search_and_replace_series.codec_fallback_direct", `${label} — cache sans meilleur codec, recherche directe sur ${indexers.length} indexeur(s)`);
         const directReleases: IndexerRelease[] = [];
         for (const ix of indexers) {
-          const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, episodeNumber) : [{ title: series.title, season: seasonNumber, episode: episodeNumber, tmdbId: series.tmdbId, tvdbId: series.tvdbId ?? null, imdbId: series.imdbId ?? null }];
+          const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, episodeNumber) : [{ title: seriesSearchTitles(series)[0] ?? series.title, season: seasonNumber, episode: episodeNumber, tmdbId: isFankaiId(series.tmdbId) ? null : series.tmdbId, tvdbId: series.tvdbId ?? null, imdbId: series.imdbId ?? null }];
           const results: IndexerRelease[] = [];
           for (const query of queries) results.push(...await searchTv(ix, query, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
           directReleases.push(...results);
@@ -306,7 +307,7 @@ export async function grabEpisodeUpgradeCandidate(seriesId: string, seasonNumber
     if (indexers.length > 0) {
       const directReleases: IndexerRelease[] = [];
       for (const ix of indexers) {
-        const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, episodeNumber) : [{ title: series.title, season: seasonNumber, episode: episodeNumber, tmdbId: series.tmdbId, tvdbId: series.tvdbId ?? null, imdbId: series.imdbId ?? null }];
+        const queries = series.tmdbId === BLEACH_TMDB_ID ? bleachIndexerQueries(seasonNumber, episodeNumber) : [{ title: seriesSearchTitles(series)[0] ?? series.title, season: seasonNumber, episode: episodeNumber, tmdbId: isFankaiId(series.tmdbId) ? null : series.tmdbId, tvdbId: series.tvdbId ?? null, imdbId: series.imdbId ?? null }];
         const results: IndexerRelease[] = [];
         for (const query of queries) results.push(...await searchTv(ix, query, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]));
         directReleases.push(...results);

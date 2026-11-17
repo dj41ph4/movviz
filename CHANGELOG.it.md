@@ -1,3 +1,10 @@
+## v1.28.163 — 17 novembre 2026
+
+### Versioni fan degli anime (Fan-Kai)
+
+- Android TV e Android mobile mostrano le locandine e le miniature Fan-Kai (scheda, elenco dei film, ricerca, suggerimenti, canale Movviz della schermata iniziale di Android TV), come il sito e Samsung.
+- Ricerca negli indexer: una versione fan viene cercata con il nome dei suoi torrent, senza il kaieur né il numero di stagione («Naruto Yabai» e non «Naruto Yabai (Triggerforce) S01», che non trovava nulla), e l'anno dell'anime originale riportato dal torrent («Naruto.Yabai.2002.INTEGRALE…») non lo esclude più. Quando due versioni hanno lo stesso nome, il tag del kaieur («[Roro]») assegna il torrent a quella giusta.
+
 ## v1.28.162 — 17 novembre 2026
 
 ### Versioni fan degli anime (Fan-Kai)

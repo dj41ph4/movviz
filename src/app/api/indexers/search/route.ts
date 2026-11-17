@@ -14,6 +14,7 @@ import { parseBleachSeriesPart } from "@/lib/library/bleachScope";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { getSeries } from "@/lib/library/store";
 import { bleachManualSearchTargets, bleachReleaseTargets } from "@/lib/library/bleachRelease";
+import { fankaiSearchName } from "@/lib/metadata/fankai";
 
 export const dynamic = "force-dynamic";
 
@@ -111,10 +112,16 @@ export async function GET(req: NextRequest) {
   // purposes) meant a "season 7" search scored season 8/9 episodes exactly
   // as high as season 7 ones — nothing left to distinguish them. `matchQuery`
   // keeps that code for scoring; `searchQuery` stays bare for the indexer.
-  const refTitle = req.nextUrl.searchParams.get("refTitle")?.trim();
-  const searchQuery = sanitizeQuery(refTitle || qRaw);
-  const matchQuery = sanitizeQuery(qRaw || refTitle || "");
   const category = req.nextUrl.searchParams.get("category") as MediaType | null;
+  // A Fan-Kai version (« Naruto Yabai (Triggerforce) S01 ») is released under
+  // its bare name, without the kaieur nor a season code
+  // (« Naruto.Yabai.2002.INTEGRALE.MULTi…-FanKai », « … Kaï - 03 - … »):
+  // both are dropped for the indexer AND for scoring. Confirmed live on C411
+  // and Tr4ker: 0 results with the kaieur, 6 without.
+  const fanName = category === "movie" ? null : fankaiSearchName(req.nextUrl.searchParams.get("refTitle")?.trim() || qRaw);
+  const refTitle = fanName ?? req.nextUrl.searchParams.get("refTitle")?.trim();
+  const searchQuery = sanitizeQuery(refTitle || qRaw);
+  const matchQuery = fanName ? searchQuery : sanitizeQuery(qRaw || refTitle || "");
   const recent = req.nextUrl.searchParams.get("recent") === "1";
   const enabled = loadIndexers().filter((i) => i.enabled);
   // ID-based search params (from a known movie/series detail page)

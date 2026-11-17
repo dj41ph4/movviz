@@ -92,8 +92,8 @@ function firstMatchIndex(source, patterns) {
 // Fan versions (« Death Note Kaï - 01 - … »): keep in sync with that file.
 const FAN_MARKER = String.raw`(?:ka[iï]|hensh[uū]|yabai|fan[-/ ]?cut|recut)`;
 const FAN_MARKER_END_RE = new RegExp(String.raw`(?:^|[\s._-])${FAN_MARKER}(?:\s+ultime\s+pack)?\s*$`, "i");
-const FAN_PART_RE = new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?:\s*\([^)]*\))?\s+-\s+(\d{1,4})(?:\s+-\s+|\s*$|\s+(?=\d{3,4}p\b))`, "i");
-const FAN_PACK_RE = new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?=\s*(?:\([^)]*\)\s*)?(?:\[|[-\s](?:int[ée]grale|complete|multi|vostfr|vf|\d{3,4}p)\b|$))`, "i");
+const FAN_PART_RE = new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?:\s*\([^)]*\))?(?:\s+(?:19|20)\d{2})?\s+-\s+(\d{1,4})(?:\s+-\s+|\s*$|\s+(?=\d{3,4}p\b))`, "i");
+const FAN_PACK_RE = new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?=\s*(?:\([^)]*\)\s*)?(?:\s*(?:19|20)\d{2}\b)?(?:\[|[-\s](?:int[ée]grale|complete|multi|vostfr|vf|\d{3,4}p)\b|$))`, "i");
 
 function hasFanMarker(title) {
   return FAN_MARKER_END_RE.test(title.replace(/\s*\([^)]*\)\s*$/, "").trim());
