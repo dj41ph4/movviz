@@ -1,4 +1,5 @@
 import type { ReleaseInfo } from "./types";
+import { parseFankaiReleaseName } from "@/lib/metadata/fankaiWikitext";
 
 /**
  * Release name parser — extracts structured metadata (title, year, quality,
@@ -138,10 +139,27 @@ const PARSE_CACHE_MAX = 8000;
 export function parseRelease(rawName: string): ReleaseInfo {
   const cached = parseCache.get(rawName);
   if (cached) return cached;
-  const result = parseReleaseUncached(rawName);
+  const result = withFankaiName(rawName, parseReleaseUncached(rawName));
   if (parseCache.size >= PARSE_CACHE_MAX) parseCache.clear();
   parseCache.set(rawName, result);
   return result;
+}
+
+/**
+ * Fan-Kai names (« [Odji-san] Death Note Kaï - 01 - Light vs L Partie 1
+ * 1080p Multi x264 ») carry no SxxEyy: the number after the title is the
+ * part, which Movviz keeps as season 1, episode N of the fan version (see
+ * metadata/fankai.ts). Without this the whole name became the title and no
+ * part could ever be matched. Quality, language and codec stay as parsed.
+ * Mirrored in workers/releaseMatchWorker.mjs.
+ */
+function withFankaiName(rawName: string, info: ReleaseInfo): ReleaseInfo {
+  if (info.season != null && info.episode != null) return info;
+  const fan = parseFankaiReleaseName(rawName);
+  if (!fan) return info;
+  return fan.part != null
+    ? { ...info, title: fan.title, season: 1, episode: fan.part, episodeEnd: null, seasonPart: null, isCompletePack: false }
+    : { ...info, title: fan.title, season: info.season ?? 1, episode: null, episodeEnd: null, seasonPart: null, isCompletePack: true };
 }
 
 function parseReleaseUncached(rawName: string): ReleaseInfo {

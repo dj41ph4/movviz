@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { trackJobProgress } from "@/lib/jobs/cancelScope";
 import path from "node:path";
+import { isFankaiId } from "@/lib/metadata/fankaiWikitext";
 import { getSeries, getSeriesByTmdbId, addSeries, updateSeries, loadSeries, loadMovies } from "@/lib/library/store";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
 import { configuredQualityProfile } from "@/lib/library/defaultQualityProfile";
@@ -261,6 +262,11 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string, opts: { backg
   }
   // Bleach has an explicit identity repair; never use positional resync here.
   if (initial.tmdbId === BLEACH_TMDB_ID) return { error: "bleach_repair_required", ok: false };
+  // A Fan-Kai version is numbered by its parts (Fan-Kai wiki): TVDB knows
+  // only the original series and would renumber it as that one.
+  if (isFankaiId(initial.tmdbId)) {
+    return { ok: true, oldSeasonCount: initial.seasons.length, newSeasonCount: initial.seasons.length, source: "tmdb", movedFiles: 0, duplicatesRemoved: 0, duplicatesKept: 0, renamedFiles: 0, unchanged: true, snapshot: null };
+  }
 
   // ---- Catalogues (network, outside the lock) ----
   const meta = await fetchTmdbSeries(initial.tmdbId).catch(() => null);

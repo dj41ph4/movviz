@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { FANKAI_FETCH_HEADERS, fankaiImageSource, isFankaiImage } from "./fankai";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -160,7 +161,13 @@ async function ensureTmdbImage(size: string, rawPath: string): Promise<string | 
 
   const download = (async () => {
     try {
-      const response = await fetch(`https://image.tmdb.org/t/p/${sourceSize}/${filename}`, { cache: "no-store" });
+      // Fan-Kai posters (fankai.ts) come from the wiki's image server, same cache.
+      const width = /^w(\d+)$/.exec(sourceSize)?.[1];
+      const source = isFankaiImage(filename)
+        ? fankaiImageSource(filename, width && Number(width) < 1280 ? Number(width) : null)
+        : `https://image.tmdb.org/t/p/${sourceSize}/${filename}`;
+      if (!source) return null;
+      const response = await fetch(source, { cache: "no-store", ...(isFankaiImage(filename) ? { signal: AbortSignal.timeout(15_000), headers: FANKAI_FETCH_HEADERS } : {}) });
       if (!response.ok) return null;
       const body = Buffer.from(await response.arrayBuffer());
       if (body.length === 0) return null;

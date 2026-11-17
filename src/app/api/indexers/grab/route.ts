@@ -15,6 +15,7 @@ import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEn
 import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
 import { withEpisodeTitles } from "@/lib/library/episodeTargetTitles";
 import { isCompleteSeriesPackTitle } from "@/lib/library/autoGrabSeries";
+import { linkFankaiRelease } from "@/lib/library/fankaiGrab";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,19 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   let libraryRef = typeof body.libraryRef === "string" ? body.libraryRef : null;
   let decodedRef = libraryRef ? decodeLibraryRef(libraryRef) : null;
-  const linkedSeries = decodedRef && decodedRef.kind !== "movie" ? getSeries(decodedRef.seriesId) : null;
+  let linkedSeries = decodedRef && decodedRef.kind !== "movie" ? getSeries(decodedRef.seriesId) : null;
+  // A Fan-Kai version picked from any search (its series' fiche, the free
+  // Search page) is tied to that version's own fiche, added when missing.
+  const fankaiLink = typeof body.releaseTitle === "string" && decodedRef?.kind !== "movie"
+    ? await linkFankaiRelease(body.releaseTitle, linkedSeries).catch(() => null)
+    : null;
+  if (fankaiLink) {
+    decodedRef = fankaiLink.ref;
+    libraryRef = encodeLibraryRef(fankaiLink.ref);
+    linkedSeries = fankaiLink.series;
+    body.seriesPart = undefined;
+    body.bleachPart = undefined;
+  }
   const seriesPart = parseBleachSeriesPart(body.seriesPart);
   const bleachPart = body.bleachPart == null ? undefined : Number(body.bleachPart);
   if ((body.seriesPart != null && !seriesPart) || (bleachPart != null && (!Number.isInteger(bleachPart) || bleachPart < 1 || bleachPart > 4)) || ((seriesPart || bleachPart) && linkedSeries?.tmdbId !== BLEACH_TMDB_ID)) return NextResponse.json({ error: "invalid_series_part" }, { status: 400 });

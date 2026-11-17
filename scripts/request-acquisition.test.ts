@@ -126,7 +126,7 @@ test("Gintama: season packs take priority over an available integral", () => {
     const keep = new Set(['@/lib/library/types', '@/lib/library/qualityProfiles', '@/lib/naming/parser', '@/lib/naming/types',
       '@/lib/library/matching', '@/lib/library/locks', '@/lib/library/releaseSchedule', '@/lib/indexers/categories',
       '@/lib/library/autoGrabSeries', '@/lib/requests/queueAcquisition',
-      '@/lib/library/bleachEngine', '@/lib/library/bleachRelease', '@/lib/metadata/bleachEpisodeOrder']);
+      '@/lib/library/bleachEngine', '@/lib/library/bleachRelease', '@/lib/metadata/bleachEpisodeOrder', '@/lib/metadata/fankaiWikitext']);
     const modules = new Map();
     for (const file of ['src/lib/library/autoGrabSeries.ts', 'src/lib/requests/requestMedia.ts', 'src/lib/requests/queueAcquisition.ts']) {
       for (const m of readFileSync(file, 'utf8').matchAll(/import \\{([^}]+)\\} from "([^"]+)";/g)) {

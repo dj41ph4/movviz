@@ -26,6 +26,11 @@ import { loadUserPrefs } from "@/lib/userPrefs/store";
 import { BLEACH_TMDB_ID, bleachToTmdb, bleachFromTmdb, bleachSeasonSummaries, type BleachEpisodeOrder } from "./bleachEpisodeOrder";
 import { bleachSeasonContent } from "./bleachSeasonContent";
 import { longCutEpisodeCount, toLongCutSeason } from "./longCutSeasons";
+import {
+  fankaiSearchResult, fankaiSeason, fankaiSeries, fankaiTagline, fankaiVersionsOf, fankaiWikiUrl, getCachedFankaiEntry, getFankaiEntry,
+  isFankaiId, searchFankai, type FankaiEntry,
+} from "./fankai";
+import { hasFanMarker } from "./fankaiWikitext";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -180,7 +185,12 @@ async function fetchAndCache<T>(url: string, slim?: (data: T) => T): Promise<T |
  * titles), where the full payload — every country's rent/buy lists, whole
  * detail records — filled the heap while only a few fields were ever read.
  */
+/** `/tv/<id>…` for a Fan-Kai id (fan versions are series only): TMDb does not know it, never ask. */
+const FANKAI_PATH_RE = /^\/tv\/(\d{10})(?:\/|$)/;
+
 async function tmdbGet<T>(path: string, params: Record<string, string> = {}, language?: string, slim?: (data: T) => T): Promise<T | null> {
+  const fankaiPath = path.match(FANKAI_PATH_RE);
+  if (fankaiPath && isFankaiId(Number(fankaiPath[1]))) return null;
   const key = apiKey();
   if (!key) {
     console.log("[tmdb] tmdbGet — no API key configured, path=" + path);
@@ -296,9 +306,25 @@ export async function searchMulti(query: string, page = 1): Promise<PagedResults
     query,
     page: String(page),
   });
-  if (!data) return { results: [], page: 1, totalPages: 0 };
+  if (!data) return withFankaiResults(query, page, { results: [], page: 1, totalPages: 0 });
   const filtered = { ...data, results: data.results.filter((r) => r.media_type === "movie" || r.media_type === "tv") };
-  return mapPaged(filtered, undefined, true);
+  return withFankaiResults(query, page, mapPaged(filtered, undefined, true));
+}
+
+/**
+ * Fan-Kai versions take part in every text search, on the first page. After
+ * the TMDb hits (a search for « Death Note » is first a search for the
+ * series), before them when the query itself names a fan version
+ * (« Death Note Kaï »): code that resolves a name to its first result then
+ * lands on the fan version, never on the series it is cut from.
+ */
+function withFankaiResults(query: string, page: number, paged: PagedResults): PagedResults {
+  if (page !== 1) return paged;
+  const fan = searchFankai(query).map(fankaiSearchResult);
+  if (fan.length === 0) return paged;
+  const ids = new Set(fan.map((r) => r.tmdbId));
+  const tmdb = paged.results.filter((r) => !ids.has(r.tmdbId));
+  return { ...paged, results: hasFanMarker(query.trim()) ? [...fan, ...tmdb] : [...tmdb, ...fan], totalPages: Math.max(1, paged.totalPages) };
 }
 
 /** Finds a real person (actor/director/etc.) by name — same `/search/multi`
@@ -354,7 +380,7 @@ export async function searchTv(query: string, page = 1): Promise<PagedResults> {
     query,
     page: String(page),
   });
-  return mapPaged(data, "series", true);
+  return withFankaiResults(query, page, mapPaged(data, "series", true));
 }
 
 export async function searchMovies(query: string, page = 1): Promise<{ results: MovieSearchHit[] }> {
@@ -486,11 +512,41 @@ export async function getMovieRecommendations(tmdbId: number, page = 1): Promise
 
 /** TMDB recommendations for a single series — `/tv/{id}/recommendations`. */
 export async function getTvRecommendations(tmdbId: number, page = 1): Promise<PagedResults> {
+  const fan = await fankaiRelated(tmdbId, page);
+  if (fan.parentId === null) return fan.paged;
   const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>(
-    `/tv/${tmdbId}/recommendations`,
+    `/tv/${fan.parentId}/recommendations`,
     { page: String(page) }
   );
-  return mapPaged(data, "series");
+  return mergeFankaiRelated(fan.related, mapPaged(data, "series"));
+}
+
+/**
+ * Proposals around a fan version: its own series and the other fan versions
+ * of it first, then what TMDb proposes for that series. Around a series that
+ * has fan versions, those come first.
+ */
+async function fankaiRelated(tmdbId: number, page: number): Promise<{ parentId: number | null; related: MetaSearchResult[]; paged: PagedResults }> {
+  const empty = { results: [], page: 1, totalPages: 0 };
+  if (!isFankaiId(tmdbId)) {
+    return { parentId: tmdbId, related: page === 1 ? fankaiVersionsOf(tmdbId).map(fankaiSearchResult) : [], paged: empty };
+  }
+  const entry = await getFankaiEntry(tmdbId);
+  if (!entry?.parentTmdbId) return { parentId: null, related: [], paged: empty };
+  if (page !== 1) return { parentId: entry.parentTmdbId, related: [], paged: empty };
+  const parent = await getSeries(entry.parentTmdbId).catch(() => null);
+  const siblings = fankaiVersionsOf(entry.parentTmdbId).filter((e) => e.id !== entry.id).map(fankaiSearchResult);
+  const parentHit: MetaSearchResult[] = parent ? [{
+    tmdbId: parent.tmdbId, type: "series", title: parent.title, year: parent.year, releaseDate: parent.releaseDate,
+    overview: parent.overview, posterPath: parent.posterPath, backdropPath: parent.backdropPath, rating: parent.rating, originalTitle: parent.originalTitle,
+  }] : [];
+  return { parentId: entry.parentTmdbId, related: [...parentHit, ...siblings], paged: empty };
+}
+
+function mergeFankaiRelated(related: MetaSearchResult[], paged: PagedResults): PagedResults {
+  if (related.length === 0) return paged;
+  const ids = new Set(related.map((r) => r.tmdbId));
+  return { ...paged, results: [...related, ...paged.results.filter((r) => !ids.has(r.tmdbId))], totalPages: Math.max(1, paged.totalPages) };
 }
 
 /** TMDB "similar" for a single movie — `/movie/{id}/similar`, content-based
@@ -512,11 +568,13 @@ export async function getMovieSimilar(tmdbId: number, page = 1): Promise<PagedRe
  *  keywords) rather than derived from other users' viewing overlap, so it
  *  has real signal even for a title /recommendations barely covers. */
 export async function getTvSimilar(tmdbId: number, page = 1): Promise<PagedResults> {
+  const fan = await fankaiRelated(tmdbId, page);
+  if (fan.parentId === null) return fan.paged;
   const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>(
-    `/tv/${tmdbId}/similar`,
+    `/tv/${fan.parentId}/similar`,
     { page: String(page) }
   );
-  return mapPaged(data, "series");
+  return mergeFankaiRelated(fan.related, mapPaged(data, "series"));
 }
 
 /** Current box-office leaders — real recent releases ranked by revenue, not TMDb's all-time chart. */
@@ -657,6 +715,7 @@ function slimOriginDetail(d: OriginDetail): OriginDetail {
 }
 
 export async function getTitleOriginCountries(type: "movie" | "series", tmdbId: number): Promise<string[]> {
+  if (type === "series" && isFankaiId(tmdbId)) return ["JP"];
   // Same cache entry as getTitleInLanguage()/getEnglishFallback() (plain detail
   // URL): keep every field those read too, drop the rest of the record.
   const data = await tmdbGet<OriginDetail>(
@@ -666,6 +725,10 @@ export async function getTitleOriginCountries(type: "movie" | "series", tmdbId: 
 }
 
 export async function getGenreProfile(type: "movie" | "series", tmdbId: number): Promise<{ genreIds: number[]; originalLanguage: string | null } | null> {
+  if (type === "series" && isFankaiId(tmdbId)) {
+    const parentId = getCachedFankaiEntry(tmdbId)?.parentTmdbId;
+    return parentId ? getGenreProfile("series", parentId) : { genreIds: [16], originalLanguage: "ja" };
+  }
   const data = type === "movie"
     ? await tmdbGet<RawMovie>(`/movie/${tmdbId}`, { append_to_response: "external_ids,release_dates" })
     : await tmdbGet<RawSeries>(`/tv/${tmdbId}`, { append_to_response: "external_ids" });
@@ -673,7 +736,26 @@ export async function getGenreProfile(type: "movie" | "series", tmdbId: number):
   return { genreIds: (data.genres ?? []).map((g) => g.id), originalLanguage: data.original_language ?? null };
 }
 
+/** A fan version as a series: Fan-Kai's title, synopsis and parts, its series' backdrop and genres. */
+async function getFankaiSeries(entry: FankaiEntry): Promise<MetaSeries> {
+  const own = fankaiSeries(entry);
+  const parent = entry.parentTmdbId ? await getSeries(entry.parentTmdbId).catch(() => null) : null;
+  return {
+    ...own,
+    overview: own.overview || parent?.overview || "",
+    posterPath: own.posterPath ?? parent?.posterPath ?? null,
+    backdropPath: parent?.backdropPath ?? null,
+    genres: parent?.genres ?? ["Animation"],
+    year: own.year ?? parent?.year ?? null,
+    rating: parent?.rating ?? 0,
+  };
+}
+
 export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
+  if (isFankaiId(tmdbId)) {
+    const entry = await getFankaiEntry(tmdbId);
+    return entry ? getFankaiSeries(entry) : null;
+  }
   const data = await tmdbGet<RawSeries>(`/tv/${tmdbId}`, { append_to_response: "external_ids" });
   if (!data) return null;
   return {
@@ -731,6 +813,7 @@ async function englishEpisodeGaps(tmdbId: number, seasonNumber: number, data: Ra
  * pour qu'un épisode tout juste sorti affiche tout de suite son titre et son synopsis.
  */
 export async function refreshSeasonFromTmdb(tmdbId: number, seasonNumber: number, preferLanguage?: string): Promise<void> {
+  if (isFankaiId(tmdbId)) return;
   const key = apiKey();
   if (!key) return;
   for (const language of new Set([toTmdbLanguage(preferLanguage), "en-US"])) {
@@ -742,6 +825,10 @@ export async function refreshSeasonFromTmdb(tmdbId: number, seasonNumber: number
 }
 
 export async function getSeason(tmdbId: number, seasonNumber: number, preferLanguage?: string, opts?: { bleachOrder?: BleachEpisodeOrder }): Promise<MetaSeason | null> {
+  if (isFankaiId(tmdbId)) {
+    const entry = seasonNumber === 1 ? await getFankaiEntry(tmdbId) : null;
+    return entry ? fankaiSeason(entry) : null;
+  }
   const operationalBleach = tmdbId === BLEACH_TMDB_ID && opts?.bleachOrder !== "tmdb";
   const mapped = operationalBleach ? bleachToTmdb(seasonNumber, 1) : null;
   if (operationalBleach && !mapped) return null;
@@ -967,6 +1054,7 @@ export interface MetaPerson {
  * Falls back to the original title if the locale returns an empty/unknown title.
  */
 export async function getTitleInLanguage(tmdbId: number, type: "movie" | "series", language: string): Promise<string | null> {
+  if (type === "series" && isFankaiId(tmdbId)) return (await getFankaiEntry(tmdbId))?.title ?? null;
   const data = await tmdbGet<{ title?: string; name?: string; original_title?: string; original_name?: string }>(
     type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`,
     {},
@@ -978,6 +1066,10 @@ export async function getTitleInLanguage(tmdbId: number, type: "movie" | "series
 /** English title + synopsis, for a title TMDb has no French translation of
  *  (a Flemish film then shows its Dutch title and an empty synopsis). */
 export async function getEnglishFallback(tmdbId: number, type: "movie" | "series"): Promise<{ title: string; overview: string } | null> {
+  if (type === "series" && isFankaiId(tmdbId)) {
+    const entry = await getFankaiEntry(tmdbId);
+    return entry ? { title: entry.title, overview: entry.synopsis } : null;
+  }
   const data = await tmdbGet<{ title?: string; name?: string; overview?: string }>(
     type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`,
     {},
@@ -1118,6 +1210,12 @@ function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string
 
 /** Alternate backdrops/logos for a title — feeds the artwork picker. */
 export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string, extraLanguages: string[] = []): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
+  if (type === "series" && isFankaiId(tmdbId)) {
+    // The series' backdrops, never its logos: « Death Note » written over
+    // the fiche of « Death Note Kaï » would name the wrong title.
+    const parentId = (await getFankaiEntry(tmdbId))?.parentTmdbId;
+    return { backdrops: parentId ? (await getTitleImages(parentId, "series", locale, extraLanguages)).backdrops : [], logos: [] };
+  }
   const preferredLocale = toTmdbLanguage(locale);
   const lang = preferredLocale.split("-")[0];
   const data = await tmdbGet<RawTitleImages>(
@@ -1198,6 +1296,10 @@ const KEY_CREW_JOBS = new Set(["Director", "Writer", "Screenplay", "Producer", "
 
 /** Ranking needs credits and themes, never trailers, OMDb or providers. */
 export async function getTasteMetadata(type: "movie" | "series", tmdbId: number): Promise<Pick<MetaDetail, "keywords" | "cast" | "crew"> | null> {
+  if (type === "series" && isFankaiId(tmdbId)) {
+    const parentId = getCachedFankaiEntry(tmdbId)?.parentTmdbId;
+    return parentId ? getTasteMetadata("series", parentId) : null;
+  }
   const data = await tmdbGet<RawDetail>(`/${type === "movie" ? "movie" : "tv"}/${tmdbId}`, { append_to_response: "credits,keywords" });
   if (!data) return null;
   const keywords = type === "movie" ? data.keywords?.keywords : data.keywords?.results;
@@ -1208,7 +1310,70 @@ export async function getTasteMetadata(type: "movie" | "series", tmdbId: number)
   };
 }
 
+/**
+ * The fiche of a fan version: Fan-Kai's title, synopsis, poster and parts;
+ * the backdrop, genres, cast and studios of the series it is cut from (they
+ * are those of the same story), its rating too (the same story, recut); never its trailer or providers.
+ */
+async function getFankaiDetail(tmdbId: number, preferLanguage?: string): Promise<MetaDetail | null> {
+  const entry = await getFankaiEntry(tmdbId);
+  if (!entry) return null;
+  const own = fankaiSeries(entry);
+  const season = fankaiSeason(entry);
+  const parent = entry.parentTmdbId ? await getDetail("series", entry.parentTmdbId, preferLanguage).catch(() => null) : null;
+  const runtimes = entry.parts.map((p) => p.runtime).filter((r): r is number => r != null);
+  const related = (await fankaiRelated(tmdbId, 1)).related;
+  return {
+    tmdbId,
+    type: "series",
+    fankaiWikiUrl: fankaiWikiUrl(entry),
+    title: entry.title,
+    originalTitle: entry.title,
+    year: own.year ?? parent?.year ?? null,
+    overview: entry.synopsis || parent?.overview || "",
+    tagline: fankaiTagline(entry),
+    posterPath: own.posterPath ?? parent?.posterPath ?? null,
+    backdropPath: parent?.backdropPath ?? null,
+    rating: parent?.rating ?? 0,
+    genres: parent?.genres ?? ["Animation"],
+    runtime: runtimes.length ? Math.round(runtimes.reduce((a, b) => a + b, 0) / runtimes.length) : null,
+    status: translateStatus(own.status, preferLanguage ?? "fr"),
+    originalLanguage: parent?.originalLanguage || "ja",
+    countries: parent?.countries ?? [],
+    studios: parent?.studios ?? [],
+    keywords: parent?.keywords ?? [],
+    cast: parent?.cast ?? [],
+    crew: parent?.crew ?? [],
+    isAnime: false,
+    tvdbId: null,
+    imdbId: null,
+    watchProviders: [],
+    releaseDateFull: own.releaseDate,
+    vfReleaseDate: null,
+    revenue: null,
+    budget: null,
+    trailerKey: null,
+    trailerKeys: [],
+    ambientVideoKeys: [],
+    rtScore: null,
+    metascore: null,
+    imdbRating: null,
+    similar: [...related, ...(parent?.similar ?? []).filter((r) => r.tmdbId !== tmdbId && !related.some((x) => x.tmdbId === r.tmdbId))].slice(0, 12),
+    collection: null,
+    seasons: [{ seasonNumber: 1, name: season.name, episodeCount: season.episodeCount, airDate: season.airDate, overview: season.overview }],
+  };
+}
+
 export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string, opts?: { youtubeTrailerSearch?: boolean; bleachOrder?: BleachEpisodeOrder }): Promise<MetaDetail | null> {
+  if (type === "series" && isFankaiId(tmdbId)) return getFankaiDetail(tmdbId, preferLanguage);
+  const detail = await getTmdbDetail(type, tmdbId, preferLanguage, opts);
+  if (!detail || type !== "series") return detail;
+  // The fan versions of this series lead its proposals.
+  const fan = fankaiVersionsOf(tmdbId).map(fankaiSearchResult);
+  return fan.length ? { ...detail, similar: [...fan, ...detail.similar.filter((r) => !fan.some((f) => f.tmdbId === r.tmdbId))].slice(0, 12 + fan.length) } : detail;
+}
+
+async function getTmdbDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string, opts?: { youtubeTrailerSearch?: boolean; bleachOrder?: BleachEpisodeOrder }): Promise<MetaDetail | null> {
   const kind = type === "movie" ? "movie" : "tv";
   const [data, watchProviders] = await Promise.all([
     // Previously always fetched in fr-FR regardless of the interface's own
@@ -1616,6 +1781,8 @@ function slimWatchProviders(d: RawWatchProviders): RawWatchProviders {
  * US since TMDb's provider coverage is much better there.
  */
 export async function getWatchProviders(type: "movie" | "series", tmdbId: number, watchRegion = DEFAULT_WATCH_REGION, fallbackToUs = true): Promise<MetaWatchProvider[]> {
+  // A fan version is on no streaming service.
+  if (type === "series" && isFankaiId(tmdbId)) return [];
   const kind = type === "movie" ? "movie" : "tv";
   const data = await tmdbGet<RawWatchProviders>(`/${kind}/${tmdbId}/watch/providers`, {}, undefined, slimWatchProviders);
   if (!data && !fallbackToUs) throw new Error("watch_provider_metadata_unavailable");

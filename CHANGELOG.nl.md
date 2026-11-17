@@ -1,3 +1,12 @@
+## v1.28.162 — 17 november 2026
+
+### Fanversies van anime (Fan-Kai)
+
+- Fanversies van anime uit het Fan-Kai-project — montages zonder filler-afleveringen („Kaï”, „Henshū”, „Yabai”, „FAN-CUT”) — hebben nu een eigen titelpagina: titel, samenvatting, posters en lijst van films, gelezen van de Fan-Kai-wiki. Ze verschijnen in de zoekresultaten en in de suggesties (als eerste bij de vergelijkbare titels van de oorspronkelijke serie). De oorspronkelijke serie leent hun achtergrond, genres, cast en beoordeling.
+- Een Fan-Kai-torrent of -bestand („[Odji-san] Death Note Kaï - 03 - Second Kira”) wordt herkend, en elke film komt op zijn plaats op de pagina van de fanversie. Een torrent gekozen uit welke indexer-zoekopdracht dan ook, ook die van de oorspronkelijke serie, wordt gekoppeld aan de pagina van de fanversie, die zo nodig aan de bibliotheek wordt toegevoegd. Een fanversie en haar oorspronkelijke serie nemen elkaars bestanden niet meer.
+- De wiki wordt hoogstens één keer per week opnieuw gelezen, op de achtergrond; TMDb blijft de bron van alle andere titels.
+- Samsung toont de Fan-Kai-posters; op Android TV en Android mobiel hebben Fan-Kai-pagina's hun titels en samenvattingen, maar nog geen posters.
+
 ## v1.28.161 — 16 november 2026
 
 ### Start

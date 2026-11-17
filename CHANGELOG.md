@@ -1,3 +1,12 @@
+## v1.28.162 — 17 novembre 2026
+
+### Versions fan d'animés (Fan-Kai)
+
+- Les versions fan d'animés du projet Fan-Kai — des montages sans épisodes de remplissage (« Kaï », « Henshū », « Yabai », « FAN-CUT ») — ont désormais leur propre fiche : titre, synopsis, affiches et liste des films, lus sur le wiki Fan-Kai. Elles apparaissent dans la recherche et dans les propositions (en tête des titres similaires de la série d'origine). La série d'origine leur prête son image de fond, ses genres, sa distribution et sa note.
+- Un torrent ou un fichier Fan-Kai (« [Odji-san] Death Note Kaï - 03 - Second Kira ») est reconnu, et chaque film est rangé à sa place dans la fiche de la version fan. Un torrent pris dans n'importe quelle recherche d'indexeur, y compris celle de la série d'origine, est lié à la fiche de la version fan, ajoutée à la bibliothèque si besoin. Une version fan et sa série d'origine ne se prennent plus leurs fichiers.
+- Le wiki est relu au plus une fois par semaine, en arrière-plan ; TMDb reste la source de toutes les autres fiches.
+- Samsung affiche les affiches Fan-Kai ; sur Android TV et Android mobile, les fiches Fan-Kai ont leurs titres et synopsis mais pas encore leurs affiches.
+
 ## v1.28.161 — 16 novembre 2026
 
 ### Accueil

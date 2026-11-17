@@ -143,6 +143,8 @@ interface Window {
   }
   function imageUrl(path?: string) {
     if (!path) return "icon.png";
+    // Fan-Kai posters (fan versions of anime) are not on TMDb's CDN: the server serves them.
+    if (/^\/fankai-[0-9a-f]{16}\.(?:png|jpg|webp)$/.test(path) && saved?.server) return `${saved.server}/tmdb/w500${path}`;
     if (path.startsWith("/")) return `https://image.tmdb.org/t/p/w500${path}`;
     try { const url = new URL(path); return /^https?:$/.test(url.protocol) ? url.href : "icon.png"; } catch { return "icon.png"; }
   }

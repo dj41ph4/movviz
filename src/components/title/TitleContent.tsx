@@ -1293,15 +1293,28 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
             </a>
           )
         )}
-        <a
-          href={`https://www.themoviedb.org/${type === "movie" ? "movie" : "tv"}/${detail.tmdbId}`}
-          target="_blank"
-          rel="noreferrer"
-          title="TMDb"
-          className="h-8 w-8 shrink-0 overflow-hidden rounded-lg transition-transform hover:scale-110"
-        >
-          <BrandIcon name="tmdb" className="h-full w-full" />
-        </a>
+        {detail.fankaiWikiUrl ? (
+          // A Fan-Kai version has no TMDb page: its source is the Fan-Kai wiki.
+          <a
+            href={detail.fankaiWikiUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Fan-Kai"
+            className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/10 text-[11px] font-bold tracking-tight text-white transition-transform hover:scale-110"
+          >
+            FK
+          </a>
+        ) : (
+          <a
+            href={`https://www.themoviedb.org/${type === "movie" ? "movie" : "tv"}/${detail.tmdbId}`}
+            target="_blank"
+            rel="noreferrer"
+            title="TMDb"
+            className="h-8 w-8 shrink-0 overflow-hidden rounded-lg transition-transform hover:scale-110"
+          >
+            <BrandIcon name="tmdb" className="h-full w-full" />
+          </a>
+        )}
         {detail.imdbId && (
           <a
             href={`https://www.imdb.com/title/${detail.imdbId}`}
@@ -1313,7 +1326,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
             <BrandIcon name="imdb" className="h-full w-full" />
           </a>
         )}
-        <a
+        {!detail.fankaiWikiUrl && <a
           href={`https://www.rottentomatoes.com/search?search=${encodeURIComponent(detail.title)}`}
           target="_blank"
           rel="noreferrer"
@@ -1324,7 +1337,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
             name="rottenTomatoes"
             className="h-full w-full"
           />
-        </a>
+        </a>}
         {type === "movie" && (
           <a
             href={`https://letterboxd.com/search/${encodeURIComponent(detail.title)}/`}

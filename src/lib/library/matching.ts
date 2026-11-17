@@ -1,4 +1,5 @@
 import type { ReleaseInfo } from "@/lib/naming/types";
+import { hasFanMarker } from "@/lib/metadata/fankaiWikitext";
 
 /**
  * Release-to-library matching — the piece most naive downloaders skip:
@@ -354,6 +355,19 @@ export function belongsToAnotherLibraryTitle(parsedTitle: string, targetTitle: s
   return titleIndexHolder.__movvizLibraryTitleIndex?.().has(np) ?? false;
 }
 
+/**
+ * A fan version (« Death Note Kaï », « Bleach Yabai ») and the series it is
+ * cut from are two titles: the shared words would otherwise let a release of
+ * one be grabbed or imported for the other, since containment is accepted
+ * (scene releases drop subtitles). A release names a fan version when its
+ * title ends with the marker; the target does when all its names do.
+ */
+export function fanVersionConflict(parsedTitle: string, candidates: string[]): boolean {
+  const names = candidates.filter((c) => c.trim());
+  if (names.length === 0) return false;
+  return hasFanMarker(parsedTitle) ? !names.some(hasFanMarker) : names.every(hasFanMarker);
+}
+
 /** Does this parsed release's title plausibly refer to the target movie/series? */
 export function releaseTitleMatches(
   parsedTitle: string,
@@ -362,6 +376,7 @@ export function releaseTitleMatches(
   yearInfo?: { year: string | null; targetYear: number | null }
 ): boolean {
   const candidates = [targetTitle, ...aliases];
+  if (fanVersionConflict(parsedTitle, candidates)) return false;
   if (belongsToAnotherLibraryTitle(parsedTitle, targetTitle, aliases)) return false;
   // A sequel-number conflict is disqualifying on its own — a close name
   // never overrides it, checked before everything below.

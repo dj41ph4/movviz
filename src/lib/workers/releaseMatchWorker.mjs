@@ -88,7 +88,48 @@ function firstMatchIndex(source, patterns) {
   return min;
 }
 
+// ── metadata/fankaiWikitext.ts (hasFanMarker, parseFankaiReleaseName) ────
+// Fan versions (« Death Note Kaï - 01 - … »): keep in sync with that file.
+const FAN_MARKER = String.raw`(?:ka[iï]|hensh[uū]|yabai|fan[-/ ]?cut|recut)`;
+const FAN_MARKER_END_RE = new RegExp(String.raw`(?:^|[\s._-])${FAN_MARKER}(?:\s+ultime\s+pack)?\s*$`, "i");
+const FAN_PART_RE = new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?:\s*\([^)]*\))?\s+-\s+(\d{1,4})(?:\s+-\s+|\s*$|\s+(?=\d{3,4}p\b))`, "i");
+const FAN_PACK_RE = new RegExp(String.raw`^(.+?\s${FAN_MARKER}(?:\s+ultime\s+pack)?)(?=\s*(?:\([^)]*\)\s*)?(?:\[|[-\s](?:int[ée]grale|complete|multi|vostfr|vf|\d{3,4}p)\b|$))`, "i");
+
+function hasFanMarker(title) {
+  return FAN_MARKER_END_RE.test(title.replace(/\s*\([^)]*\)\s*$/, "").trim());
+}
+
+function parseFankaiReleaseName(rawName) {
+  const name = rawName
+    .replace(/\.(?:mkv|mp4|avi|m4v|ts|webm)$/i, "")
+    .replace(/^\s*(?:\[[^\]]*\]\s*)+/, "")
+    .replace(/[._]+/g, (m) => (m.length === 1 ? " " : m))
+    .trim();
+  const withPart = name.match(FAN_PART_RE);
+  if (withPart) return { title: withPart[1].trim(), part: Number(withPart[2]) };
+  const pack = name.match(FAN_PACK_RE);
+  if (pack && !/\s-\s\d/.test(name.slice(pack[1].length, pack[1].length + 8))) return { title: pack[1].trim(), part: null };
+  return null;
+}
+
+function fanVersionConflict(parsedTitle, candidates) {
+  const names = candidates.filter((c) => c && c.trim());
+  if (names.length === 0) return false;
+  return hasFanMarker(parsedTitle) ? !names.some(hasFanMarker) : names.every(hasFanMarker);
+}
+
+// Mirror of parser.ts's withFankaiName.
 function parseRelease(rawName) {
+  const info = parseReleaseBase(rawName);
+  if (info.season != null && info.episode != null) return info;
+  const fan = parseFankaiReleaseName(rawName);
+  if (!fan) return info;
+  return fan.part != null
+    ? { ...info, title: fan.title, season: 1, episode: fan.part, episodeEnd: null, seasonPart: null, isCompletePack: false }
+    : { ...info, title: fan.title, season: info.season ?? 1, episode: null, episodeEnd: null, seasonPart: null, isCompletePack: true };
+}
+
+function parseReleaseBase(rawName) {
   let s = rawName.replace(VIDEO_EXT_RE, "");
 
   let group = null;
@@ -363,6 +404,7 @@ function matchesConcatenatedAlias(parsedTitle, targetTitle, aliases) {
 
 function releaseTitleMatches(parsedTitle, targetTitle, aliases = [], yearInfo = null) {
   const candidates = [targetTitle, ...aliases];
+  if (fanVersionConflict(parsedTitle, candidates)) return false;
   if (candidates.some((t) => sequelNumbersConflict(parsedTitle, t))) return false;
   if (matchesConcatenatedAlias(parsedTitle, targetTitle, aliases)) return true;
   return candidates.some((t) => titleSimilarity(parsedTitle, t, yearInfo) >= TITLE_MATCH_THRESHOLD);

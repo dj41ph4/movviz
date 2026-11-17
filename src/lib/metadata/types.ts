@@ -154,6 +154,8 @@ export interface MetaSeasonSummary {
 
 export interface MetaDetail {
   seriesPart?: import("./bleachPresentation").BleachPart;
+  /** Set only on a Fan-Kai fan version (metadata/fankai.ts): its wiki page, which replaces the TMDb link. */
+  fankaiWikiUrl?: string;
   tmdbId: number;
   type: "movie" | "series";
   title: string;
