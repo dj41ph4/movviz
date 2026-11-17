@@ -8,9 +8,11 @@ import { AbstractBackend, importedFilesStillPresent } from "../src/backends/Abst
 function fakeBackend(hist) {
   const added = [];
   const backend = {
+    _addTorrent: AbstractBackend.prototype._addTorrent,
     cfg: { id: "movies", logTag: "test" },
     folderError: null,
     importedHistory: new Map([[hist.infoHash, hist]]),
+    meta: new Map(),
     _get: () => null,
     importedSummary: (h) => ({ infoHash: h.infoHash, state: "completed" }),
     onChange: () => {},

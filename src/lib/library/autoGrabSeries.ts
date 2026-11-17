@@ -50,7 +50,7 @@ import { isDueForRetry, recordRetryPass } from "@/lib/library/missingSearchBacko
 import { BLEACH_TMDB_ID, needsBleachRepair, knownBleachEpisode, bleachCourForEpisode, BLEACH_TYBW_COURS } from "@/lib/metadata/bleachEpisodeOrder";
 import { bleachMatchingTitle, bleachReleaseSource, bleachReleaseTargets, bleachIndexerQueries, bleachReleaseYearCompatible, bleachCompletePackCovers } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
-import { withEpisodeTitles } from "@/lib/library/episodeTargetTitles";
+import { withEpisodeTitles, withFanVersionTarget } from "@/lib/library/episodeTargetTitles";
 import { scopedBleachSeries, bleachEpisodeInScope, type BleachSeriesPart } from "@/lib/library/bleachScope";
 
 /**
@@ -1028,14 +1028,19 @@ async function sendToEngine(
   if ("error" in payload) return { error: "grab_failed" as const, detail: payload.error };
   try {
     const planned = await prepareBleachGrab(libraryRef, release.title, episodeTarget, episodeTargets);
+    const single = planned.targets ? planned.single : withFanVersionTarget(libraryRef, planned.single);
+    const multiple = planned.targets ? planned.multiple : withEpisodeTitles(libraryRef, planned.multiple);
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
       headers: engineHeaders({ "content-type": "application/json" }),
-      body: JSON.stringify({ ...payload, category, libraryRef, title, episodeTarget: planned.single, episodeTargets: planned.targets ? planned.multiple : withEpisodeTitles(libraryRef, planned.multiple), rejectMissingSeriesPack, autoPackReleaseTitle: rejectMissingSeriesPack ? release.title : undefined }),
+      body: JSON.stringify({ ...payload, category, libraryRef, title, episodeTarget: single, episodeTargets: multiple, rejectMissingSeriesPack, autoPackReleaseTitle: rejectMissingSeriesPack ? release.title : undefined }),
       signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
     });
     const torrent = await res.json();
     if (!res.ok) return { error: "engine_rejected" as const, detail: torrent };
+    if (torrent.state === "completed" && [single, ...(multiple ?? [])].some(t => t && "fanVersion" in t && t.fanVersion === true)) {
+      return { error: "engine_rejected" as const, detail: "fankai_no_new_parts" };
+    }
     // Téléchargement sans restriction : l'import ne doit pas rejeter le fichier sur un mot interdit.
     if (isUnrestricted() && typeof torrent.infoHash === "string") markManualGrab(torrent.infoHash);
     const ref = decodeLibraryRef(libraryRef);

@@ -23,6 +23,7 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeOrder";
 import { bleachMatchingTitle, bleachReleaseTargets, bleachIndexerQueries } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
+import { withFanVersionTarget } from "@/lib/library/episodeTargetTitles";
 
 /**
  * Episode-level counterpart to searchAndReplace.ts's language-upgrade path —
@@ -323,16 +324,17 @@ export async function grabEpisodeUpgradeCandidate(seriesId: string, seasonNumber
   if ("error" in payload) return { ok: false, error: "engine_unreachable" };
 
   try {
-    const planned = await prepareBleachGrab(encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }), best.release.title, { season: seasonNumber, episode: episodeNumber });
+    const libraryRef = encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber });
+    const planned = await prepareBleachGrab(libraryRef, best.release.title, { season: seasonNumber, episode: episodeNumber });
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
       headers: engineHeaders({ "content-type": "application/json" }),
       body: JSON.stringify({
         ...payload,
         category: "series",
-        libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
+        libraryRef,
         title: series.title,
-        episodeTarget: planned.single,
+        episodeTarget: planned.targets ? planned.single : withFanVersionTarget(libraryRef, planned.single),
       }),
       signal: AbortSignal.timeout(ENGINE_TIMEOUT_MS),
     });

@@ -2,6 +2,20 @@ import { decodeLibraryRef } from "@/lib/library/types";
 import { getSeries } from "@/lib/library/store";
 import { isFankaiId } from "@/lib/metadata/fankaiWikitext";
 
+function targetSeries(libraryRef: string | null | undefined) {
+  const ref = libraryRef ? decodeLibraryRef(libraryRef) : null;
+  return ref && ref.kind !== "movie" ? getSeries(ref.seriesId) : null;
+}
+
+export function withFanVersionTarget<T extends { season: number; episode: number }>(
+  libraryRef: string | null | undefined,
+  target: T | undefined,
+): (T & { fanVersion?: true }) | undefined {
+  if (!target) return target;
+  const series = targetSeries(libraryRef);
+  return series && isFankaiId(series.tmdbId) ? { ...target, fanVersion: true } : target;
+}
+
 /**
  * Ajoute le titre de chaque épisode visé à la liste de cibles envoyée au moteur.
  *
@@ -18,10 +32,8 @@ export function withEpisodeTitles<T extends { season: number; episode: number }>
   libraryRef: string | null | undefined,
   targets: T[] | undefined,
 ): (T & { title?: string; fanVersion?: true })[] | undefined {
-  if (!targets?.length || !libraryRef) return targets;
-  const ref = decodeLibraryRef(libraryRef);
-  if (!ref || ref.kind === "movie") return targets;
-  const series = getSeries(ref.seriesId);
+  if (!targets?.length) return targets;
+  const series = targetSeries(libraryRef);
   if (!series) return targets;
   const titles = new Map<string, string>();
   for (const season of series.seasons) {

@@ -120,6 +120,7 @@ test("Gintama: season packs take priority over an available integral", () => {
       isBlocked: () => false, loadTrash: () => [], restoreFromTrash: () => {},
       configuredQualityProfile: () => ({ id: 'default' }),
       withEpisodeTitles: (_ref, targets) => targets,
+      withFanVersionTarget: (_ref, target) => target,
     };
     // Keep the real orchestration, locks, parsing, release matching and date/profile
     // rules. Replace I/O boundaries only; fixtures never touch user data/indexers.
