@@ -1,3 +1,15 @@
+## v1.28.166 — 17. November 2026
+
+### Fan-Versionen von Animes (Fan-Kai)
+
+- Wird derselbe Torrent nach einem Teilimport erneut hinzugefügt, lädt Movviz die im Paket enthaltenen fehlenden Teile und behält bereits importierte Dateien.
+
+### Browser auf Smartphones und Tablets
+
+- Smartphones zeigen das Android-Dock mit vier Tabs, Tablets eine seitliche Navigation. „Mein Bereich“ vereint Merkliste, Wiedergabeverlauf und Sammlungen. Die Suche erhält einen Tab für Personen.
+- Auf der Startseite lässt sich der hervorgehobene Titel per Wischgeste wechseln. Die Download-Warteschlange zeigt Gesamtfortschritt, Geschwindigkeit und geschätzte Restzeit.
+- Das mobile Favicon und die PWA-Installationssymbole verwenden das Movviz-Symbol der Android-App.
+
 ## v1.28.165 — 17. November 2026
 
 ### Fan-Versionen von Animes (Fan-Kai)

@@ -1,3 +1,15 @@
+## v1.28.166 — 17 novembre 2026
+
+### Versioni fan degli anime (Fan-Kai)
+
+- Aggiungendo di nuovo lo stesso torrent dopo un’importazione parziale, Movviz scarica le parti mancanti presenti nel pacchetto e conserva i file già importati.
+
+### Browser su smartphone e tablet
+
+- Sullo smartphone compare il dock Android con quattro schede, sul tablet la barra laterale. «Il mio spazio» riunisce la lista, la cronologia di visione e le raccolte. La ricerca ha una scheda Persone.
+- Scorri con il dito per cambiare il titolo in evidenza nella pagina iniziale. La coda dei download mostra l’avanzamento complessivo, la velocità e il tempo residuo stimato.
+- La favicon mobile e le icone di installazione della PWA riprendono il simbolo Movviz per Android.
+
 ## v1.28.165 — 17 novembre 2026
 
 ### Versioni fan degli anime (Fan-Kai)

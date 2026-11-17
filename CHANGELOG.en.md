@@ -1,3 +1,15 @@
+## v1.28.166 — November 17, 2026
+
+### Fan versions of anime (Fan-Kai)
+
+- Adding the same torrent again after a partial import retrieves missing parts that are present in the pack and keeps the files already imported.
+
+### Mobile and tablet browser
+
+- Phones use the four-tab Android dock and tablets use a side rail. My space brings together the watchlist, watch history and collections. Search adds a People tab.
+- Swipe to change the featured title on the home screen. The download queue shows overall progress, speed and estimated time remaining.
+- The mobile favicon and PWA installation icons use the Movviz Android mark.
+
 ## v1.28.165 — November 17, 2026
 
 ### Fan versions of anime (Fan-Kai)

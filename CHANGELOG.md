@@ -1,3 +1,15 @@
+## v1.28.166 — 17 novembre 2026
+
+### Versions fan d’animés (Fan-Kai)
+
+- Relancer le même torrent après un import partiel permet de récupérer les parties manquantes présentes dans le pack tout en conservant les fichiers déjà importés.
+
+### Navigateur mobile et tablette
+
+- Le téléphone affiche le dock Android à quatre onglets et la tablette utilise un rail latéral. « Mon espace » réunit Ma liste, l’historique de lecture et les collections. La recherche propose un onglet Personnes.
+- La vedette de l’accueil se balaie au doigt. La file affiche la progression globale, le débit et le temps restant estimé.
+- Le favicon mobile et les icônes d’installation PWA reprennent le pictogramme Movviz Android.
+
 ## v1.28.165 — 17 novembre 2026
 
 ### Versions fan d'animés (Fan-Kai)

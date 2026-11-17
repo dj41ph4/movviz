@@ -1,3 +1,15 @@
+## v1.28.166 — 17 november 2026
+
+### Fanversies van anime (Fan-Kai)
+
+- Voeg na een gedeeltelijke import dezelfde torrent opnieuw toe om de ontbrekende delen uit het pakket op te halen. Eerder geïmporteerde bestanden blijven behouden.
+
+### Browser op smartphones en tablets
+
+- Op smartphones verschijnt het Android-dock met vier tabbladen en op tablets een zijbalk. ‘Mijn ruimte’ bundelt de kijklijst, kijkgeschiedenis en collecties. De zoekfunctie krijgt een tabblad Personen.
+- Veeg over de uitgelichte titel op de startpagina om van titel te wisselen. De downloadwachtrij toont de totale voortgang, snelheid en geschatte resterende tijd.
+- Het mobiele favicon en de PWA-installatiepictogrammen gebruiken het Movviz-symbool van de Android-app.
+
 ## v1.28.165 — 17 november 2026
 
 ### Fanversies van anime (Fan-Kai)
