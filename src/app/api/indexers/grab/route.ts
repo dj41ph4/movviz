@@ -13,7 +13,8 @@ import { BLEACH_TMDB_ID, needsBleachRepair } from "@/lib/metadata/bleachEpisodeO
 import { bleachReleaseSource, bleachReleaseTargets, isBleachSequelTitle } from "@/lib/library/bleachRelease";
 import { prepareBleachGrab, markBleachGrabTargets } from "@/lib/library/bleachEngine";
 import { parseBleachSeriesPart, bleachEpisodeInScope } from "@/lib/library/bleachScope";
-import { withEpisodeTitles } from "@/lib/library/episodeTargetTitles";
+import { withEpisodeTitles, withFanVersionTarget } from "@/lib/library/episodeTargetTitles";
+import { isFankaiId } from "@/lib/metadata/fankaiWikitext";
 import { isCompleteSeriesPackTitle } from "@/lib/library/autoGrabSeries";
 import { linkFankaiRelease } from "@/lib/library/fankaiGrab";
 
@@ -198,6 +199,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const planned = await prepareBleachGrab(libraryRef ?? "", releaseTitle, episodeTarget, episodeTargets);
+    const single = planned.targets ? planned.single : withFanVersionTarget(libraryRef, planned.single);
+    const multiple = planned.targets ? planned.multiple : withEpisodeTitles(libraryRef, planned.multiple);
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
       headers: engineHeaders({ "content-type": "application/json" }),
@@ -207,11 +210,14 @@ export async function POST(req: NextRequest) {
         libraryRef,
         title: body.title ?? null,
         year: body.year ?? null,
-        episodeTarget: planned.single,
-        episodeTargets: planned.targets ? planned.multiple : withEpisodeTitles(libraryRef, planned.multiple),
+        episodeTarget: single,
+        episodeTargets: multiple,
       }),
     });
     const data = await res.json();
+    if (res.ok && data.state === "completed" && linkedSeries && isFankaiId(linkedSeries.tmdbId)) {
+      return NextResponse.json(data);
+    }
     const replacingInfoHash = typeof body.replacingInfoHash === "string" ? body.replacingInfoHash : null;
     if (res.ok && libraryRef && data.infoHash) {
       if (planned.targets && linkedSeries) markBleachGrabTargets(linkedSeries.id, data.infoHash, planned.targets);

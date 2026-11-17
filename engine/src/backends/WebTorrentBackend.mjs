@@ -351,7 +351,6 @@ export class WebTorrentBackend extends AbstractBackend {
       );
     };
     for (const f of targets) f.on("done", checkDone);
-    checkDone();
 
     let lastDownloaded = -1;
     let stage = 0;
@@ -398,6 +397,7 @@ export class WebTorrentBackend extends AbstractBackend {
       });
       this.remove(infoHash, true).catch(() => {});
     }, 90_000);
+    checkDone();
   }
 
   // ─── Whole-torrent stall recovery ──────────────────────────────────────

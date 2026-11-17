@@ -155,6 +155,7 @@ export class MovvizEngine {
           year: rec.year,
           episodeTarget: rec.episodeTarget,
           episodeTargets: rec.episodeTargets,
+          previousFanKaiFiles: rec.previousFanKaiFiles,
           rejectMissingSeriesPack: rec.rejectMissingSeriesPack === true,
           autoPackReleaseTitle: rec.autoPackReleaseTitle,
         });
@@ -242,6 +243,7 @@ export class MovvizEngine {
       year: m.year,
       episodeTarget: m.episodeTarget,
       episodeTargets: m.episodeTargets,
+      previousFanKaiFiles: m.previousFanKaiFiles,
       rejectMissingSeriesPack: m.rejectMissingSeriesPack === true,
       autoPackReleaseTitle: m.autoPackReleaseTitle,
     };

@@ -41,6 +41,10 @@ function fmtSize(bytes) {
   return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + " " + units[i];
 }
 
+function episodeTargetsOf(options) {
+  return options.episodeTargets ?? (options.episodeTarget ? [options.episodeTarget] : []);
+}
+
 async function avoidCollision(dest) {
   let candidate = dest;
   let attempt = 2;
@@ -148,6 +152,7 @@ export class AbstractBackend {
     this.emitActivity = emitActivity ?? (() => {});
     this.meta = new Map();
     this.importedHistory = new Map();
+    this.fankaiAdds = new Map();
     this.client = null;
     this.folderError = null;
     this.manualSeed = new ManualSeed(cfg, () => this._manualSeedClient(), () => this.onChange());
@@ -244,7 +249,8 @@ export class AbstractBackend {
   // ─── Adding ──────────────────────────────────────────────────────────────
 
   async add(torrentId, opts = {}) {
-    validateEpisodeTargets(opts.episodeTargets ?? (opts.episodeTarget ? [opts.episodeTarget] : []));
+    const targets = episodeTargetsOf(opts);
+    validateEpisodeTargets(targets);
     if (this.folderError) {
       throw new Error(`download folder unavailable: ${this.folderError}`);
     }
@@ -253,11 +259,46 @@ export class AbstractBackend {
       const m = torrentId.match(/[?&]xt=urn:btih:([a-f0-9]{32,64})/i);
       if (m) opts = { ...opts, infoHash: m[1].toLowerCase() };
     }
+    if (targetsLookLikeFanVersion(targets)) {
+      // A .torrent supplied by an indexer has no hash in the HTTP payload.
+      // Resolve it before looking up imports, just as for a magnet.
+      const { default: parseTorrent } = await import("parse-torrent");
+      const parsed = await parseTorrent(torrentId).catch(() => null);
+      const infoHash = parsed?.infoHash ?? opts.infoHash;
+      if (infoHash) {
+        const preceding = this.fankaiAdds.get(infoHash);
+        const add = (preceding?.catch(() => {}) ?? Promise.resolve()).then(() =>
+          this._addTorrent(torrentId, { ...opts, infoHash }, parsed ?? {}, parseTorrent)
+        );
+        this.fankaiAdds.set(infoHash, add);
+        try {
+          return await add;
+        } finally {
+          if (this.fankaiAdds.get(infoHash) === add) this.fankaiAdds.delete(infoHash);
+        }
+      }
+    }
+    return this._addTorrent(torrentId, opts);
+  }
+
+  async _addTorrent(torrentId, opts, fanMetainfo, parseTorrent) {
+    let previousFanKaiFiles = opts.previousFanKaiFiles;
     if (opts.infoHash) {
       const existing = this._get(opts.infoHash);
-      if (existing) return this.summary(existing);
       const hist = this.importedHistory.get(opts.infoHash);
-      if (hist) {
+      const meta = hist && this.meta.get(opts.infoHash);
+      const sameSeries = hist?.libraryRef?.split(":")[1] === opts.libraryRef?.split(":")[1];
+      if (fanMetainfo && hist?.movedFiles?.length && opts.libraryRef && sameSeries &&
+          !hist.replacementFailure && hist.notifiedLibrary !== false &&
+          (!existing || (meta?.completed && !meta.processing && meta.notifiedLibrary))) {
+        const retry = await this._planFanKaiRetry(opts, hist, existing?.files, fanMetainfo, parseTorrent);
+        if (!retry) return existing ? this.summary(existing) : this.importedSummary(hist);
+        if (existing && !(await this._clientRemove(opts.infoHash, false))) return this.summary(existing);
+        opts = { ...opts, episodeTarget: undefined, episodeTargets: retry.targets };
+        previousFanKaiFiles = retry.previousFiles;
+      } else if (existing) {
+        return this.summary(existing);
+      } else if (hist) {
         // Même release déjà importée : on ne la retélécharge que si le fichier
         // importé n'est plus là (supprimé, ou remplacé par une autre version au
         // même chemin). Sans ça, regrabber une release dont le fichier a été
@@ -296,6 +337,7 @@ export class AbstractBackend {
       year: opts.year ?? null,
       episodeTarget: opts.episodeTarget ?? null,
       episodeTargets: opts.episodeTargets ?? null,
+      ...(previousFanKaiFiles?.length ? { previousFanKaiFiles } : {}),
       rejectMissingSeriesPack: opts.rejectMissingSeriesPack === true && opts.libraryRef?.startsWith("series:"),
       autoPackReleaseTitle: opts.autoPackReleaseTitle ?? null,
       selectedFileIndices: null,
@@ -351,6 +393,26 @@ export class AbstractBackend {
     });
 
     return this.summary(handle);
+  }
+
+  async _planFanKaiRetry(opts, hist, liveFiles, metainfo, parseTorrent) {
+    const cached = async () => {
+      const bytes = await fsp.readFile(path.join(TORRENT_CACHE_DIR, `${opts.infoHash}.torrent`)).catch(() => null);
+      const parsed = bytes && await parseTorrent(bytes).catch(() => null);
+      return parsed?.infoHash === opts.infoHash ? parsed.files : null;
+    };
+    const files = metainfo.files ?? (liveFiles?.length ? liveFiles : await cached());
+    if (!files?.length) return null;
+    const existing = await Promise.all(hist.movedFiles.map(async (file) =>
+      await importedFilesStillPresent({ movedFiles: [file] }) ? file : null
+    ));
+    const previousFiles = existing.filter(Boolean);
+    const importedPaths = new Set(previousFiles.map((file) => torrentPath(file.originalPath)).filter(Boolean));
+    const requested = episodeTargetsOf(opts);
+    const titleMap = this._titleAssignment(files, requested);
+    const remaining = files.filter((file) => VIDEO_EXT_RE.test(file.name) && !importedPaths.has(torrentPath(file.path)));
+    const targets = requested.filter((target) => remaining.some((file) => this._matchesEpisode(file, target, requested, titleMap)));
+    return targets.length ? { targets, previousFiles } : null;
   }
 
   restoreImported(rec) {
@@ -983,6 +1045,7 @@ export class AbstractBackend {
         year: m.year ?? null,
         episodeTarget: m.episodeTarget ?? null,
         episodeTargets: m.episodeTargets ?? null,
+        ...(m.previousFanKaiFiles?.length && !m.movedTo ? { previousFanKaiFiles: m.previousFanKaiFiles } : {}),
         rejectMissingSeriesPack: m.rejectMissingSeriesPack === true,
         autoPackReleaseTitle: m.autoPackReleaseTitle ?? null,
         userPaused: m.userPaused,
@@ -1057,6 +1120,7 @@ export class AbstractBackend {
     const naming = loadNamingTemplates();
     const movedFiles = [];
     const targetList = m.episodeTargets ?? (m.episodeTarget ? [m.episodeTarget] : null);
+    const fanVersion = targetsLookLikeFanVersion(targetList ?? []);
     // Remember which target each file was selected for — _matchesEpisode
     // already resolves season/episode for files whose name carries neither
     // (path-based season + absolute-numbering fallback, see below it). That
@@ -1070,6 +1134,7 @@ export class AbstractBackend {
     const availableFiles = snap.files.filter((f) => {
       if (f.selected === false) return false;
       if (!targetList) return true;
+      if (fanVersion && !VIDEO_EXT_RE.test(f.name)) return false;
       const matches = targetList.filter((t) => this._matchesEpisode(f, t, targetList, titleMap));
       if (matches.length) {
         matchedTargetByFile.set(f, matches[0]);
@@ -1134,7 +1199,8 @@ export class AbstractBackend {
         firstDest ??= path.join(this.cfg.completedPath, snap.name);
         // Keep the torrent's original identity independently of the library filename.
         const kaamelottEpisode = kaamelottLongEpisode(file.name);
-        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length, ...(kaamelottEpisode != null ? { season: 5, episode: kaamelottEpisode, episodeEnd: null } : {}), originalPath: torrentPath(path.isAbsolute(file.path) ? path.relative(this.cfg.downloadPath, file.path) : file.path) });
+        const fanTarget = fanVersion ? matchedTargetByFile.get(file) : null;
+        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length, ...(fanTarget ? { season: fanTarget.season, episode: fanTarget.episode } : kaamelottEpisode != null ? { season: 5, episode: kaamelottEpisode, episodeEnd: null } : {}), originalPath: torrentPath(path.isAbsolute(file.path) ? path.relative(this.cfg.downloadPath, file.path) : file.path) });
       }
       m.movedTo = firstDest ?? this.cfg.completedPath;
     } else {
@@ -1194,6 +1260,12 @@ export class AbstractBackend {
           info.episode = kaamelottEpisode;
           info.episodeEnd = null;
         }
+        const matchedTarget = matchedTargetByFile.get(file);
+        if (fanVersion && matchedTarget && fankaiPartNumber(file.name) != null) {
+          info.season = matchedTarget.season;
+          info.episode = matchedTarget.episode;
+          info.episodeEnd = null;
+        }
         // Neither the filename nor the overall release name carried a season
         // and/or episode (e.g. an anime pack with absolute episode numbering,
         // or per-season subfolders but season-less filenames). Without a
@@ -1207,7 +1279,6 @@ export class AbstractBackend {
         // which already resolves season via folder path and episode via
         // absolute-number-in-filename) rather than re-guessing blind.
         if (info.season == null || info.episode == null) {
-          const matchedTarget = matchedTargetByFile.get(file);
           if (matchedTarget) {
             if (info.season == null) info.season = matchedTarget.season;
             if (info.episode == null) info.episode = matchedTarget.episode;
@@ -1297,7 +1368,7 @@ export class AbstractBackend {
       episodeTarget: m.episodeTarget ?? null, episodeTargets: m.episodeTargets ?? null,
       ...(movedFiles.some(file => file.episodePlacement) ? { notifiedLibrary: false } : {}),
       // Original torrent paths survive import and process restarts for manual seed.
-      movedFiles: movedFiles.map((f) => ({ ...f })),
+      movedFiles: [...(m.previousFanKaiFiles ?? []), ...movedFiles].map((f) => ({ ...f })),
     });
 
     this.onChange();
@@ -1729,12 +1800,13 @@ export class AbstractBackend {
   }
 
   _selectEpisodeFiles(handle, meta) {
-    const targets = meta.episodeTargets ?? (meta.episodeTarget ? [meta.episodeTarget] : []);
+    const targets = episodeTargetsOf(meta);
     if (targets.length === 0 || !handle.files?.length) return;
+    const fanVersion = targetsLookLikeFanVersion(targets);
 
     // An automatic whole-series pack can safely be rejected only when every
     // video has explicit episode coordinates and none covers a target.
-    if (meta.rejectMissingSeriesPack && !meta.completed && !meta.movedFiles) {
+    if (!fanVersion && meta.rejectMissingSeriesPack && !meta.completed && !meta.movedFiles) {
       const videos = handle.files.filter((f) => VIDEO_EXT_RE.test(f.name));
       const parsed = videos.map((f) => parseRelease(f.name));
       if (videos.length && !videos.some((f) => kaamelottLongEpisode(f.name) != null) && parsed.every((p) => p.season != null && p.episode != null) &&
@@ -1746,12 +1818,14 @@ export class AbstractBackend {
     const matches = [];
     const titleMap = this._titleAssignment(handle.files, targets);
     handle.files.forEach((f, i) => {
+      if (fanVersion && !VIDEO_EXT_RE.test(f.name)) return;
       for (const target of targets) {
         if (this._matchesEpisode(f, target, targets, titleMap)) { matches.push(i); break; }
       }
     });
 
-    if (matches.length === 0 && targets.length === 1 && !titleMap) {
+    const numberedFanPack = fanVersion && handle.files.some((file) => VIDEO_EXT_RE.test(file.name) && fankaiPartNumber(file.name) != null);
+    if (matches.length === 0 && targets.length === 1 && !titleMap && !numberedFanPack) {
       const target = targets[0];
       let ctxSeason = parseRelease(handle.name).season;
       if (ctxSeason == null) {
@@ -1786,8 +1860,8 @@ export class AbstractBackend {
       return;
     }
     const matchSet = new Set(matches);
-    this._clientSelectFiles(handle, matchSet);
     meta.selectedFileIndices = matchSet;
+    this._clientSelectFiles(handle, matchSet);
   }
 
   _isDone(t) {
