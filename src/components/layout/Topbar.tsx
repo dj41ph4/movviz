@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Search } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import Link from "next/link";
+import { Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavSearch } from "@/lib/nav/useNavSearch";
 import { SearchSuggestPanel } from "./SearchSuggestPanel";
@@ -12,14 +13,16 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
 import "./topbar-premium.css";
 
-export function Topbar() {
+export function Topbar({ inputRef, touchSearchOpen, openTouchSearch, closeTouchSearch, openTouchMenu }: {
+  inputRef: RefObject<HTMLInputElement | null>;
+  touchSearchOpen: boolean;
+  openTouchSearch: (trigger: HTMLButtonElement) => void;
+  closeTouchSearch: (restoreFocus?: boolean) => void;
+  openTouchMenu: () => void;
+}) {
   const user = useCurrentUser();
   const t = useT();
-  // THE search entry point — always visible here (the topbar, at the top of
-  // the screen, is what "navrail" refers to, not the left Sidebar). Typing
-  // pushes to /discover?q=, whose own card grid replaces the dashboard.
   const navSearch = useNavSearch();
-  const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   // Focus anywhere inside the box (input OR the suggestion panel) keeps the
   // panel open, so Tab/arrows can walk into it without it vanishing.
@@ -30,9 +33,16 @@ export function Topbar() {
   const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       e.preventDefault();
+      if (touchSearchOpen) {
+        closeTouchSearch();
+        return;
+      }
       // First Escape clears the query, the second leaves the box.
       if (navSearch.value) navSearch.onChange("");
       else inputRef.current?.blur();
+    } else if (touchSearchOpen && e.key === "Enter" && navSearch.value.trim()) {
+      navSearch.submit(navSearch.value);
+      inputRef.current?.blur();
     } else if (e.key === "ArrowDown") {
       const target = showPanel
         ? focusables()[0]
@@ -94,16 +104,14 @@ export function Topbar() {
     <header
       ref={headerRef}
       data-scrolled={scrolled ? "true" : undefined}
+      data-touch-search={touchSearchOpen ? "" : undefined}
       className={cn(
         "nx-topbar sticky top-0 z-30 flex h-15 items-center gap-2 border-b border-transparent px-4 transition-colors duration-300 sm:gap-4 sm:px-6 lg:h-14",
         scrolled ? "border-brand/15 bg-[#070d22]/88 backdrop-blur-xl" : "bg-transparent"
       )}
     >
-      {/* THE search box — always here, every screen size. Rendu mobile
-          strict (PortraitTopHeader) : pill 46px, bordure électrique, fond
-          #131836, icône 17px + placeholder 13px #B3B3B3 — voir
-          .nx-search-pill. */}
       <div
+        id="movviz-global-search"
         ref={boxRef}
         onFocus={() => setPanelFocus(true)}
         onBlur={(e) => { if (!boxRef.current?.contains(e.relatedTarget as Node | null)) setPanelFocus(false); }}
@@ -132,17 +140,35 @@ export function Topbar() {
           // autoComplete="off" is the standard second layer.
           type="search"
           autoComplete="off"
+          enterKeyHint="search"
           className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-[#B3B3B3]"
         />
         {showPanel && (
           <SearchSuggestPanel
             onPick={(q) => { navSearch.submit(q); inputRef.current?.focus(); }}
-            onNavigate={() => { setPanelFocus(false); inputRef.current?.blur(); }}
+            onNavigate={() => {
+              setPanelFocus(false);
+              inputRef.current?.blur();
+              if (touchSearchOpen) closeTouchSearch(false);
+            }}
           />
         )}
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+      <Link href="/" className="touch-header-brand ring-focus" onClick={() => closeTouchSearch(false)}>
+        <img src="/brand/m/movviz-m-128.webp" alt="" width={28} height={28} />
+        <span>Movviz</span>
+      </Link>
+      <button type="button" className="touch-header-button touch-header-search ring-focus" aria-label={t("common.searchEverything")} aria-expanded={touchSearchOpen} aria-controls="movviz-global-search" onClick={(e) => openTouchSearch(e.currentTarget)}>
+        <Search size={20} aria-hidden="true" />
+      </button>
+      <button type="button" className="touch-header-button touch-header-more ring-focus" aria-label={t("nav.more")} aria-haspopup="dialog" onClick={openTouchMenu}>
+        <Menu size={20} aria-hidden="true" />
+      </button>
+      <button type="button" className="touch-header-button touch-header-close ring-focus" aria-label={t("common.close")} onClick={() => closeTouchSearch()}>
+        <X size={20} aria-hidden="true" />
+      </button>
+      <div className="nx-topbar-tools ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         {user?.role === "admin" && <ActivityMonitor />}
         <NotificationBell />
         <UserMenu />

@@ -457,7 +457,7 @@ function LibraryCells({ ref, items, locale, progressFor, watchedMovies, onChange
   }
 
   return (
-    <div ref={gridRef} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+    <div ref={gridRef} className="touch-library-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
       <GridSpacer rows={rangeStart / columns} columns={columns} />
       {cells}
       <GridSpacer rows={Math.ceil(total / columns) - Math.ceil(rangeEnd / columns)} columns={columns} />
@@ -949,7 +949,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         />
 
       {loading && total === 0 && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div className="touch-library-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {[...Array(12)].map((_, i) => (
             <div key={i}>
               <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />

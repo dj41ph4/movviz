@@ -17,14 +17,17 @@ import { canCompleteMissing } from "@/lib/auth/permissions";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import {
   Film, Tv, ListChecks, Library as LibraryIcon, LibraryBig, RotateCw, Calendar, Download,
-  Layers, Grid2x2, Grid3x3, List, Check, RefreshCw, Loader2, Search,
+  Layers, Grid2x2, Grid3x3, List, Check, RefreshCw, Loader2, Search, Bookmark, History,
 } from "lucide-react";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { PersonalLibraryTab } from "@/components/library/PersonalLibraryTab";
 
 const TABS = [
-  { id: "library", labelKey: "nav.library", icon: LibraryIcon },
-  { id: "collection", labelKey: "nav.collections", icon: LibraryBig },
-  { id: "wanted", labelKey: "nav.wanted", icon: ListChecks },
+  { id: "watchlist", labelKey: "watchlist.title", icon: Bookmark, personal: true },
+  { id: "watch-history", labelKey: "activity.history", icon: History, personal: true },
+  { id: "library", labelKey: "nav.library", icon: LibraryIcon, personal: false },
+  { id: "collection", labelKey: "nav.collections", icon: LibraryBig, personal: false },
+  { id: "wanted", labelKey: "nav.wanted", icon: ListChecks, personal: false },
 ] as const;
 
 export default function LibraryPage() {
@@ -55,15 +58,18 @@ function LibraryPageInner() {
 
   return (
     <div className="nx-library-page mx-auto w-full max-w-[2000px]">
-      <PageHeader title={t("library.title")} compact />
+      <PageHeader title={t(tab === "watchlist" || tab === "watch-history" ? "nav.mySpace" : "library.title")} compact />
 
-      <div className="no-scrollbar mb-4 flex w-max max-w-full gap-0.5 overflow-x-auto rounded-full bg-black/30 p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,.45)]">
+      <div data-personal-space={tab === "watchlist" || tab === "watch-history" || tab === "collection" ? "" : undefined} className="touch-library-tabs no-scrollbar mb-4 flex w-max max-w-full gap-0.5 overflow-x-auto rounded-full bg-black/30 p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,.45)]">
         {TABS.map((tb) => (
           <button
             key={tb.id}
+            data-library-tab={tb.id}
             onClick={() => pushTab(tb.id)}
+            aria-pressed={tab === tb.id}
             className={cn(
               "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors lg:min-h-9",
+              tb.personal && tab !== tb.id && "touch-library-tab",
               tab === tb.id ? "brand-gradient text-white shadow-lg" : "text-ink-soft hover:text-ink"
             )}
           >
@@ -74,6 +80,8 @@ function LibraryPageInner() {
       </div>
 
       {tab === "library" && <LibraryGrid fixedType="all" />}
+      {tab === "watchlist" && <PersonalLibraryTab history={false} />}
+      {tab === "watch-history" && <PersonalLibraryTab history />}
       {tab === "collection" && <CollectionTab />}
       {tab === "wanted" && <WantedTab />}
 

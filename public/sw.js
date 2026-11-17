@@ -1,5 +1,6 @@
-const CACHE = "movviz-shell-v1";
-const SHELL = ["/", "/manifest.json", "/icon.svg"];
+const CACHE = "movviz-shell-v2";
+const SHELL = ["/", "/manifest.json", "/icon.svg",
+  "/brand/movviz-mobile-192.png", "/brand/movviz-mobile-512.png", "/brand/movviz-mobile-maskable-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
@@ -8,7 +9,7 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith("movviz-shell-") && k !== CACHE).map((k) => caches.delete(k))))
   );
   self.clients.claim();
 });

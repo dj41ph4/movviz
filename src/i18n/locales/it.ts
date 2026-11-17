@@ -100,6 +100,9 @@ export const it: Dictionary = {
   },
 
   nav: {
+    emptyWatchHistory: "Nessuna cronologia di visione.",
+    mySpace: "Il mio spazio",
+    mainNavigation: "Navigazione principale",
     home: "Home",
     dashboard: "Dashboard",
     discover: "Scopri",

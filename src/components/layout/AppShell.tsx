@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { SWRConfig } from "swr";
@@ -29,6 +30,8 @@ import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
 import { AppearanceProvider } from "@/components/appearance/AppearanceProvider";
 import type { DesignMode } from "@/lib/appearance/designMode";
 import { DesktopTextScaleProvider } from "@/components/appearance/DesktopTextScaleProvider";
+import { TOUCH_LAYOUT_QUERY } from "@/lib/appearance/touchLayout";
+import "./touch-shell.css";
 
 /**
  * Shared data-fetch cache for the whole session. SWR keeps its cache keyed
@@ -119,6 +122,40 @@ export function AppShell({ children, version, initialDesignMode = "beta" }: { ch
   const currentUser = useCurrentUser();
   const setupRequired = useSetupRequired();
   const isPending = !!currentUser && currentUser.status === "pending";
+  const [touchSearchOpen, setTouchSearchOpen] = useState(false);
+  const [touchMenuOpen, setTouchMenuOpen] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const searchTrigger = useRef<HTMLButtonElement>(null);
+  const touchMenu = useRef<HTMLDialogElement>(null);
+  const openTouchSearch = (trigger: HTMLButtonElement) => {
+    searchTrigger.current = trigger;
+    // Reveal the input before focusing it, inside the tap that opens the keyboard.
+    flushSync(() => setTouchSearchOpen(true));
+    searchInput.current?.focus();
+  };
+  const closeTouchSearch = (restoreFocus = true) => {
+    searchInput.current?.blur();
+    if (restoreFocus) {
+      flushSync(() => setTouchSearchOpen(false));
+      searchTrigger.current?.focus();
+    } else {
+      setTouchSearchOpen(false);
+    }
+  };
+  const openTouchMenu = () => {
+    touchMenu.current?.showModal();
+    setTouchMenuOpen(true);
+  };
+  useEffect(() => {
+    const compact = window.matchMedia(TOUCH_LAYOUT_QUERY);
+    const resetOnDesktop = () => {
+      if (compact.matches) return;
+      touchMenu.current?.close();
+      setTouchSearchOpen(false);
+    };
+    compact.addEventListener("change", resetOnDesktop);
+    return () => compact.removeEventListener("change", resetOnDesktop);
+  }, []);
 
   // Plus aucun compte valide (dossier config supprimé, reset d'usine, ou
   // toute première installation) → l'app n'a pas à s'afficher « cassée » :
@@ -184,19 +221,19 @@ export function AppShell({ children, version, initialDesignMode = "beta" }: { ch
                         Skip to main content
                       </a>
                       <Sidebar version={version} />
+                      <BottomNav openSearch={openTouchSearch} searchOpen={touchSearchOpen} menuRef={touchMenu} menuOpen={touchMenuOpen} openMenu={openTouchMenu} closeMenu={() => setTouchMenuOpen(false)} />
                       <div className="flex min-w-0 flex-1 flex-col">
                         {/* Zero-height marker Topbar watches (IntersectionObserver)
                          * to know whether the page is scrolled past the very top —
                          * more reliable than tracking window.scrollY directly. */}
                         <div id="topbar-scroll-sentinel" />
-                        <Topbar />
+                        <Topbar inputRef={searchInput} touchSearchOpen={touchSearchOpen} openTouchSearch={openTouchSearch} closeTouchSearch={closeTouchSearch} openTouchMenu={openTouchMenu} />
                         <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
                           <div key={pathname} className={cn(!reduceMotion && "animate-page-fade-in")}>
                             {children}
                           </div>
                         </main>
                       </div>
-                      <BottomNav />
                     </div>
                     <ChatWidget />
                     <WhatsNewModal />

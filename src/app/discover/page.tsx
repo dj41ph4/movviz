@@ -175,14 +175,17 @@ function DiscoverPageInner() {
   const browseRequestId = useRef(0);
 
   // Filtre post-search Tout/Films/Séries + tri connu/récent
-  const [searchFilter, setSearchFilter] = useState<"all" | "movie" | "series">("all");
+  const [searchFilter, setSearchFilter] = useState<"all" | "movie" | "series" | "person">("all");
   const [searchSort, setSearchSort] = useState<"relevance" | "popularity" | "recent" | "rating">("relevance");
 
   // Acteurs/réalisateurs — only meaningful for a real text search (q), never
   // for genre/year/company/etc. filters, and shown as its own row above the
   // movie/series grid rather than mixed into it (a person doesn't fit
   // DiscoverCard's "add to library" shape at all).
-  const [personResults, setPersonResults] = useState<MetaPersonSearchResult[]>([]);
+  const [peopleSearch, setPeopleSearch] = useState<{ query: string; results: MetaPersonSearchResult[]; failed?: boolean } | null>(null);
+  const peopleForQuery = peopleSearch?.query === q.trim() ? peopleSearch : null;
+  const personResults = useMemo(() => peopleForQuery?.results.filter(person => person.profilePath).slice(0, 8) ?? [], [peopleForQuery]);
+  const peopleOnly = searchFilter === "person";
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!watchProvider || !!rowCategory || !!duration;
   // Une plateforme choisie SEULE (sans recherche ni autre filtre) s'affiche en catégories, comme sur
@@ -525,14 +528,16 @@ function DiscoverPageInner() {
   // Same debounce as the browse grid above, kept as its own request since
   // people aren't paginated/filtered the same way movies and series are.
   useEffect(() => {
-    if (!configured || !q.trim()) { setPersonResults([]); return; }
+    if (!configured || !q.trim()) { setPeopleSearch(null); return; }
     const query = q.trim();
     const controller = new AbortController();
     const id = setTimeout(() => {
       withForegroundRequest(() => fetch(`/api/metadata/search?partViews=1&q=${encodeURIComponent(query)}&type=person`, { cache: "no-store", signal: controller.signal })
         .then((r) => (r.ok ? r.json() : null)))
-        .then((d: { results?: MetaPersonSearchResult[] } | null) => { if (!controller.signal.aborted) setPersonResults(d?.results?.filter((p) => !!p.profilePath).slice(0, 8) ?? []); })
-        .catch(() => { if (!controller.signal.aborted) setPersonResults([]); });
+        .then((d: { results?: MetaPersonSearchResult[] } | null) => {
+          if (!controller.signal.aborted) setPeopleSearch({ query, results: d?.results ?? [], failed: !d });
+        })
+        .catch(() => { if (!controller.signal.aborted) setPeopleSearch({ query, results: [], failed: true }); });
     }, 0);
     return () => { clearTimeout(id); controller.abort(); };
   }, [configured, q]);
@@ -1150,7 +1155,7 @@ function DiscoverPageInner() {
 
           {isBrowsing && !providerRowsMode && (
             <>
-              {results.length === 0 && ((loading && page === 1) || awaitingSearch) && (
+              {!peopleOnly && results.length === 0 && ((loading && page === 1) || awaitingSearch) && (
                 <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                   {[...Array(12)].map((_, i) => (
                     <div key={i}>
@@ -1195,11 +1200,29 @@ function DiscoverPageInner() {
               )}
 
               <div className={cn("flex flex-col gap-8 transition-opacity duration-200", loading && page === 1 && results.length > 0 && "opacity-50")}>
-              {q.trim() && personResults.length > 0 && (
-                <PersonRow title={t("discover.peopleTitle")} results={personResults} />
+              {textSearch && (
+                <div data-people-only={peopleOnly ? "" : undefined} className="touch-search-filters flex-wrap gap-1 rounded-2xl border border-white/8 bg-white/5 p-1">
+                  {([
+                    ["all", "common.all"], ["movie", "common.movies"], ["series", "common.series"], ["person", "discover.peopleTitle"],
+                  ] as const).map(([filter, label]) => (
+                    <button key={filter} type="button" aria-pressed={searchFilter === filter} onClick={() => setSearchFilter(filter)}
+                      className="min-h-11 min-w-0 flex-1 rounded-xl px-2 text-[12px] font-bold text-ink-soft ring-focus aria-pressed:bg-white aria-pressed:text-black">
+                      {t(label)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {textSearch && peopleOnly && (
+                peopleForQuery?.results.length ? <PersonRow title={t("discover.peopleTitle")} results={peopleForQuery.results} expanded />
+                  : <p role="status" className="text-sm text-ink-soft">{t(!peopleForQuery ? "common.loading" : peopleForQuery.failed ? "common.requestFailed" : "discover.noResults")}</p>
+              )}
+              {textSearch && !peopleOnly && personResults.length > 0 && (
+                <div className={searchFilter === "all" ? undefined : "desktop-search-filters"}>
+                  <PersonRow title={t("discover.peopleTitle")} results={personResults} />
+                </div>
               )}
 
-              {!loading && !awaitingSearch && results.length === 0 && personResults.length === 0 && (
+              {!peopleOnly && !loading && !awaitingSearch && results.length === 0 && personResults.length === 0 && (
                 q.trim() ? (
                   <div className="flex flex-col gap-8">
                     <div className="flex flex-col items-center gap-3 rounded-2xl glass px-6 py-12 text-center">
@@ -1225,11 +1248,11 @@ function DiscoverPageInner() {
                 ) : <div className="rounded-2xl glass py-16 text-center text-sm text-ink-dim">{t("discover.noResults")}</div>
               )}
 
-              {results.length > 0 && (
+              {!peopleOnly && results.length > 0 && (
                 <>
                   {q.trim() && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex rounded-xl glass p-1">
+                      <div className="desktop-search-filters flex rounded-xl glass p-1">
                         {(["all", "movie", "series"] as const).map((f) => (
                           <button
                             key={f}
@@ -1637,19 +1660,19 @@ function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; 
 /** Acteurs/réalisateurs trouvés pour la recherche en cours — une carte
  *  personne n'a ni "ajouter à la bibliothèque" ni année/note, donc son
  *  propre composant plutôt qu'un DiscoverCard détourné de son usage. */
-function PersonRow({ title, results }: { title: string; results: MetaPersonSearchResult[] }) {
+function PersonRow({ title, results, expanded = false }: { title: string; results: MetaPersonSearchResult[]; expanded?: boolean }) {
   const t = useT();
   return (
     <section className="space-y-3">
       <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className={expanded ? "grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 lg:grid-cols-6" : "flex gap-4 overflow-x-auto pb-2"}>
         {results.map((p) => (
           <Link
             key={p.tmdbId}
             href={`/person/${p.tmdbId}`}
-            className="group flex w-24 shrink-0 flex-col items-center gap-2 text-center sm:w-28"
+            className={cn("group flex min-w-0 flex-col items-center gap-2 text-center ring-focus", !expanded && "w-24 shrink-0 sm:w-28")}
           >
-            <div className="h-24 w-24 overflow-hidden rounded-full bg-surface ring-1 ring-white/10 transition-transform group-hover:scale-105 sm:h-28 sm:w-28">
+            <div className="aspect-square w-full max-w-28 overflow-hidden rounded-full bg-surface ring-1 ring-white/10 transition-transform group-hover:scale-105">
               {p.profilePath ? (
                 <TmdbImage path={p.profilePath} size="w185" alt={p.name} className="h-full w-full object-cover" />
               ) : (

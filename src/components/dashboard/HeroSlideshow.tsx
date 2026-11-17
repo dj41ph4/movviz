@@ -29,6 +29,7 @@ export function HeroSlideshow({ count, index, onIndexChange, intervalMs, paused 
   const reduceMotion = useShouldReduceMotion();
   const rotationOff = useAutoRotationOff();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const [hovering, setHovering] = useState(false);
 
   useEffect(() => {
@@ -45,9 +46,26 @@ export function HeroSlideshow({ count, index, onIndexChange, intervalMs, paused 
 
   return (
     <div
-      className={cn("relative", className)}
+      className={cn("relative touch-hero", className)}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
+      onTouchStart={(event) => {
+        const target = event.target;
+        const point = event.touches[0];
+        swipeStart.current = count > 1 && event.touches.length === 1 &&
+          target instanceof Element && !target.closest("a, button, input, [role=button]")
+          ? { x: point.clientX, y: point.clientY } : null;
+      }}
+      onTouchCancel={() => { swipeStart.current = null; }}
+      onTouchEnd={(event) => {
+        const start = swipeStart.current;
+        swipeStart.current = null;
+        const point = event.changedTouches[0];
+        if (!start || !point || event.touches.length) return;
+        const dx = point.clientX - start.x;
+        const dy = point.clientY - start.y;
+        if (Math.abs(dx) >= 56 && Math.abs(dx) > Math.abs(dy) * 1.5) goTo(index + (dx < 0 ? 1 : -1));
+      }}
     >
       <AnimatePresence mode="wait">
         <motion.div

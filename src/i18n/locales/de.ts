@@ -100,6 +100,9 @@ export const de: Dictionary = {
   },
 
   nav: {
+    emptyWatchHistory: "Noch kein Wiedergabeverlauf.",
+    mySpace: "Mein Bereich",
+    mainNavigation: "Hauptnavigation",
     home: "Startseite",
     dashboard: "Übersicht",
     discover: "Entdecken",

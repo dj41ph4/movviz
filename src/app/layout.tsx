@@ -15,6 +15,7 @@ import { SESSION_COOKIE } from "@/lib/auth/session";
 import { resolveSession } from "@/lib/auth/store";
 import { markUserActivity } from "@/lib/priority/userActivity";
 import { DESIGN_MODE } from "@/lib/appearance/designMode";
+import { TOUCH_LAYOUT_QUERY } from "@/lib/appearance/touchLayout";
 
 const DESCRIPTION =
   "Le centre de commande intelligent de vos films et séries — découverte, demandes et bibliothèque, orchestrés en un seul endroit.";
@@ -26,13 +27,15 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   manifest: "/manifest.json",
-  // Small sizes for the tab and home-screen icons — the 512px logo is 470 KB.
   icons: {
     icon: [
       { url: "/brand/movviz-icon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/brand/movviz-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/brand/movviz-mobile-16.png", sizes: "16x16", type: "image/png", media: TOUCH_LAYOUT_QUERY },
+      { url: "/brand/movviz-mobile-32.png", sizes: "32x32", type: "image/png", media: TOUCH_LAYOUT_QUERY },
+      { url: "/brand/movviz-mobile-192.png", sizes: "192x192", type: "image/png", media: TOUCH_LAYOUT_QUERY },
     ],
-    apple: { url: "/brand/movviz-icon-180.png", sizes: "180x180", type: "image/png" },
+    apple: { url: "/brand/movviz-mobile-180.png", sizes: "180x180", type: "image/png" },
   },
   openGraph: {
     title: "Movviz — Centre de commande média intelligent",
@@ -48,6 +51,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default async function RootLayout({

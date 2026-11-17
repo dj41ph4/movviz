@@ -98,6 +98,9 @@ export const fr = {
   },
 
   nav: {
+    emptyWatchHistory: "Aucun historique de lecture pour le moment.",
+    mySpace: "Mon espace",
+    mainNavigation: "Navigation principale",
     home: "Accueil",
     dashboard: "Tableau de bord",
     discover: "Découverte",

@@ -100,6 +100,9 @@ export const nl: Dictionary = {
   },
 
   nav: {
+    emptyWatchHistory: "Nog geen kijkgeschiedenis.",
+    mySpace: "Mijn ruimte",
+    mainNavigation: "Hoofdnavigatie",
     home: "Start",
     dashboard: "Dashboard",
     discover: "Ontdekken",

@@ -1,0 +1,234 @@
+.touch-nav,
+.touch-header-brand,
+.nx-topbar > .touch-header-button,
+.touch-library-tab,
+.touch-queue-summary,
+.touch-search-filters:not([data-people-only]) {
+  display: none;
+}
+
+.touch-search-filters[data-people-only] { display: flex; }
+
+.touch-header-button {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / .08);
+  color: var(--color-ink);
+  touch-action: manipulation;
+}
+
+.touch-nav-dialog {
+  inset: auto 0 0;
+  width: min(100%, 480px);
+  max-width: none;
+  max-height: 82dvh;
+  margin: 0 auto;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgb(255 255 255 / .10);
+  border-radius: 24px 24px 0 0;
+  background: #15161e;
+  color: var(--color-ink);
+  box-shadow: 0 -16px 64px #0008;
+}
+
+.touch-nav-dialog::backdrop { background: rgb(0 0 0 / .56); }
+
+.touch-nav-dialog-body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Android's unfolded layout is used on medium viewports and across large touch tablets. */
+@media (max-width: 1023px), (pointer: coarse) and (max-width: 1440px) {
+  .nx-desktop-shell:has(.touch-nav) {
+    min-height: 100dvh;
+    background: #0b0c10;
+  }
+
+  .nx-desktop-shell > .nx-sidebar { display: none; }
+  .nx-desktop-shell #main-content { padding-bottom: 24px; }
+  .touch-library-tab { display: inline-flex; }
+  .touch-library-tabs[data-personal-space] { width: 100%; max-width: 440px; border-radius: 16px; }
+  .touch-library-tabs[data-personal-space] [data-library-tab] {
+    flex: 1 1 0%;
+    min-width: 0;
+    justify-content: center;
+    padding-inline: 4px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  .touch-library-tabs[data-personal-space] [data-library-tab] > svg { display: none; }
+  .touch-library-tabs[data-personal-space] [aria-pressed="true"] { background: #f5f2eb; color: #211830; }
+  .touch-library-tabs[data-personal-space] :is([data-library-tab="library"], [data-library-tab="wanted"]) { display: none; }
+  .touch-queue-summary { display: block; }
+  .touch-search-filters:not([data-people-only]) { display: flex; }
+  .desktop-search-filters { display: none; }
+
+  .touch-nav {
+    position: sticky;
+    top: 0;
+    z-index: 35;
+    display: flex;
+    flex: 0 0 112px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    margin: calc(8px + env(safe-area-inset-top, 0px)) 0 8px max(8px, env(safe-area-inset-left, 0px));
+    padding: 10px 6px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+    border: 1px solid rgb(255 255 255 / .08);
+    border-radius: 24px;
+    background: #13151b;
+  }
+
+  .touch-nav-brand, .touch-nav-profile {
+    display: grid;
+    width: 44px;
+    min-height: 44px;
+    place-items: center;
+    align-self: center;
+    border-radius: 50%;
+    overflow: hidden;
+  }
+
+  .touch-nav-profile {
+    margin-top: auto;
+    background: #332446;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .touch-nav-profile img { width: 100%; height: 44px; object-fit: cover; }
+  .touch-nav-links, .touch-nav-rail-actions { display: flex; flex-direction: column; gap: 2px; }
+
+  .touch-nav-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 54px;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 2px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    color: #aaa7bd;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  .touch-nav-item > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .touch-nav-item:is([aria-current="page"], [aria-expanded="true"]) {
+    border-color: rgb(170 150 255 / .24);
+    background: linear-gradient(105deg, rgb(124 92 255 / .32), rgb(124 92 255 / .05));
+    color: #fff;
+  }
+  .touch-nav-item:is([aria-current="page"], [aria-expanded="true"]) > svg { color: #c4b6ff; }
+  .touch-nav-item:active, .touch-header-button:active { background-color: rgb(167 123 255 / .20); }
+
+  .touch-nav-badge {
+    position: absolute;
+    top: 5px;
+    margin-inline-start: 30px;
+    min-width: 16px;
+    border-radius: 12px;
+    padding: 1px 3px;
+    background: #7458e8;
+    color: white;
+    font-size: 9px;
+    line-height: 14px;
+  }
+
+  .nx-desktop-shell .nx-topbar {
+    display: none;
+  }
+  .nx-desktop-shell .nx-topbar[data-touch-search] {
+    display: flex;
+    height: auto;
+    min-height: 60px;
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+    padding-bottom: 6px;
+    border: 0;
+    background: #0b0c10;
+  }
+
+  .nx-desktop-shell .nx-topbar[data-touch-search] #movviz-global-search {
+    display: flex;
+    max-width: none;
+  }
+  #movviz-global-search input { font-size: 16px; }
+  #movviz-global-search [data-search-panel] { max-height: min(65dvh, calc(100dvh - 84px)); overscroll-behavior: contain; }
+  .nx-topbar[data-touch-search] > .touch-header-close { display: inline-flex; }
+  .nx-topbar[data-touch-search] > .nx-topbar-tools { display: none; }
+}
+
+@media (orientation: landscape) and (max-height: 479px) and (max-width: 1023px) {
+  .touch-nav { flex-basis: 70px; padding: 6px 4px; }
+  .touch-nav-item { min-height: 46px; }
+  .touch-nav-item > span { font-size: 9px; }
+}
+
+/* The portrait dock uses the same destinations and keeps the series art edge clear. */
+@media (max-width: 599px) and (orientation: portrait) {
+  .nx-desktop-shell #main-content { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .touch-nav {
+    position: fixed;
+    inset: auto max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+    height: auto;
+    margin: 0;
+    padding: 4px 6px;
+    background: rgb(16 17 22 / .96);
+    box-shadow: 0 9px 28px rgb(0 0 0 / .52);
+  }
+  .touch-nav-brand, .touch-nav-profile, .touch-nav-rail-actions { display: none; }
+  .touch-nav-links { flex-direction: row; }
+  .touch-nav-item { flex: 1; min-height: 60px; }
+  .touch-nav-item:last-child { flex: 1.3; }
+  .touch-library-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 10px; }
+
+  .nx-desktop-shell .nx-topbar {
+    display: flex;
+    min-height: 60px;
+    height: auto;
+    padding-top: max(6px, env(safe-area-inset-top, 0px));
+    padding-bottom: 6px;
+    border-color: transparent;
+    background: #0b0c10;
+  }
+  .nx-topbar:not([data-touch-search]) #movviz-global-search { display: none; }
+  .nx-topbar:not([data-touch-search]) > :is(.touch-header-search, .touch-header-more) { display: inline-flex; }
+  .nx-topbar:not([data-touch-search]) .touch-header-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-inline-end: auto;
+    color: var(--color-ink);
+    font-size: 19px;
+    font-weight: 800;
+  }
+  .nx-topbar-tools > div:not(:last-child) { display: none; }
+  .nx-topbar-tools { margin-inline-start: 0; }
+  .nx-topbar-tools > div:last-child > button { min-width: 44px; min-height: 44px; justify-content: center; padding: 0; border-radius: 50%; }
+  .nx-topbar-tools > div:last-child > button > span:last-child:not(:first-child) { display: none; }
+}
+
+@media (pointer: coarse) {
+  .touch-hero { touch-action: pan-y pinch-zoom; }
+}

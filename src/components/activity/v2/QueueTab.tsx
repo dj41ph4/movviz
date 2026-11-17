@@ -456,6 +456,10 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   if (!active) return null;
   if (error) return <div className="rounded-2xl glass py-12 text-center text-sm text-down">{t("activity.loadError")}</div>;
   if (!data) return <div className="flex items-center justify-center gap-2 py-16 text-ink-dim"><Download className="h-5 w-5 animate-pulse" /> {t("common.loading")}</div>;
+  const batchProgress = activeItems.reduce((sum, item) => sum + Math.min(1, Math.max(0, item.download.progress || 0)), 0);
+  const batchPercent = activeItems.length ? Math.round(batchProgress * 100 / activeItems.length) : 0;
+  const batchSpeed = activeItems.reduce((sum, item) => sum + (item.download.downloadSpeed || 0), 0);
+  const batchEta = activeItems.reduce((longest, item) => Math.max(longest, item.download.eta || 0), 0);
 
   return (
     <div className="nx-download-queue space-y-6">
@@ -463,6 +467,19 @@ export function QueueTab({ active = true }: { active?: boolean }) {
         <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
           {t("activity.queueSnapshotWarning")}
         </p>
+      )}
+      {activeItems.length > 0 && (
+        <section className="touch-queue-summary rounded-2xl border border-white/10 bg-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-ink">{t("downloads.inProgress")} · {activeItems.length}</h2>
+            <span className="text-sm font-semibold tabular-nums text-ink">{batchPercent} %</span>
+          </div>
+          <progress max={100} value={batchPercent} aria-label={t("downloads.inProgress")} className="my-3 block h-1.5 w-full accent-brand" />
+          <p className="flex flex-wrap gap-x-3 text-xs tabular-nums text-ink-soft">
+            {batchSpeed > 0 && <span>↓ {formatSpeed(batchSpeed)}</span>}
+            {batchEta > 0 && <span>{t("downloads.eta")}: {formatEta(Math.ceil(batchEta / 60))}</span>}
+          </p>
+        </section>
       )}
       {/* Tuiles : débit en direct, file active, espace disque */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
