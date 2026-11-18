@@ -16,7 +16,6 @@ export const dashboardRowAnchor = (key: string) => `dash-row-${key}`;
  * Sticky shortcut bar over the dashboard rows: a click jumps straight to a row
  * instead of scrolling past thousands of pixels of carousels. It follows the
  * user's own row order (the pencil layout editor), it never reorders anything.
- * On phones the chips scroll sideways; from `sm` up they wrap onto a second line so no label is ever cut.
  * `children` sits at the right edge (the layout editor toggle).
  */
 export function DashboardJumpBar({ items, children }: { items: JumpItem[]; children?: React.ReactNode }) {

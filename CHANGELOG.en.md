@@ -1,3 +1,9 @@
+## v1.28.168 — November 18, 2026
+
+### Touch browser
+
+- The Home page scrolls freely again after reaching the bottom. The customization shortcut remains available on phones and tablets.
+
 ## v1.28.167 — November 18, 2026
 
 ### Touch browser and Android mobile

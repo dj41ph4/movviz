@@ -1,3 +1,9 @@
+## v1.28.168 — 18 novembre 2026
+
+### Navigateur tactile
+
+- L’accueil défile à nouveau librement après avoir atteint le bas de page. Le raccourci de personnalisation reste accessible sur téléphone et tablette.
+
 ## v1.28.167 — 18 novembre 2026
 
 ### Navigateur tactile et Android mobile

@@ -1,3 +1,9 @@
+## v1.28.168 — 18. November 2026
+
+### Touch-Browser
+
+- Nach Erreichen des Seitenendes lässt sich die Startseite wieder frei scrollen. Die Schaltfläche zum Anpassen bleibt auf Smartphones und Tablets verfügbar.
+
 ## v1.28.167 — 18. November 2026
 
 ### Touch-Browser und Android Mobile

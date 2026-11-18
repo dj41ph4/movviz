@@ -1,3 +1,9 @@
+## v1.28.168 — 18 november 2026
+
+### Touchbrowser
+
+- De startpagina scrolt weer vrij nadat je de onderkant bereikt. De knop om de indeling aan te passen blijft beschikbaar op telefoons en tablets.
+
 ## v1.28.167 — 18 november 2026
 
 ### Touchbrowser en Android mobiel

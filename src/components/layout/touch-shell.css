@@ -544,7 +544,7 @@
   }
   .touch-dashboard-rows { display: flex; flex-direction: column; gap: 24px; }
   .touch-dashboard-rows > * { margin-block: 0; scroll-margin-top: 72px; }
-  .touch-dashboard-rows > :first-child:has(button) { order: 1; position: relative; top: auto; }
+  .touch-dashboard-controls button { scroll-margin-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
   .nx-desktop-shell .nx-poster-row h2 { font-family: inherit; font-size: 20px; font-weight: 700; }
   .nx-desktop-shell .nx-poster-track > :is(.touch-poster-card, .touch-discover-rail-card) {
     width: calc((100% - 20px) / 3);

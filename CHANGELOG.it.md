@@ -1,3 +1,9 @@
+## v1.28.168 — 18 novembre 2026
+
+### Browser touch
+
+- La pagina iniziale torna a scorrere liberamente dopo aver raggiunto il fondo. Il comando di personalizzazione resta disponibile su telefoni e tablet.
+
 ## v1.28.167 — 18 novembre 2026
 
 ### Browser touch e Android mobile

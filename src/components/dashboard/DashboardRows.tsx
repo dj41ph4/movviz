@@ -651,7 +651,7 @@ export function DashboardRows({
 
   return (
     <div className="touch-dashboard-rows space-y-8">
-      {arrangedRows.length >= 3 ? (
+      {!touchLayout && (arrangedRows.length >= 3 ? (
         <DashboardJumpBar items={arrangedRows.map((row) => ({ id: row.key, label: rowLabels[row.key] ?? row.key }))}>
           <RowLayoutToggle layout={rowLayout} variant="pill" />
         </DashboardJumpBar>
@@ -659,7 +659,7 @@ export function DashboardRows({
         <div className="flex flex-wrap items-center justify-end gap-2">
           <RowLayoutToggle layout={rowLayout} />
         </div>
-      )}
+      ))}
       {arrangedRows.map((row) => (
         <div key={row.key} id={dashboardRowAnchor(row.key)} className="scroll-mt-56">
           <EditableRow rowKey={row.key} rows={arrangedRows} layout={rowLayout}>
@@ -669,6 +669,11 @@ export function DashboardRows({
       ))}
       {availableRows.length > 0 && arrangedRows.length === 0 && (
         <p className="rounded-xl border border-brand/20 bg-surface/45 p-6 text-sm text-ink-dim">{t("rowLayout.allHidden")}</p>
+      )}
+      {touchLayout && (
+        <div className="touch-dashboard-controls flex">
+          <RowLayoutToggle layout={rowLayout} variant="pill" />
+        </div>
       )}
     </div>
   );
