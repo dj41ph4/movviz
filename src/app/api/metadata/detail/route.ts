@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!detail) return NextResponse.json({ error: "not found" }, { status: 404 });
   if (type === "series") {
     const tvdbSeries = tvdbOrderedSeries(tmdbId);
-    if (tvdbSeries) detail = { ...detail, seasons: projectSeasonSummaries(tvdbSeries) };
+    if (tvdbSeries) detail = { ...detail, seasons: projectSeasonSummaries(tvdbSeries, detail.seasons) };
   }
   const part = parseBleachPart(searchParams.get("seriesPart"));
   if (type === "series" && tmdbId === BLEACH_TMDB_ID && part) {

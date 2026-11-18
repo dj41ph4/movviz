@@ -33,6 +33,8 @@ import { PROGRESS_STORAGE_KEY } from "@/lib/player/watchProgress";
 import { detectDesktopClientProfile } from "@/lib/playback/engine/clientProfile.detect";
 import { getOrCreateDeviceId } from "@/lib/playback/engine/deviceId";
 import { usePlaybackTelemetry } from "@/lib/playback/usePlaybackTelemetry";
+import { isAppleMobile, pictureInPictureMode, type WebKitVideo } from "@/lib/player/pictureInPicture";
+import { toast } from "@/components/ui/Toast";
 
 export interface VideoPlayerProps {
   ratingKey: string;
@@ -385,7 +387,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // Toast de feedback des skips ±10s — key={n} remonte l'animation à chaque
   // skip (une animation déjà terminée ne repart pas sans remontage).
   const [skipToast, setSkipToast] = useState<{ n: number; delta: number } | null>(null);
-  const [pipSupported, setPipSupported] = useState(false);
+  const [pipMode, setPipMode] = useState<ReturnType<typeof pictureInPictureMode>>(null);
+  const [pipActive, setPipActive] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [markers, setMarkers] = useState<NonNullable<StreamInfo["markers"]>>([]);
   const [activeMarker, setActiveMarker] = useState<NonNullable<StreamInfo["markers"]>[number] | null>(null);
@@ -412,13 +415,26 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     setError(tRef.current("player.betaHlsDisabled"));
   };
 
-  useEffect(() => {
-    setPipSupported(
-      typeof document !== "undefined" &&
-      "pictureInPictureEnabled" in document &&
-      document.pictureInPictureEnabled
-    );
+  const refreshPiP = useCallback(() => {
+    const video = videoRef.current as WebKitVideo | null;
+    const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setPipMode(pictureInPictureMode(isAppleMobile(navigator) ? video : null, document, standalone));
+    setPipActive(!!video && (
+      document.pictureInPictureElement === video || video.webkitPresentationMode === "picture-in-picture"
+    ));
   }, []);
+
+  useEffect(() => {
+    refreshPiP();
+    document.addEventListener("webkitpresentationmodechanged", refreshPiP, true);
+    document.addEventListener("enterpictureinpicture", refreshPiP, true);
+    document.addEventListener("leavepictureinpicture", refreshPiP, true);
+    return () => {
+      document.removeEventListener("webkitpresentationmodechanged", refreshPiP, true);
+      document.removeEventListener("enterpictureinpicture", refreshPiP, true);
+      document.removeEventListener("leavepictureinpicture", refreshPiP, true);
+    };
+  }, [refreshPiP]);
 
   const reloadHls = (audioId: string | null, subtitleId: string | null) => {
     const mode = transcodeModeRef.current;
@@ -2453,15 +2469,24 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   }, [onClose, skip, seekTo, resetHideTimer, duration, menuOpen]);
 
   const togglePiP = async () => {
-    const el = videoRef.current;
+    const el = videoRef.current as WebKitVideo | null;
     if (!el) return;
     try {
-      if (document.pictureInPictureElement) {
+      if (pipMode === "safari") {
+        toast("info", t("player.pipSafariHint"));
+      } else if (pipMode === "webkit") {
+        el.webkitSetPresentationMode?.(pipActive ? "inline" : "picture-in-picture");
+      } else if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
-      } else {
+      } else if (pipMode === "standard") {
         await el.requestPictureInPicture();
       }
-    } catch { /* PiP not supported or denied */ }
+    } catch {
+      if (isAppleMobile(navigator)) {
+        refreshPiP();
+        toast("info", t("player.pipUnavailable"));
+      }
+    }
   };
 
   const getSeekRatio = (clientX: number): number => {
@@ -3075,6 +3100,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                 className="h-full w-full cursor-pointer touch-manipulation object-contain bg-black"
                 autoPlay
                 playsInline
+                onLoadedMetadata={refreshPiP}
+                onEmptied={refreshPiP}
                 onClick={handleVideoClick}
                 onTouchEnd={handleVideoTouchEnd}
               />
@@ -3210,7 +3237,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                     controlsVisible || !playing || buffering || menuOpen || showResume ? "opacity-100" : "opacity-0 [&>*]:pointer-events-none"
                   )}
                 >
-                  <div className="pointer-events-auto mx-auto max-w-[1600px] px-4 sm:px-6">
+                  <div className="touch-player-controls pointer-events-auto mx-auto max-w-[1600px] px-4 sm:px-6">
                     <div className="relative group rounded-[22px] border border-white/10 bg-[#0d0e14]/72 px-4 pt-3 pb-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:px-5">
                     <div className="mb-1.5 flex items-center justify-between gap-4 text-[11px] font-medium tabular-nums text-white/72">
                       <span>{formatTime(seekPreview ?? currentTime)}</span>
@@ -3494,11 +3521,13 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                       </button>
                     )}
 
-                    {pipSupported && (
+                    {pipMode && (
                       <button
                         onClick={togglePiP}
                         className={iconButtonClass}
                         aria-label={t("player.betaPiP")}
+                        aria-pressed={pipMode === "webkit" ? pipActive : undefined}
+                        title={pipMode === "safari" ? t("player.pipSafariHint") : undefined}
                       >
                         <PictureInPicture2 className="h-5 w-5" />
                       </button>

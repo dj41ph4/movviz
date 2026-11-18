@@ -644,6 +644,11 @@ export const fr = {
   },
 
   dashboard: {
+    touchNight: "Bonne nuit",
+    touchDay: "Bonjour",
+    touchEvening: "Bonsoir",
+    touchGreeting: "{salutation}, {name}",
+    touchGreetingHint: "Prêt pour une nouvelle histoire ?",
     cinema: {
       eyebrow: "Le cinéma, chez vous",
       title: "Votre prochaine",
@@ -2874,7 +2879,9 @@ export const fr = {
     betaSkipForward: "Avancer de 10s",
     betaSpeed: "Vitesse",
     betaSpeedNormal: "Normale",
-    betaPiP: "Picture in Picture",
+    betaPiP: "Image dans l’image",
+    pipSafariHint: "Ouvre Movviz dans Safari pour utiliser l’image dans l’image sur cet iPhone ou iPad.",
+    pipUnavailable: "L’image dans l’image est indisponible pour cette vidéo.",
     betaVolume: "Volume",
     betaMute: "Couper le son",
     betaUnmute: "Activer le son",

@@ -35,7 +35,9 @@ export function PersonalLibraryTab({ history }: { history: boolean }) {
     return <p className="rounded-2xl border border-white/10 p-6 text-center text-sm text-ink-soft">{t(history ? "nav.emptyWatchHistory" : "watchlist.empty")}</p>;
   }
   return (
-    <div className="grid grid-cols-3 gap-x-2.5 gap-y-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <>
+    <h1 className="touch-personal-title">{t(history ? "nav.history" : "watchlist.title")} ({items.length})</h1>
+    <div className="touch-personal-posters grid grid-cols-3 gap-x-2.5 gap-y-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {items.map(item => {
         const isEpisode = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null;
         const part = "seriesPart" in item ? item.seriesPart : undefined;
@@ -59,5 +61,6 @@ export function PersonalLibraryTab({ history }: { history: boolean }) {
         );
       })}
     </div>
+    </>
   );
 }

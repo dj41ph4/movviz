@@ -646,6 +646,11 @@ export const nl: Dictionary = {
   },
 
   dashboard: {
+    touchNight: "Goedenacht",
+    touchDay: "Goedendag",
+    touchEvening: "Goedenavond",
+    touchGreeting: "{salutation}, {name}",
+    touchGreetingHint: "Klaar voor een nieuw verhaal?",
     cinema: {
       eyebrow: "Cinema, bij jou thuis",
       title: "Jouw volgende",
@@ -2876,7 +2881,9 @@ export const nl: Dictionary = {
     betaSkipForward: "10s vooruit",
     betaSpeed: "Snelheid",
     betaSpeedNormal: "Normaal",
-    betaPiP: "Picture in Picture",
+    betaPiP: "Beeld in beeld",
+    pipSafariHint: "Open Movviz in Safari om beeld in beeld op deze iPhone of iPad te gebruiken.",
+    pipUnavailable: "Beeld in beeld is niet beschikbaar voor deze video.",
     betaVolume: "Volume",
     betaMute: "Dempen",
     betaUnmute: "Dempen opheffen",

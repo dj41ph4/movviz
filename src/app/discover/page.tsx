@@ -27,7 +27,8 @@ import { interleaveMoviesAndSeries } from "@/lib/discover/interleave";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
-import { PROVIDER_BRAND_RGB, PROVIDER_LIGHT_TILE, PROVIDER_SVG } from "@/lib/metadata/providerSvg";
+import { PROVIDER_BRAND_RGB, PROVIDER_LIGHT_TILE, PROVIDER_SVG, PROVIDER_TOUCH_ICON } from "@/lib/metadata/providerSvg";
+import { useTouchPortrait } from "@/lib/appearance/useTouchLayout";
 import "./discover-capsule.css";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import { rowLabel as sharedRowLabel, type RowMeta } from "@/components/media/rowLabel";
@@ -35,7 +36,7 @@ import { useRowLayout, type RowLayoutApi } from "@/components/media/useRowLayout
 import { EditableRow, RowLayoutToggle } from "@/components/media/RowLayoutControls";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
-  Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark, SlidersHorizontal, SearchX,
+  Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark, SlidersHorizontal, SearchX, ChevronLeft,
 } from "lucide-react";
 
 /**
@@ -109,6 +110,7 @@ function DiscoverPageInner() {
   // different label.  The selected movie/series type remains available for
   // filters and the dedicated tabs without duplicating their state.
   const [forYou, setForYou] = useState(true);
+  const [touchFiltersOpen, setTouchFiltersOpen] = useState(false);
   const [genre, setGenre] = useState(() => searchParams.get("genre") ?? "");
   const [year, setYear] = useState(() => searchParams.get("year") ?? "");
   const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]>(() => (searchParams.get("sort") as (typeof SORT_OPTIONS)[number] | null) ?? "popularity.desc");
@@ -727,17 +729,43 @@ function DiscoverPageInner() {
         : null;
 
   return (
-    <div className="nx-discover-page mx-auto max-w-[1500px] space-y-8">
+    <div className="nx-discover-page mx-auto max-w-[1500px] space-y-8"
+      data-touch-provider={providerRowsMode || undefined}
+      data-touch-disc-filterable={configured && !textSearch || undefined}
+      data-touch-disc-filters-open={touchFiltersOpen || undefined}>
+      {configured && !textSearch && !providerRowsMode && (
+        <div className="touch-discover-navigation">
+          <div className="touch-segments" aria-label={t("discover.description")}>
+            {(["movie", "series"] as const).map((kind) => (
+              <button key={kind} type="button" aria-pressed={kind === mediaType} onClick={() => switchMediaType(kind)}>
+                {t(kind === "movie" ? "common.movies" : "common.series")}
+              </button>
+            ))}
+          </div>
+          <div className="touch-discover-destinations">
+            <button type="button" aria-current="page" onClick={() => switchMediaType(mediaType)}>
+              {t("tizen.suggestions")}
+            </button>
+            <Link href={mediaType === "movie" ? "/movies" : "/series"}>{t("nav.library")}</Link>
+            <button type="button" className="touch-discover-filter-toggle" aria-expanded={touchFiltersOpen} aria-controls="touch-discover-filters"
+              onClick={() => setTouchFiltersOpen((open) => !open)}>
+              <SlidersHorizontal size={17} aria-hidden="true" />
+              {t("activity.filters")}
+            </button>
+          </div>
+        </div>
+      )}
       <PageHeader
         eyebrow={t("discover.eyebrow")}
         title={mediaType === "movie" ? t("common.movies") : t("common.series")}
         description={t("discover.description")}
       >
         {configured && !textSearch && (
-          <div ref={filterRowRef} className="flex flex-wrap items-center gap-1.5 lg:hidden">
+          <div id="touch-discover-filters" ref={filterRowRef} className="touch-discover-filters flex flex-wrap items-center gap-1.5 lg:hidden">
             {(["movie", "series"] as const).map((mt) => (
               <button
                 key={mt}
+                data-discover-media
                 onClick={() => switchMediaType(mt)}
                 className={cn(
                   "rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
@@ -989,8 +1017,22 @@ function DiscoverPageInner() {
       {configured && !textSearch && watchProvider && (() => {
         const providerId = Number(watchProvider.id);
         const logo = PROVIDER_SVG[providerId];
+        const icon = PROVIDER_TOUCH_ICON[providerId];
         const tile = watchProviderTiles.find((x) => String(x.id) === watchProvider.id);
         return (
+          <>
+          <div className="touch-provider-banner">
+            <button type="button" className="touch-header-button" onClick={() => setWatchProvider(null)} aria-label={t("discover.providerBannerExit")}><ChevronLeft size={22} /></button>
+            {icon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={icon} alt="" />
+            ) : tile?.logoPath ? <TmdbImage path={tile.logoPath} size="w185" alt="" /> : null}
+            <div><h1>{watchProvider.name}</h1><p>{t("discover.providerBannerHint")}</p></div>
+            {providerRowsMode && <button type="button" className="touch-header-button touch-provider-filters" aria-expanded={touchFiltersOpen}
+              aria-controls="touch-discover-filters" aria-label={t("activity.filters")} onClick={() => setTouchFiltersOpen((open) => !open)}>
+              <SlidersHorizontal size={18} />
+            </button>}
+          </div>
           <div className="nx-provider-banner hidden lg:flex" style={{ "--brand": PROVIDER_BRAND_RGB[providerId] } as React.CSSProperties}>
             <div className="nx-provider-banner-logo">
               {logo ? (
@@ -1011,6 +1053,7 @@ function DiscoverPageInner() {
               <X className="h-4 w-4 text-ink-dim" />
             </button>
           </div>
+          </>
         );
       })()}
 
@@ -1020,6 +1063,46 @@ function DiscoverPageInner() {
 
       {configured && (
         <>
+          <div className={cn("touch-discover-secondary-filters flex flex-wrap items-center gap-2 lg:hidden", textSearch && "hidden")}>
+            <input
+              value={year}
+              onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder={t("filters.year")}
+              inputMode="numeric"
+              className="h-10 w-24 rounded-xl glass px-3 text-sm text-ink outline-none placeholder:text-ink-dim"
+            />
+            <select
+              value={sort}
+              onChange={(e) => { setSort(e.target.value as typeof sort); setRowCategory(null); setRowCategoryMeta(undefined); }}
+              className="h-10 rounded-xl glass px-3 text-sm text-ink outline-none"
+            >
+              <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
+              <option value="popularity.desc">{t("discover.trending")}</option>
+              <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
+              <option value="for_you">{t("discover.sortForYou")}</option>
+            </select>
+            {company && (
+              <FilterChip label={company.name} onClear={() => setCompany(null)} />
+            )}
+            {duration && (
+              <FilterChip label={selectedDurationLabel ?? ""} onClear={() => setDuration("")} />
+            )}
+            {watchProvider && (
+              <FilterChip label={watchProvider.name} onClear={() => setWatchProvider(null)} />
+            )}
+            {rowCategory && (
+              <FilterChip label={rowLabel(rowCategory, rowCategoryMeta)} onClear={() => { setRowCategory(null); setRowCategoryMeta(undefined); }} />
+            )}
+            {isBrowsing && (
+              <button
+                onClick={clearFilters}
+                className="flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-ink-dim hover:text-ink"
+              >
+                <X className="h-3.5 w-3.5" /> {t("common.reset")}
+              </button>
+            )}
+          </div>
+
           {!isBrowsing && catalogHero && <div className="lg:hidden"><CatalogHero result={catalogHero} /></div>}
           {genreHero && <div className="lg:hidden"><CatalogHero result={genreHero} label={selectedGenreName ?? undefined} /></div>}
 
@@ -1070,46 +1153,6 @@ function DiscoverPageInner() {
               </div>
             </div>
           )}
-
-          <div className={cn("flex flex-wrap items-center gap-2 lg:hidden", textSearch && "hidden")}>
-            <input
-              value={year}
-              onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              placeholder={t("filters.year")}
-              inputMode="numeric"
-              className="h-10 w-24 rounded-xl glass px-3 text-sm text-ink outline-none placeholder:text-ink-dim"
-            />
-            <select
-              value={sort}
-              onChange={(e) => { setSort(e.target.value as typeof sort); setRowCategory(null); setRowCategoryMeta(undefined); }}
-              className="h-10 rounded-xl glass px-3 text-sm text-ink outline-none"
-            >
-              <option value="primary_release_date.desc">{t("discover.sortNewest")}</option>
-              <option value="popularity.desc">{t("discover.trending")}</option>
-              <option value="vote_average.desc">{t("discover.sortTopRated")}</option>
-              <option value="for_you">{t("discover.sortForYou")}</option>
-            </select>
-            {company && (
-              <FilterChip label={company.name} onClear={() => setCompany(null)} />
-            )}
-            {duration && (
-              <FilterChip label={selectedDurationLabel ?? ""} onClear={() => setDuration("")} />
-            )}
-            {watchProvider && (
-              <FilterChip label={watchProvider.name} onClear={() => setWatchProvider(null)} />
-            )}
-            {rowCategory && (
-              <FilterChip label={rowLabel(rowCategory, rowCategoryMeta)} onClear={() => { setRowCategory(null); setRowCategoryMeta(undefined); }} />
-            )}
-            {isBrowsing && (
-              <button
-                onClick={clearFilters}
-                className="flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-ink-dim hover:text-ink"
-              >
-                <X className="h-3.5 w-3.5" /> {t("common.reset")}
-              </button>
-            )}
-          </div>
 
           {!isBrowsing && (
             <div className="flex flex-wrap items-center justify-end gap-2 lg:hidden">
@@ -1337,6 +1380,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
  * to see the trailer — never fabricated. */
 function CatalogHero({ result, label }: { result: MetaSearchResult; label?: string }) {
   const { t, locale } = useI18n();
+  const portrait = useTouchPortrait();
 
   const [showTrailer, setShowTrailer] = useState(false);
   const { data: heroDetail } = useSWR<MetaDetail | null>(
@@ -1407,7 +1451,7 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
   return (
     <Link
       href={bleachTitleHref(result.tmdbId, result.type, result.seriesPart)}
-      className="group relative block min-h-[320px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[420px] lg:h-[clamp(28rem,42vw,40rem)] lg:min-h-[28rem]"
+      className="touch-catalog-hero group relative block min-h-[320px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[420px] lg:h-[clamp(28rem,42vw,40rem)] lg:min-h-[28rem]"
     >
       {showTrailer ? (
         <TrailerHeader
@@ -1420,6 +1464,8 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
           youtubeProfile="hero"
           className="absolute inset-0 h-full w-full"
         />
+      ) : portrait && result.posterPath ? (
+        <TmdbImage path={result.posterPath} size="w500" alt={result.title} className="absolute inset-0 h-full w-full object-cover object-[50%_26%]" />
       ) : result.backdropPath ? (
         <TmdbImage path={result.backdropPath} size="w1280" alt={result.title} className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.02]" />
       ) : result.posterPath ? (
@@ -1428,9 +1474,9 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
           <TmdbImage path={result.posterPath} size="w500" alt={result.title} className="absolute right-[10%] top-0 h-full max-w-[42%] object-contain drop-shadow-2xl" />
         </>
       ) : null}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
-      <div className="relative z-10 flex min-h-[320px] max-w-xl flex-col justify-end gap-3 p-5 sm:min-h-[420px] sm:p-8 lg:h-full lg:min-h-[28rem] lg:p-8 xl:p-10">
+      <div className="touch-hero-shade-side pointer-events-none absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent" />
+      <div className="touch-hero-shade-bottom pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+      <div className="touch-catalog-hero-content relative z-10 flex min-h-[320px] max-w-xl flex-col justify-end gap-3 p-5 sm:min-h-[420px] sm:p-8 lg:h-full lg:min-h-[28rem] lg:p-8 xl:p-10">
         <span className="w-fit rounded-full border border-white/15 bg-black/35 px-3 py-1 text-xs font-semibold text-white/85 backdrop-blur">
           {label ?? (result.type === "movie" ? t("common.movies") : t("common.series"))}
         </span>
@@ -1457,13 +1503,14 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
             onClick={toggleWatchlist}
             disabled={watching}
             title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+            aria-label={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
             className={cn(
-              "flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-bold backdrop-blur transition-transform hover:scale-105",
+              "touch-catalog-watchlist flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-bold backdrop-blur transition-transform hover:scale-105",
               onWatchlist ? "border-brand-glow/40 bg-black/25 text-brand-glow" : "border-white/25 bg-black/25 text-white/85 hover:border-white/45 hover:text-white"
             )}
           >
             {watching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className={cn("h-4 w-4", onWatchlist && "fill-brand-glow")} />}
-            {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+            <span>{onWatchlist ? t("watchlist.added") : t("watchlist.add")}</span>
           </button>}
           <button
             type="button"
@@ -1497,7 +1544,7 @@ function PlatformsSection({ tiles, onClick }: { tiles: LogoTile[]; onClick: (til
         <h2 className="text-lg font-bold tracking-tight text-ink sm:text-xl">{t("discover.watchProviders")}</h2>
         <p className="text-sm text-ink-dim">{t("discover.watchProvidersSubtitle")}</p>
       </div>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+      <div className="touch-provider-track grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {tiles.map((tile) => {
           // SVG locaux (wordmarks larges) : object-contain + marges, jamais
           // object-cover qui les rognerait. Les logos sombres prennent un
@@ -1511,9 +1558,9 @@ function PlatformsSection({ tiles, onClick }: { tiles: LogoTile[]; onClick: (til
               type="button"
               onClick={() => onClick(tile)}
               title={tile.name}
-              className="group flex flex-col items-center gap-2 rounded-2xl p-1 transition-transform hover:-translate-y-0.5"
+              className="touch-provider-button group flex flex-col items-center gap-2 rounded-2xl p-1 transition-transform hover:-translate-y-0.5"
             >
-              <div className={cn("flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 shadow-lg transition-shadow group-hover:border-brand/40 group-hover:shadow-brand/20", light && "border-white/20 bg-[#f2f3f7]")}>
+              <div className={cn("touch-provider-tile flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 shadow-lg transition-shadow group-hover:border-brand/40 group-hover:shadow-brand/20", light && "border-white/20 bg-[#f2f3f7]")}>
                 {localSvg ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={localSvg} alt={tile.name} className="max-h-[62%] max-w-[78%] object-contain" />
@@ -1717,7 +1764,7 @@ function PosterRow({
   return (
     <SharedPosterRow title={title} onSeeAll={onSeeAll}>
       {results.map((r, i) => (
-        <div key={bleachPresentationKey(r)} className="w-[275px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
+        <div key={bleachPresentationKey(r)} className="touch-discover-rail-card w-[275px] shrink-0 lg:w-[calc(25%-0.75rem)] xl:w-[calc(20%-0.8rem)] 2xl:w-[calc(16.667%-0.833rem)]">
           <DiscoverCard
             index={i}
             result={r}
@@ -1889,6 +1936,7 @@ function DiscoverCard({
 }) {
   const { t, locale } = useI18n();
   const reduceMotion = useShouldReduceMotion();
+  const portrait = useTouchPortrait();
   const [adding, setAdding] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -1942,10 +1990,11 @@ function DiscoverCard({
       : undefined;
 
   return (
-    <motion.article className="group/discover w-full" {...cascadeAnim}>
+    <motion.article className="touch-discover-card group/discover w-full" {...cascadeAnim}>
       <div className="relative">
         <DashboardPosterCard
           layout="fill"
+          variant={portrait ? "touch-poster" : undefined}
           seriesPart={result.seriesPart}
           tmdbId={result.tmdbId}
           type={result.type}

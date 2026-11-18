@@ -1375,7 +1375,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
         // Pull the following void background up by one pixel so the final
         // opaque gradient row overlaps the panel edge instead of leaving a
         // hairline seam between the backdrop and the fiche.
-        className={cn("relative -mx-6 -mt-6 mb-[31px] h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:aspect-video sm:h-auto sm:min-h-0", standalonePage && "nx-title-page-hero")}
+        className={cn("touch-title-hero relative -mx-6 -mt-6 mb-[31px] h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:aspect-video sm:h-auto sm:min-h-0", standalonePage && "nx-title-page-hero")}
         style={{ contain: "paint" }}
       >
           <ErrorBoundary onError={(e) => reportIssue(`Trailer crash: ${e.message}`)} fallback={
@@ -1392,7 +1392,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
               onActiveVideo={standalonePage && isDesktop ? setAmbilightKey : undefined}
               hideTopGradient={standalonePage && isDesktop}
               enabled={titlePageVideoEnabled}
-              className="h-full w-full"
+              className="touch-title-art h-full w-full"
             />
           </ErrorBoundary>
           {/* Netflix's own fade reaches fully opaque black right at the
@@ -1480,7 +1480,7 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
               primary action pill plus compact icon-only circles for the
               secondary ones, instead of a wall of full-width labeled
               buttons competing with the video for attention. */}
-          <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-3 p-4 sm:p-10">
+          <div className="touch-title-overlay absolute inset-x-0 bottom-0 z-10 flex flex-col gap-3 p-4 sm:p-10">
             {libraryStatus && StatusIcon && (
               <span
                 className={cn(

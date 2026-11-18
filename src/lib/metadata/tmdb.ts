@@ -1387,7 +1387,7 @@ async function getFankaiDetail(tmdbId: number, preferLanguage?: string): Promise
     imdbRating: null,
     similar: [...related, ...(parent?.similar ?? []).filter((r) => r.tmdbId !== tmdbId && !related.some((x) => x.tmdbId === r.tmdbId))].slice(0, 12),
     collection: null,
-    seasons: [{ seasonNumber: 1, name: season.name, episodeCount: season.episodeCount, airDate: season.airDate, overview: season.overview }],
+    seasons: [{ seasonNumber: 1, name: season.name, episodeCount: season.episodeCount, airDate: season.airDate, overview: season.overview, posterPath: season.posterPath }],
   };
 }
 
@@ -1496,12 +1496,13 @@ async function getTmdbDetail(type: "movie" | "series", tmdbId: number, preferLan
       ? { id: data.belongs_to_collection.id, name: data.belongs_to_collection.name, posterPath: data.belongs_to_collection.poster_path ?? null }
       : null,
     seasons: type === "series" ? (tmdbId === BLEACH_TMDB_ID && opts?.bleachOrder !== "tmdb" ? bleachSeasonSummaries((data.seasons ?? []).map((s) => ({
-      seasonNumber: s.season_number, name: s.name, episodeCount: s.episode_count, airDate: s.air_date ?? null,
+      seasonNumber: s.season_number, name: s.name, episodeCount: s.episode_count, airDate: s.air_date ?? null, posterPath: s.poster_path ?? null,
     }))) : (data.seasons ?? []).map((s) => ({
       seasonNumber: s.season_number,
       name: s.name,
       episodeCount: longCutEpisodeCount(tmdbId, s.season_number) ?? s.episode_count,
       airDate: s.air_date,
+      posterPath: s.poster_path ?? null,
     }))) : undefined,
   };
 }

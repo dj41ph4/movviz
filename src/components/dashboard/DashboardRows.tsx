@@ -15,6 +15,7 @@ import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
+import { useTouchLayout } from "@/lib/appearance/useTouchLayout";
 import { RecentEpisodesRow } from "./RecentEpisodesRow";import { WatchlistRow } from "./WatchlistRow";
 import type { WatchlistItem } from "@/lib/watchlist/types";
 import { useRowLayout } from "@/components/media/useRowLayout";
@@ -99,6 +100,7 @@ export function DashboardRows({
   const { locale } = useI18n();
   const router = useRouter();
   const rowLayout = useRowLayout("dashboard");
+  const touchLayout = useTouchLayout();
   const visible = useMemo(
     () => new Set(sections.filter((s) => s.visible && !(excludeContinueWatching && s.id === "continueWatching")).map((s) => s.id)),
     [sections, excludeContinueWatching]
@@ -336,7 +338,7 @@ export function DashboardRows({
   const renderSection = (id: DashboardSectionId) => {
         if (!visible.has(id)) return null;
         if (id === "watchlist" && watchlistData?.items.length) {
-          return <WatchlistRow key={id} items={watchlistData.items} libraryTitleKeys={libraryTitleKeys} moviePlaybackByTmdbId={playbackForTitle} />;
+          return <WatchlistRow touchLayout={touchLayout} key={id} items={watchlistData.items} libraryTitleKeys={libraryTitleKeys} moviePlaybackByTmdbId={playbackForTitle} />;
         }
 
         if (id === "continueWatching" && continueWatching.length > 0) {
@@ -391,7 +393,7 @@ export function DashboardRows({
                   : undefined;
                 return (
                   <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
-                    <DashboardPosterCard
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined}
                       tmdbId={item.tmdbId}
                       type={type}
                       title={item.title}
@@ -426,7 +428,7 @@ export function DashboardRows({
                   const artwork = resolveArtwork(type, item.tmdbId, item.backdropPath);
                   return (
                     <CardErrorBoundary key={`${type}:${item.id}`}>
-                      <DashboardPosterCard
+                      <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined}
                         tmdbId={item.tmdbId}
                         type={type}
                         title={item.title}
@@ -457,7 +459,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -473,7 +475,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -488,7 +490,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -503,7 +505,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork("movie", movie.tmdbId, movie.backdropPath);
                 return (
                   <CardErrorBoundary key={movie.id}>
-                    <DashboardPosterCard
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined}
                       tmdbId={movie.tmdbId}
                       type="movie"
                       title={movie.title}
@@ -532,7 +534,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork("movie", m.tmdbId, m.backdropPath);
                 return (
                   <CardErrorBoundary key={m.tmdbId}>
-                    <DashboardPosterCard
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined}
                       tmdbId={m.tmdbId}
                       type="movie"
                       title={m.title}
@@ -559,7 +561,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork("movie", m.tmdbId, m.backdropPath);
                 return (
                   <CardErrorBoundary key={m.id}>
-                    <DashboardPosterCard
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined}
                       tmdbId={m.tmdbId}
                       type="movie"
                       title={m.title}
@@ -591,7 +593,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork("movie", movie.tmdbId, movie.backdropPath);
                 return (
                   <CardErrorBoundary key={candidate.movieId}>
-                    <DashboardPosterCard
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined}
                       tmdbId={movie.tmdbId}
                       type="movie"
                       title={movie.title}
@@ -620,7 +622,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} rank={i + 1} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
+                    <DashboardPosterCard variant={touchLayout ? "touch-poster" : undefined} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} rank={i + 1} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} playback={playbackForTitle(r.type, r.tmdbId)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -648,7 +650,7 @@ export function DashboardRows({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="touch-dashboard-rows space-y-8">
       {arrangedRows.length >= 3 ? (
         <DashboardJumpBar items={arrangedRows.map((row) => ({ id: row.key, label: rowLabels[row.key] ?? row.key }))}>
           <RowLayoutToggle layout={rowLayout} variant="pill" />

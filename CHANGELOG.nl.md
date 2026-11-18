@@ -1,3 +1,11 @@
+## v1.28.167 — 18 november 2026
+
+### Touchbrowser en Android mobiel
+
+- Start, Ontdekken, Mijn ruimte, Downloads en het profiel sluiten in de touchbrowser beter aan bij Movviz Android, met platformlogo’s en donkere achtergronden.
+- In de touchbrowser en Android NX Mobile openen seizoenshoezen de afleveringslijst. De kijklijst toont meer kolommen op tablets.
+- Compatibele Safari-bediening ondersteunt beeld in beeld. De geïnstalleerde iOS-webapp geeft uitleg als de functie geblokkeerd is.
+
 ## v1.28.166 — 17 november 2026
 
 ### Fanversies van anime (Fan-Kai)

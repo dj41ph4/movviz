@@ -450,6 +450,14 @@ data class MetaDetailDto(
     // de duplication d'un parcours qui n'existe pas encore ici.
     val collection: MetaCollectionDto? = null,
     val seriesPart: String? = null,
+    val seasons: List<SeasonCoverDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class SeasonCoverDto(
+    val seasonNumber: Int,
+    val posterPath: String? = null,
+    val posterUrl: String? = null,
 )
 
 /** PIN éphémère créé par /api/auth/plex/pin. authUrl pointe uniquement vers
@@ -593,6 +601,8 @@ data class MetadataSeasonDto(
     val name: String,
     val episodeCount: Int = 0,
     val episodes: List<MetadataEpisodeDto> = emptyList(),
+    val posterPath: String? = null,
+    val posterUrl: String? = null,
 )
 
 // Miroir de MetaSearchResult (src/lib/metadata/types.ts).

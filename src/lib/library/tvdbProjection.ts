@@ -29,13 +29,29 @@ export function tvdbOrderedSeries(tmdbId: number): LibrarySeries | null {
 }
 
 /** Season list as the library holds it (names are TVDB's arc names). */
-export function projectSeasonSummaries(series: LibrarySeries): MetaSeasonSummary[] {
+export function projectSeasonSummaries(series: LibrarySeries, tmdbSeasons: MetaSeasonSummary[] = []): MetaSeasonSummary[] {
+  const posters = new Map(tmdbSeasons.map(season => [season.seasonNumber, season.posterPath]));
   return [...series.seasons]
     .sort((a, b) => a.seasonNumber - b.seasonNumber)
     .map((s) => {
       const first = [...s.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber).find((e) => e.airDate);
-      return { seasonNumber: s.seasonNumber, name: seasonTitle(s), episodeCount: s.episodes.length, airDate: first?.airDate ?? null };
+      const source = mainSourceSeason(s.episodes);
+      return { seasonNumber: s.seasonNumber, name: seasonTitle(s), episodeCount: s.episodes.length, airDate: first?.airDate ?? null, posterPath: source != null ? posters.get(source) ?? null : null };
     });
+}
+
+function sourceSeasonCounts(episodes: LibrarySeries["seasons"][number]["episodes"]) {
+  const counts = new Map<number, number>();
+  for (const { tmdbCoordinate } of episodes) {
+    if (!tmdbCoordinate) continue;
+    const n = tmdbCoordinate.seasonNumber;
+    counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function mainSourceSeason(episodes: LibrarySeries["seasons"][number]["episodes"]) {
+  return [...sourceSeasonCounts(episodes)].sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
 /**
@@ -48,8 +64,7 @@ export async function projectSeason(series: LibrarySeries, seasonNumber: number,
   const season = series.seasons.find((s) => s.seasonNumber === seasonNumber);
   if (!season) return null;
   const episodes = [...season.episodes].sort((a, b) => a.episodeNumber - b.episodeNumber);
-  const sourceSeasons = new Map<number, number>();
-  for (const e of episodes) if (e.tmdbCoordinate) sourceSeasons.set(e.tmdbCoordinate.seasonNumber, (sourceSeasons.get(e.tmdbCoordinate.seasonNumber) ?? 0) + 1);
+  const sourceSeasons = sourceSeasonCounts(episodes);
   const tmdbSeasons = new Map<number, MetaSeason>();
   await Promise.all([...sourceSeasons.keys()].map(async (n) => {
     const detail = await getSeason(series.tmdbId, n, locale).catch(() => null);

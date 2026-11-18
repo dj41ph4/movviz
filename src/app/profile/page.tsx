@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { relativeTime } from "@/lib/utils";
-import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv, Camera } from "lucide-react";
+import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv, Camera, ChevronRight, History, SlidersHorizontal, UserRound } from "lucide-react";
 import { ContinentPicker } from "@/components/discover/ContinentPicker";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { mutate as mutateGlobal } from "swr";
@@ -32,6 +32,7 @@ import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
 import { LifehubImportPanel } from "@/components/settings/LifehubImportPanel";
 import { SignInMethodsPanel } from "@/components/profile/SignInMethodsPanel";
 import { watchlistLibraryKey } from "@/lib/watchlist/libraryKey";
+import { useTouchLayout } from "@/lib/appearance/useTouchLayout";
 
 interface TokenRecord {
   id: string;
@@ -74,9 +75,9 @@ type ProfileTab = "activity" | "preferences" | "account";
 function MediaRail({ title, items }: { title: string; items: ProfileMediaCard[] }) {
   if (!items.length) return null;
   return (
-    <section className="mb-6 rounded-2xl glass p-5">
+    <section className="touch-profile-media-rail mb-6 rounded-2xl glass p-5">
       <h3 className="mb-4 text-base font-bold text-ink">{title}</h3>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
+      <div className="touch-profile-media-track grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
         {items.map((item, index) => {
           const type = item.type === "episode" ? "series" : item.type;
           const query = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null
@@ -99,6 +100,7 @@ function MediaRail({ title, items }: { title: string; items: ProfileMediaCard[] 
 
 export default function ProfilePage() {
   const t = useT();
+  const touchLayout = useTouchLayout();
   const { locale } = useI18n();
   const user = useCurrentUser();
   const { adminEnabled: betaPlayerAvailable, userEnabled: betaPlayerOn, setUserEnabled: setBetaPlayerOn, loaded: betaPlayerLoaded } = useBetaPlayer();
@@ -306,11 +308,12 @@ export default function ProfilePage() {
     { label: t("profile.statWatchlist"), value: counts?.watchlist ?? (watchlistData ? watchlistItems.length : undefined) },
     { label: t("profile.statRatings"), value: counts?.ratings },
   ];
-  const tabs: { id: ProfileTab; label: string }[] = [
-    { id: "activity", label: t("profile.tabActivity") },
-    { id: "preferences", label: t("profile.tabPreferences") },
-    { id: "account", label: t("profile.tabAccount") },
-  ];
+  const tabs = [
+    { id: "activity", label: t("profile.tabActivity"), icon: History },
+    { id: "preferences", label: t("profile.tabPreferences"), icon: SlidersHorizontal },
+    { id: "account", label: t("profile.tabAccount"), icon: UserRound },
+  ] as const;
+  const avatar = effectiveAvatar(user);
 
   return (
     <div data-manage="profile" className="nx-manage-page mx-auto max-w-[960px]">
@@ -345,6 +348,19 @@ export default function ProfilePage() {
           }}
         />
       )}
+      <div className="touch-profile-identity">
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingPhoto} aria-label={t("profile.changePhoto")}>
+          {avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar} alt="" />
+          ) : user.username.slice(0, 2).toUpperCase()}
+          <span>{uploadingPhoto ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}</span>
+        </button>
+        <div>
+          <h1>{user.username}</h1>
+          <p>{t(user.role === "admin" ? "auth.admin" : "auth.user")}</p>
+        </div>
+      </div>
       <PageHeader eyebrow={user.username} title={t("profile.title")} description={t("profile.description")}>
         <button
           type="button"
@@ -355,9 +371,9 @@ export default function ProfilePage() {
           className="group relative hidden h-16 w-16 items-center justify-center overflow-hidden rounded-[50%] p-0 disabled:opacity-60 sm:flex"
         >
           <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-[50%] bg-brand text-xl font-black text-white">
-            {effectiveAvatar(user) ? (
+            {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={effectiveAvatar(user)!} alt="" className="h-full w-full object-cover" />
+              <img src={avatar} alt="" className="h-full w-full object-cover" />
             ) : (
               user.username.slice(0, 2).toUpperCase()
             )}
@@ -368,7 +384,7 @@ export default function ProfilePage() {
         </button>
       </PageHeader>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="touch-profile-stats mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl glass px-4 py-3">
             <p className="text-2xl font-black tabular-nums text-ink">{s.value ?? "—"}</p>
@@ -377,7 +393,7 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      <div role="tablist" aria-label={t("profile.tabsLabel")} className="mb-6 grid grid-cols-3 gap-0.5 rounded-2xl glass p-1 sm:inline-grid sm:w-auto">
+      <div role="tablist" aria-label={t("profile.tabsLabel")} className="touch-profile-menu mb-6 grid grid-cols-3 gap-0.5 rounded-2xl glass p-1 sm:inline-grid sm:w-auto">
         {tabs.map((item) => (
           <button
             key={item.id}
@@ -392,14 +408,16 @@ export default function ProfilePage() {
               tab === item.id ? "brand-gradient text-white shadow-sm" : "text-ink-soft hover:text-ink"
             )}
           >
+            <item.icon className="touch-profile-menu-icon" size={17} />
             {item.label}
+            <ChevronRight className="touch-profile-menu-icon" size={16} />
           </button>
         ))}
       </div>
 
       {tab === "activity" && (
         <div role="tabpanel" id="profile-panel-activity" aria-labelledby="profile-tab-activity">
-          {profileMedia && <MediaRail title={t("home.continueWatching")} items={profileMedia.continueWatching} />}
+          {profileMedia && <MediaRail title={t(touchLayout ? "tizen.keepWatching" : "home.continueWatching")} items={profileMedia.continueWatching} />}
       <div className="mb-6 rounded-2xl glass p-5">
         <h3 className="mb-4 text-base font-bold text-ink">{t("watchlist.title")}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">

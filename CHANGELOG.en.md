@@ -1,3 +1,11 @@
+## v1.28.167 — November 18, 2026
+
+### Touch browser and Android mobile
+
+- Home, Discover, My Space, Downloads and the profile bring the touch browser closer to Movviz Android, with platform logos and dark surfaces.
+- In the touch browser and Android NX Mobile, season covers open their episode lists. The watchlist shows more columns on tablets.
+- Compatible Safari controls support Picture in Picture, with guidance when the installed iOS web app blocks it.
+
 ## v1.28.166 — November 17, 2026
 
 ### Fan versions of anime (Fan-Kai)

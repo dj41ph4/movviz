@@ -18,6 +18,11 @@ export const PROVIDER_SVG: Record<number, string> = {
   685: "/providers/ocs.svg",
 };
 
+/** Square brand marks shared with NX Mobile's provider catalogue headers. */
+export const PROVIDER_TOUCH_ICON: Readonly<Record<number, string>> = Object.fromEntries(
+  Object.entries(PROVIDER_SVG).map(([id, path]) => [id, path.replace("/providers/", "/providers/square/")])
+);
+
 /**
  * Mécanisme conservé pour l'avenir : un id listé ici prend la variante
  * claire de son contexte (.nx-provider-tile-light,

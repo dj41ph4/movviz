@@ -10,7 +10,7 @@ import { HistoryTab } from "@/components/activity/v2/HistoryTab";
 import { WantedTab } from "@/components/activity/v2/WantedTab";
 import { UnlinkedTab } from "@/components/activity/v2/UnlinkedTab";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Download, History, ListChecks, AlertCircle, Link2 } from "lucide-react";
+import { Download, History, ListChecks, AlertCircle, Link2, ChevronDown } from "lucide-react";
 import DownloadsLoading from "./loading";
 
 const TABS = [
@@ -31,7 +31,7 @@ export default function DownloadsPage() {
 
 function DownloadsPageRoute() {
   const params = useSearchParams();
-  return <DownloadsPageInner key={params.get("tab") ?? "queue"} />;
+  return <DownloadsPageInner key={`${params.get("tab") ?? "queue"}:${params.get("status") ?? ""}`} />;
 }
 
 function DownloadsPageInner() {
@@ -43,18 +43,44 @@ function DownloadsPageInner() {
   const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
   const initialTab = visibleTabs.find((tb) => tb.id === params.get("tab"))?.id ?? "queue";
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
+  const completed = tab === "history" && params.get("status") === "completed";
 
-  const pushTab = (id: (typeof TABS)[number]["id"]) => {
+  const pushTab = (id: (typeof TABS)[number]["id"], showCompleted = false) => {
     setTab(id);
     const p = new URLSearchParams(params.toString());
     if (id === "queue") p.delete("tab");
     else p.set("tab", id);
+    if (showCompleted) p.set("status", "completed");
+    else p.delete("status");
     router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
   };
 
   return (
     <div className="nx-downloads-page mx-auto max-w-[1600px]">
       <PageHeader title={t("activity.title")} compact />
+
+      <div className="touch-download-navigation">
+        <div className="touch-segments" aria-label={t("activity.title")}>
+          <button type="button" aria-pressed={tab === "queue"} onClick={() => pushTab("queue")}>
+            {t("downloads.inProgress")}
+          </button>
+          <button type="button" aria-pressed={completed} onClick={() => pushTab("history", true)}>
+            {t("downloads.filter.completed")}
+          </button>
+        </div>
+        <details>
+          <summary className="touch-options-toggle" aria-label={t("nav.more")} title={t("nav.more")}>
+            <ChevronDown size={19} />
+          </summary>
+          <div className="touch-download-destinations">
+            {visibleTabs.filter((item) => item.id !== "queue").map((item) => (
+              <button key={item.id} type="button" aria-pressed={!completed && tab === item.id} onClick={() => pushTab(item.id)}>
+                <item.icon size={16} />{t(item.labelKey)}
+              </button>
+            ))}
+          </div>
+        </details>
+      </div>
 
       <div className="nx-dl-tabs no-scrollbar mb-5 flex gap-1 overflow-x-auto border-b border-white/8" role="tablist">
         {visibleTabs.map((tb) => (
@@ -80,7 +106,7 @@ function DownloadsPageInner() {
         {tab === "queue" && (
           <QueueTab />
         )}
-        {tab === "history" && <HistoryTab />}
+        {tab === "history" && <HistoryTab initialCompleted={completed} />}
         {tab === "wanted" && <WantedTab />}
         {tab === "failures" && <HistoryTab failuresOnly />}
         {tab === "unlinked" && user?.role === "admin" && <UnlinkedTab />}

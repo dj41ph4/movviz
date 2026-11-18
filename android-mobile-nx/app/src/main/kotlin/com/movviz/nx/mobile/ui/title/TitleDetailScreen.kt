@@ -43,6 +43,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -120,6 +122,7 @@ private const val TMDB_STILL_BASE = "https://image.tmdb.org/t/p/w780"
 // écrans haute densité.
 private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w342"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
+private const val TMDB_SEASON_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
 
 private data class EpisodeSelection(
     val season: SeriesSeasonDto,
@@ -760,6 +763,7 @@ fun TitleDetailScreen(
             return@Box
         }
         val d = detail!!
+        val seasonCovers = remember(d.seasons) { d.seasons.associateBy { it.seasonNumber } }
         val titleLogoPath = bleachRecord?.bleachArtwork?.get(part)?.customLogoPath ?: if (part == "tybw") null else heroLogos["$type-$tmdbId"]
         var showTitleFallback by remember(titleLogoPath, d.tmdbId) { mutableStateOf(false) }
         LaunchedEffect(titleLogoPath, d.tmdbId) {
@@ -1255,7 +1259,15 @@ fun TitleDetailScreen(
                     item {
                         SeasonSelector(
                             seasons = visibleSeasons,
+                            watchedEpisodeKeys = watchedEpisodeKeys,
                             selectedSeasonNumber = selectedSeasonNumber,
+                            coverFor = { seasonNumber ->
+                                val summary = seasonCovers[seasonNumber]
+                                val cached = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, seasonNumber)]
+                                summary?.posterUrl ?: cached?.posterUrl ?:
+                                    (summary?.posterPath ?: cached?.posterPath)?.let { "$TMDB_SEASON_POSTER_BASE$it" }
+                            },
+                            onMissingCover = { seasonNumber -> viewModel.loadSeasonMetadata(tmdbId, seasonNumber) },
                             onSelect = {
                                 selectedSeasonNumber = it
                                 openSeasonNumber = it
@@ -1413,95 +1425,96 @@ private fun CastRow(cast: List<com.movviz.nx.mobile.data.MetaCastMemberDto>, onO
 }
 }
 
-/** Sommaire d'une série : les saisons sont des destinations, pas des onglets
- * qui déploient une seconde page au milieu de la première. */
+/** The same season destinations as TV, with a swipeable 2:3 poster rail. */
 @Composable
 private fun SeasonSelector(
     seasons: List<SeriesSeasonDto>,
+    watchedEpisodeKeys: Set<String>,
     selectedSeasonNumber: Int?,
+    coverFor: (Int) -> String?,
+    onMissingCover: (Int) -> Unit,
     onSelect: (Int) -> Unit,
 ) {
-    // Portrait : cartes compactes — elles ne portent que du texte, la grande
-    // carte TV laissait un rectangle vide sous « 12 épisodes ».
-    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
-    // Refonte premium : sur téléphone et Fold, les saisons sont des puces
-    // compactes « Saison 2 · 10 ép. » ; la TV garde ses cartes D-pad.
-    val chips = compactPortrait || com.movviz.nx.mobile.ui.home.rememberUnfoldedLandscape()
+    val compact = LocalConfiguration.current.screenWidthDp < 600
     Column(modifier = Modifier.padding(bottom = 20.dp)) {
-        Text(text = "Saisons", style = TextStyle(fontSize = if (chips) 20.sp else 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+        Text("Saisons", style = TextStyle(fontSize = if (compact) 20.sp else 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(12.dp))
-        TvLazyRow(state = rememberTvLazyListState().withTvPrefetchDisabled(), horizontalArrangement = Arrangement.spacedBy(if (chips) 8.dp else 10.dp)) {
+        TvLazyRow(
+            state = rememberTvLazyListState().withTvPrefetchDisabled(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 2.dp),
+        ) {
             items(seasons, key = { BleachPresentation.seasonKey(it) }) { season ->
-                val selected = BleachPresentation.seasonKey(season) == selectedSeasonNumber
-                if (chips) {
-                    val chipShape = RoundedCornerShape(20.dp)
-                    Surface(
-                        onClick = { onSelect(BleachPresentation.seasonKey(season)) },
-                        modifier = Modifier.height(40.dp).tvPointerClick { onSelect(BleachPresentation.seasonKey(season)) },
-                        shape = ClickableSurfaceDefaults.shape(chipShape),
-                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                        colors = ClickableSurfaceDefaults.colors(
-                            containerColor = if (selected) com.movviz.nx.mobile.ui.theme.MovvizBrand else Color.White.copy(alpha = 0.08f),
-                            focusedContainerColor = if (selected) com.movviz.nx.mobile.ui.theme.MovvizBrand else Color.White.copy(alpha = 0.16f),
-                            contentColor = if (selected) Color.White else MovvizInk,
-                            focusedContentColor = if (selected) Color.White else MovvizInk,
-                        ),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxHeight().padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                val key = BleachPresentation.seasonKey(season)
+                val isSelected = key == selectedSeasonNumber
+                val cover = coverFor(season.seasonNumber)
+                LaunchedEffect(cover, season.seasonNumber) {
+                    if (cover == null) onMissingCover(season.seasonNumber)
+                }
+                val title = season.name.ifBlank { "Saison ${season.seasonNumber}" }
+                val watchable = season.episodes.filter { it.status != "upcoming" }
+                val remaining = watchable.count { "${season.seasonNumber}.${it.episodeNumber}" !in watchedEpisodeKeys }
+                val shape = RoundedCornerShape(12.dp)
+                val selectSeason = { onSelect(key) }
+                var focused by remember { mutableStateOf(false) }
+
+                Surface(
+                    onClick = selectSeason,
+                    modifier = Modifier
+                        .width(if (compact) 112.dp else 138.dp)
+                        .onFocusChanged { focused = it.isFocused }
+                        .tvPointerClick(selectSeason)
+                        .semantics { selected = isSelected },
+                    shape = ClickableSurfaceDefaults.shape(shape),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                ) {
+                    Column {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(shape)
+                                .background(Brush.linearGradient(listOf(Color(0xFF352451), Color(0xFF1B1E27)))),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
-                                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                                maxLines = 1,
+                                text = (season.bleachPart ?: season.seasonNumber).toString().padStart(2, '0'),
+                                style = TextStyle(fontSize = 46.sp, fontWeight = FontWeight.Black, color = MovvizInkSoft),
                             )
-                            Text(
-                                text = "  ·  ${season.episodes.size} ép.",
-                                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                                color = if (selected) Color.White.copy(alpha = 0.75f) else MovvizInkSoft,
-                                maxLines = 1,
+                            if (cover != null) {
+                                Image(
+                                    painter = rememberAsyncImagePainter(cover, contentScale = ContentScale.Crop),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                            if (watchable.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                        .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(bottomStart = 8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                                ) {
+                                    if (remaining == 0) {
+                                        Icon(MovvizIconCheck, contentDescription = "Saison vue", tint = Color.White, modifier = Modifier.size(12.dp))
+                                    } else {
+                                        Text("$remaining", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                                    }
+                                }
+                            }
+                            Box(
+                                modifier = Modifier.matchParentSize().border(
+                                    width = if (focused || isSelected) 2.dp else 1.dp,
+                                    color = when {
+                                        focused -> Color.White
+                                        isSelected -> MovvizBrandGlow
+                                        else -> Color.White.copy(alpha = 0.13f)
+                                    },
+                                    shape = shape,
+                                ),
                             )
                         }
-                    }
-                    return@items
-                }
-                var focused by remember { mutableStateOf(false) }
-                val shape = RoundedCornerShape(12.dp)
-                Surface(
-                    onClick = { onSelect(BleachPresentation.seasonKey(season)) },
-                    modifier = Modifier
-                        .width(if (compactPortrait) 168.dp else 208.dp)
-                        .height(if (compactPortrait) 76.dp else 116.dp)
-                        .tvCardFocusHalo(focused, shape)
-                        .onFocusChanged { focused = it.isFocused }
-                        .tvPointerClick { onSelect(BleachPresentation.seasonKey(season)) },
-                    shape = ClickableSurfaceDefaults.shape(shape),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f), colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (selected) Color(0xFF1B1E27) else MovvizSurfaceStrong.copy(alpha = 0.94f),
-                        contentColor = MovvizInk,
-                    ),
-                    border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(
-                            border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.8f)),
-                            shape = shape,
-                        ),
-                    ),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = if (compactPortrait) 14.dp else 18.dp, vertical = if (compactPortrait) 12.dp else 16.dp),
-                        verticalArrangement = if (compactPortrait) Arrangement.spacedBy(4.dp) else Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
-                            style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = "${season.episodes.size} épisodes",
-                            style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
-                        )
+                        Spacer(modifier = Modifier.height(7.dp))
+                        Text(title, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${season.episodes.size} épisodes", style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft), maxLines = 1)
                     }
                 }
             }

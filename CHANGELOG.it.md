@@ -1,3 +1,11 @@
+## v1.28.167 — 18 novembre 2026
+
+### Browser touch e Android mobile
+
+- Home, Scopri, Area personale, Download e Profilo avvicinano il browser touch a Movviz Android, con i loghi delle piattaforme e superfici scure.
+- Nel browser touch e in Android NX Mobile, le copertine delle stagioni aprono gli elenchi degli episodi. Sui tablet la lista mostra più colonne.
+- I controlli compatibili di Safari supportano Picture in Picture. L’app web installata su iOS mostra un avviso quando la funzione è bloccata.
+
 ## v1.28.166 — 17 novembre 2026
 
 ### Versioni fan degli anime (Fan-Kai)

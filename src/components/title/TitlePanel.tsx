@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { TitleContent } from "@/components/title/TitleContent";
 import { PersonContent } from "@/components/title/PersonContent";
 import { CollectionContent } from "@/components/title/CollectionContent";
@@ -76,6 +76,7 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
   return (
     <motion.div
       data-title-panel
+      data-title-kind={view.kind}
       className="fixed inset-0 z-50 flex items-center justify-center sm:p-6 md:p-10"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -113,13 +114,14 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
             gap showing through where this row "would" have been. Confirmed
             live: without this, a visible dark band sat between the panel's
             rounded top edge and the video. */}
-        <div className="sticky top-0 z-30 -mb-16 flex items-center justify-end px-4 py-3 pointer-events-none sm:px-6">
+        <div className="touch-title-close sticky top-0 z-30 -mb-16 flex items-center justify-end px-4 py-3 pointer-events-none sm:px-6">
           <button
             onClick={onClose}
             aria-label={t("common.close")}
             className="pointer-events-auto flex h-10 items-center gap-1.5 rounded-full bg-black/50 px-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-black/70"
           >
-            <X className="h-4 w-4" />
+            <X className="touch-title-close-icon h-4 w-4" />
+            <ChevronLeft className="touch-title-back-icon size-5" />
             <span className="hidden sm:inline">{t("common.close")}</span>
           </button>
         </div>

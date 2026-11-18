@@ -3,6 +3,18 @@
 .nx-topbar > .touch-header-button,
 .touch-library-tab,
 .touch-queue-summary,
+.touch-provider-heading,
+.touch-provider-banner,
+.touch-home-greeting,
+.touch-discover-navigation,
+.touch-personal-title,
+.touch-download-navigation,
+.touch-queue-tools,
+.touch-profile-identity,
+.touch-profile-menu-icon,
+.touch-title-back-icon,
+.touch-user-more,
+.touch-ai-mobile-icon,
 .touch-search-filters:not([data-people-only]) {
   display: none;
 }
@@ -49,27 +61,358 @@
 
 /* Android's unfolded layout is used on medium viewports and across large touch tablets. */
 @media (max-width: 1023px), (pointer: coarse) and (max-width: 1440px) {
+  html:has(.touch-nav), body:has(.touch-nav) { color-scheme: dark; background-color: #0b0c10; }
+
   .nx-desktop-shell:has(.touch-nav) {
     min-height: 100dvh;
     background: #0b0c10;
+    --touch-surface: #1b1e27;
+    --touch-segment-surface: #191a1e;
+    --touch-accent: #7458e8;
   }
 
   .nx-desktop-shell > .nx-sidebar { display: none; }
-  .nx-desktop-shell #main-content { padding-bottom: 24px; }
+  .nx-desktop-shell #main-content {
+    padding-bottom: 24px;
+    font-family: Roboto, Arial, sans-serif;
+  }
+  .nx-desktop-shell :is(.touch-nav, .nx-topbar) { font-family: Roboto, Arial, sans-serif; }
   .touch-library-tab { display: inline-flex; }
-  .touch-library-tabs[data-personal-space] { width: 100%; max-width: 440px; border-radius: 16px; }
+  .touch-library-tabs[data-personal-space] {
+    width: 100%;
+    max-width: 440px;
+    border-radius: 100px;
+    background: var(--touch-segment-surface);
+    box-shadow: none;
+  }
   .touch-library-tabs[data-personal-space] [data-library-tab] {
     flex: 1 1 0%;
     min-width: 0;
     justify-content: center;
     padding-inline: 4px;
-    border-radius: 12px;
-    font-size: 12px;
+    min-height: 38px;
+    border-radius: 100px;
+    font-size: 14px;
   }
   .touch-library-tabs[data-personal-space] [data-library-tab] > svg { display: none; }
-  .touch-library-tabs[data-personal-space] [aria-pressed="true"] { background: #f5f2eb; color: #211830; }
+  .touch-library-tabs[data-personal-space] [aria-pressed="true"] { background: var(--touch-accent); color: #fff; box-shadow: none; }
   .touch-library-tabs[data-personal-space] :is([data-library-tab="library"], [data-library-tab="wanted"]) { display: none; }
-  .touch-queue-summary { display: block; }
+  .nx-library-page:has(> [data-personal-space]) > [data-nx-page-header] { display: none; }
+  .touch-personal-title { display: block; margin-bottom: 16px; font-size: 22px; font-weight: 700; }
+  .touch-personal-posters { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  .touch-personal-posters :is(a, a > div) { border-radius: 10px; }
+
+  .touch-segments {
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px;
+    border-radius: 100px;
+    background: var(--touch-segment-surface);
+  }
+  .touch-segments > button {
+    flex: 1 1 0;
+    min-height: 38px;
+    padding: 0 7px;
+    border-radius: inherit;
+    color: #b6b3c9;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .touch-segments > [aria-pressed="true"] { background: var(--touch-accent); color: white; }
+  .nx-desktop-shell .nx-discover-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .nx-desktop-shell .nx-discover-page > * { margin-block: 0; }
+  .touch-discover-navigation { display: grid; gap: 10px; }
+  .touch-discover-destinations { display: flex; align-items: center; gap: 8px; }
+  .touch-discover-destinations > * {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding-inline: 12px;
+    border-radius: 100px;
+    background: var(--touch-segment-surface);
+    color: #b6b3c9;
+    font-size: 14px;
+  }
+  .touch-discover-destinations > [aria-current="page"] { background: var(--touch-accent); color: white; }
+  .touch-discover-destinations > .touch-discover-filter-toggle { margin-inline-start: auto; }
+  .touch-discover-filter-toggle[aria-expanded="true"],
+  .touch-provider-filters[aria-expanded="true"] { background: #30234f; color: #e4d9ff; }
+  .touch-provider-filters { margin-inline-start: auto; }
+  .nx-discover-page[data-touch-disc-filterable] > [data-nx-page-header],
+  .nx-discover-page[data-touch-disc-filterable] > [data-nx-page-header] > div:first-child,
+  .nx-discover-page[data-touch-disc-filterable] .nx-discover-desktop-bar,
+  .nx-discover-page[data-touch-disc-filterable] .touch-discover-secondary-filters,
+  .touch-discover-filters [data-discover-media] { display: none; }
+  .nx-discover-page[data-touch-disc-filters-open] > [data-nx-page-header] {
+    display: flex;
+    padding: 10px;
+    border: 1px solid #ffffff17;
+    border-radius: 16px;
+    background: var(--touch-surface);
+  }
+  .nx-discover-page[data-touch-disc-filters-open] .touch-discover-filters { display: flex; gap: 8px; }
+  .nx-discover-page[data-touch-disc-filters-open] .touch-discover-secondary-filters { display: flex; }
+  .touch-discover-filters > div > button { min-height: 44px; }
+
+  .nx-desktop-shell .touch-provider-track {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    padding: 1px;
+  }
+  .nx-desktop-shell .nx-dashboard-premium .nx-home-providers > .touch-provider-heading {
+    display: block;
+    margin: 0 0 10px;
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .nx-desktop-shell .nx-dashboard-premium .nx-home-providers .touch-provider-track { margin-top: 0; }
+  .nx-desktop-shell .touch-provider-track > :is(.touch-provider-tile, .touch-provider-button) {
+    flex: 0 0 104px;
+    min-width: 0;
+    padding: 0;
+  }
+  .nx-desktop-shell .touch-provider-track .touch-provider-tile:not(.nx-provider-tile-light) {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 1;
+    padding: 10px;
+    border: 1px solid rgb(255 255 255 / .11);
+    border-radius: 14px;
+    background: linear-gradient(145deg, #181d2e, #0c101d);
+    box-shadow: none;
+  }
+  .nx-desktop-shell .touch-provider-tile img { width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; }
+  .touch-provider-button > span { display: none; }
+  .touch-provider-banner { display: flex; align-items: center; gap: 13px; min-width: 0; }
+  .touch-provider-banner > img { flex: none; width: 52px; height: 52px; border-radius: 12px; object-fit: contain; }
+  .touch-provider-banner h1 { color: white; font-size: 24px; font-weight: 700; line-height: 1.2; }
+  .touch-provider-banner p { color: #a6a2b9; font-size: 14px; }
+  .nx-discover-page:has(> .touch-provider-banner) > .nx-provider-banner { display: none; }
+  .nx-desktop-shell .nx-poster-track { gap: 10px; scrollbar-width: none; }
+  .nx-desktop-shell .touch-poster-card [data-premium-card] { border-radius: 10px; background: var(--touch-segment-surface); }
+  .touch-poster-card > div > p:first-of-type {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    text-align: start;
+    white-space: normal;
+    line-height: 1.22;
+  }
+  .nx-desktop-shell .touch-discover-card .touch-poster-card { width: 100%; }
+
+  .touch-download-navigation { position: relative; display: flex; align-items: start; gap: 8px; margin: 0 0 12px; z-index: 25; }
+  .touch-download-navigation > .touch-segments { flex: 1; }
+  .nx-downloads-page .nx-dl-tabs { display: none; }
+  .touch-options-toggle {
+    display: grid;
+    place-items: center;
+    min-width: 46px;
+    min-height: 46px;
+    border-radius: 50%;
+    list-style: none;
+    background: var(--touch-segment-surface);
+  }
+  .touch-options-toggle::-webkit-details-marker { display: none; }
+  .touch-download-destinations {
+    position: absolute;
+    inset: 100% 0 auto auto;
+    display: grid;
+    min-width: min(220px, 100%);
+    padding: 6px;
+    border: 1px solid rgb(255 255 255 / .10);
+    border-radius: 14px;
+    background: var(--touch-surface);
+    box-shadow: 0 8px 24px #0006;
+  }
+  .touch-download-destinations > button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding-inline: 12px; }
+  .touch-download-destinations > [aria-pressed="true"] { background: #7458e833; border-radius: 8px; }
+  .touch-queue-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 24px;
+    background: linear-gradient(105deg, #241d3e, var(--touch-surface));
+  }
+  .touch-queue-progress {
+    display: grid;
+    place-items: center;
+    position: relative;
+    flex: none;
+    width: 62px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: conic-gradient(var(--touch-accent) var(--queue-progress), #fff1 var(--queue-progress));
+  }
+  .touch-queue-progress > b {
+    position: absolute;
+    inset: 5px;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+    background: #241d3b;
+    font-size: 13px;
+  }
+  .touch-queue-tools { display: flex; justify-content: end; gap: 8px; }
+  .touch-queue-tools button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding-inline: 12px;
+    border: 1px solid #ffffff18;
+    border-radius: 24px;
+    color: #b6b3c9;
+    font-size: 13px;
+  }
+  .touch-queue-tools [aria-expanded="true"] { background: #30234f; color: #e4d9ff; }
+  .touch-queue-metrics[data-open="false"] { display: none; }
+  .nx-downloads-page .nx-download-queue { display: flex; flex-direction: column; gap: 10px; }
+  .nx-downloads-page .nx-download-queue > * { margin-block: 0; }
+  .nx-downloads-page .nx-dlq-bar { position: relative; top: auto; padding: 5px; border-radius: 14px; background: var(--touch-segment-surface); box-shadow: none; }
+  .nx-downloads-page .nx-dlq-bar[data-touch-open="false"] { display: none; }
+  .nx-downloads-page .nx-download-row { border-radius: 13px; background: var(--touch-surface); box-shadow: none; }
+  .nx-downloads-page .nx-download-row > div:first-child { padding: 12px; }
+
+  .nx-manage-page[data-manage="profile"] > [data-nx-page-header] { display: none; }
+  .touch-profile-identity { display: flex; gap: 16px; align-items: center; margin-bottom: 18px; }
+  .touch-profile-identity > button {
+    position: relative;
+    display: grid;
+    width: 86px;
+    aspect-ratio: 1;
+    place-items: center;
+    flex: none;
+    border: 2px solid var(--touch-accent);
+    border-radius: 50%;
+    background: #292247;
+    color: white;
+    font-size: 25px;
+    font-weight: 700;
+  }
+  .touch-profile-identity img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+  .touch-profile-identity button > span {
+    position: absolute;
+    inset: auto -2px -2px auto;
+    display: grid;
+    width: 28px;
+    aspect-ratio: 1;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--touch-accent);
+  }
+  .touch-profile-identity h1 { font-size: 23px; line-height: 1.2; font-weight: 700; }
+  .touch-profile-identity p { color: #b6b3c9; font-size: 14px; }
+  .touch-profile-stats { gap: 10px; }
+  .touch-profile-stats > div { border-radius: 11px; background: var(--touch-surface); box-shadow: none; }
+  .touch-profile-menu { display: grid; grid-template-columns: 1fr; gap: 0; width: 100%; padding: 0; overflow: hidden; border-radius: 18px; background: var(--touch-segment-surface); box-shadow: none; }
+  .touch-profile-menu > button {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 52px;
+    border-radius: 0;
+    background: transparent !important;
+    text-align: start;
+    box-shadow: none;
+  }
+  .touch-profile-menu > :not(:first-child) { border-top: 1px solid rgb(255 255 255 / .08); }
+  .touch-profile-menu > [aria-selected="true"] { color: #ded4ff; }
+  .touch-profile-menu-icon { display: block; flex: none; color: #b6b3c9; }
+  .touch-profile-menu-icon:last-child { margin-inline-start: auto; }
+  .nx-manage-page[data-manage="profile"] [role="tabpanel"] .glass { background: var(--touch-surface); box-shadow: none; }
+  .nx-manage-page[data-manage="profile"] [role="tabpanel"] .touch-profile-media-rail {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .touch-seasons { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+  .touch-seasons > * { min-width: 0; }
+  .touch-season-track {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding: 3px 2px 10px;
+  }
+  .touch-season-card {
+    display: flex;
+    flex: 0 0 clamp(112px, 24vw, 144px);
+    flex-direction: column;
+    min-width: 0;
+    text-align: start;
+    scroll-snap-align: start;
+    border-radius: 12px;
+    touch-action: manipulation;
+  }
+  .touch-season-cover {
+    position: relative;
+    display: grid;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    place-items: center;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: inherit;
+    background: linear-gradient(145deg, #352451, #1b1e27);
+  }
+  .touch-season-cover::after {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border: 1px solid #ffffff28;
+    border-radius: inherit;
+    pointer-events: none;
+    content: "";
+  }
+  .touch-season-card[aria-expanded="true"] .touch-season-cover::after {
+    border: 2px solid #ac93ff;
+  }
+  .touch-season-card:focus-visible { outline: 2px solid #dfd2ff; outline-offset: 2px; }
+  .touch-season-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .touch-season-number { font-size: 44px; font-weight: 850; color: #e1d6faa8; }
+  .touch-season-badge {
+    position: absolute;
+    inset: 0 0 auto auto;
+    display: grid;
+    place-items: center;
+    min-width: 26px;
+    min-height: 25px;
+    padding: 3px 6px;
+    border-radius: 0 12px 0 8px;
+    background: #000d;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .touch-season-label {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    margin-top: 7px;
+    font-weight: 650;
+    font-size: 14px;
+    line-height: 1.22;
+  }
+  .touch-season-count { margin-top: 2px; color: #ada8be; font-size: 12px; }
   .touch-search-filters:not([data-people-only]) { display: flex; }
   .desktop-search-filters { display: none; }
 
@@ -187,7 +530,95 @@
 
 /* The portrait dock uses the same destinations and keeps the series art edge clear. */
 @media (max-width: 599px) and (orientation: portrait) {
-  .nx-desktop-shell #main-content { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .nx-desktop-shell #main-content {
+    padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(96px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  }
+  .touch-wide-home-hero { display: none; }
+  .touch-home-greeting { display: block; }
+  .touch-home-greeting h1 { font-size: 23px; font-weight: 700; line-height: 1.25; }
+  .touch-home-greeting p { font-size: 14px; color: #a6a2b9; }
+  .nx-desktop-shell .nx-dashboard-content { display: flex; flex-direction: column; gap: 18px; }
+  .nx-desktop-shell .nx-dashboard-content > * { margin-block: 0; }
+  .nx-desktop-shell .touch-provider-track > :is(.touch-provider-tile, .touch-provider-button) {
+    flex-basis: max(58px, calc((100% - 42px) / 4));
+  }
+  .touch-dashboard-rows { display: flex; flex-direction: column; gap: 24px; }
+  .touch-dashboard-rows > * { margin-block: 0; scroll-margin-top: 72px; }
+  .touch-dashboard-rows > :first-child:has(button) { order: 1; position: relative; top: auto; }
+  .nx-desktop-shell .nx-poster-row h2 { font-family: inherit; font-size: 20px; font-weight: 700; }
+  .nx-desktop-shell .nx-poster-track > :is(.touch-poster-card, .touch-discover-rail-card) {
+    width: calc((100% - 20px) / 3);
+  }
+  .nx-desktop-shell .nx-poster-track button { touch-action: manipulation; }
+  .nx-desktop-shell .touch-catalog-hero { min-height: 0; aspect-ratio: .92; border: 0; border-radius: 22px; }
+  .touch-catalog-hero-content { height: 100%; min-height: 0; gap: 5px; padding: 16px; }
+  .touch-hero-shade-side { display: none; }
+  .touch-hero-shade-bottom { background: linear-gradient(0deg, #040405 2%, rgb(0 0 0 / .85) 25%, transparent 80%); }
+  .touch-catalog-hero-content > div:last-child > :first-child { background: #e9deff; color: #1f1829; }
+  .touch-catalog-hero-content > div:last-child > * { min-height: 40px; padding: 6px 10px; font-size: 12px; }
+  .touch-catalog-hero-content .touch-catalog-watchlist { order: 1; width: 40px; justify-content: center; padding: 0; }
+  .touch-catalog-watchlist > span { display: none; }
+  body:has(.nx-discover-page[data-touch-provider]) :is(.touch-nav, .nx-topbar, .touch-ai-widget) { display: none; }
+  .nx-desktop-shell:has(.nx-discover-page[data-touch-provider]) #main-content {
+    padding-top: max(16px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+  .nx-downloads-page > [data-nx-page-header] h1 {
+    color: #fff;
+    -webkit-text-fill-color: currentColor;
+    background: none;
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .touch-queue-poster { width: 60px; height: 74px; border-radius: 9px; }
+  .touch-profile-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .touch-profile-media-track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 33%;
+    grid-template-columns: none;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .touch-season-card { flex-basis: clamp(93px, calc((100% - 26px) / 3.2), 132px); }
+  .touch-season-episode { gap: 8px; padding-inline: 3px; }
+  .touch-season-episode-copy { flex-direction: column; align-items: start; gap: 3px; }
+  .touch-season-episode-copy > :first-child {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+  [data-title-panel] > [data-premium-panel] { background: #0b0c10; overscroll-behavior: contain; }
+  [data-title-kind="title"] .touch-title-close {
+    justify-content: start;
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+    margin-bottom: calc(-68px - max(0px, env(safe-area-inset-top, 0px) - 12px));
+  }
+  [data-title-kind="title"] .touch-title-close > button { width: 44px; height: 44px; justify-content: center; padding: 0; }
+  [data-title-kind="title"] .touch-title-close .touch-title-back-icon { display: block; }
+  [data-title-kind="title"] .touch-title-close .touch-title-close-icon { display: none; }
+  .touch-title-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    height: auto;
+    min-height: min(70dvh, 620px);
+    margin-bottom: 20px;
+    background: #0b0c10;
+  }
+  .touch-title-hero .touch-title-art { position: absolute; inset: 0; }
+  .touch-title-hero .nx-title-video-gradient-bottom { background: linear-gradient(0deg, #0b0c10, #0b0c10dd 23%, transparent 79%); }
+  .touch-title-hero .nx-title-video-gradient-left { display: none; }
+  .touch-title-hero .touch-title-overlay { position: relative; padding: 100px 16px 16px; gap: 9px; }
+  .touch-title-hero .nx-title-actions > .brand-gradient {
+    min-width: min(100%, 220px);
+    justify-content: center;
+    background: #e6d9fb;
+    color: #211a2b;
+  }
+  .touch-title-hero .nx-title-actions > .brand-gradient > svg { fill: currentColor; }
   .touch-nav {
     position: fixed;
     inset: auto max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
@@ -198,10 +629,15 @@
     box-shadow: 0 9px 28px rgb(0 0 0 / .52);
   }
   .touch-nav-brand, .touch-nav-profile, .touch-nav-rail-actions { display: none; }
+  .touch-ai-widget { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); }
+  .touch-ai-launcher { width: 54px; height: 54px; background: #1a1926; border: 1px solid #8d68d8; color: #d0b8ff; }
+  .touch-ai-launcher .touch-ai-desktop-icon { display: none; }
+  .touch-ai-launcher .touch-ai-mobile-icon { display: block; }
   .touch-nav-links { flex-direction: row; }
   .touch-nav-item { flex: 1; min-height: 60px; }
-  .touch-nav-item:last-child { flex: 1.3; }
+  .touch-nav-item:last-child { flex: 1.2; }
   .touch-library-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 10px; }
+  .touch-personal-posters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
   .nx-desktop-shell .nx-topbar {
     display: flex;
@@ -213,7 +649,7 @@
     background: #0b0c10;
   }
   .nx-topbar:not([data-touch-search]) #movviz-global-search { display: none; }
-  .nx-topbar:not([data-touch-search]) > :is(.touch-header-search, .touch-header-more) { display: inline-flex; }
+  .nx-topbar:not([data-touch-search]) > .touch-header-search { display: inline-flex; }
   .nx-topbar:not([data-touch-search]) .touch-header-brand {
     display: inline-flex;
     align-items: center;
@@ -221,14 +657,43 @@
     margin-inline-end: auto;
     color: var(--color-ink);
     font-size: 19px;
-    font-weight: 800;
+    font-weight: 700;
   }
-  .nx-topbar-tools > div:not(:last-child) { display: none; }
+  .nx-topbar-tools > :not(.nx-topbar-user) { display: none; }
   .nx-topbar-tools { margin-inline-start: 0; }
-  .nx-topbar-tools > div:last-child > button { min-width: 44px; min-height: 44px; justify-content: center; padding: 0; border-radius: 50%; }
-  .nx-topbar-tools > div:last-child > button > span:last-child:not(:first-child) { display: none; }
+  .nx-topbar-tools:has(> :not(.nx-topbar-user)):not(:has(.nx-topbar-user)) { display: none; }
+  .nx-topbar .nx-topbar-user > button {
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+  }
+  .nx-topbar .nx-topbar-user > button > span:first-child { width: 36px; height: 36px; }
+  .nx-topbar .nx-topbar-user > button > span:last-child:not(:first-child) { display: none; }
+  .touch-user-more { display: flex; min-height: 44px; }
+}
+
+@media (max-width: 359px) and (orientation: portrait) {
+  .touch-discover-destinations { gap: 5px; }
+  .touch-discover-destinations > * { padding-inline: 8px; font-size: 13px; }
 }
 
 @media (pointer: coarse) {
   .touch-hero { touch-action: pan-y pinch-zoom; }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (pointer: coarse) {
+    .touch-player-controls {
+      padding-left: max(1rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    }
+    .nx-desktop-shell #main-content :is(input:not([type="range"], [type="color"], [type="checkbox"], [type="radio"]), textarea, select) {
+      font-size: max(16px, 1em);
+    }
+  }
 }

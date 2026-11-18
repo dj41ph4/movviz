@@ -1,3 +1,11 @@
+## v1.28.167 — 18 novembre 2026
+
+### Navigateur tactile et Android mobile
+
+- L’accueil, Découverte, Mon espace, Téléchargements et le profil rapprochent le navigateur tactile de Movviz Android, avec les logos de plateformes et des fonds sombres.
+- Sur navigateur tactile et Android NX Mobile, les saisons s’ouvrent depuis leurs jaquettes. La watchlist affiche davantage de colonnes sur tablette.
+- Image dans l’image via les contrôles Safari compatibles, avec une indication lorsque l’app web iOS installée la bloque.
+
 ## v1.28.166 — 17 novembre 2026
 
 ### Versions fan d’animés (Fan-Kai)

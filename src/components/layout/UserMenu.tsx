@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, LogOut, ShieldCheck, UserCog } from "lucide-react";
+import { Heart, LogOut, Menu, ShieldCheck, UserCog } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { effectiveAvatar } from "@/lib/auth/types";
 import { resetSwrCache } from "@/lib/swrCacheReset";
@@ -13,7 +13,7 @@ import { LOCALES, LOCALE_META } from "@/i18n/config";
 import { FlagIcon } from "@/components/ui/FlagIcon";
 import { cn } from "@/lib/utils";
 
-export function UserMenu() {
+export function UserMenu({ openTouchMenu }: { openTouchMenu?: () => void } = {}) {
   const user = useCurrentUser();
   const router = useRouter();
   const t = useT();
@@ -61,8 +61,11 @@ export function UserMenu() {
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="nx-topbar-user relative">
       <button
+        type="button"
+        aria-label={user.username}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-full glass py-1.5 pl-1.5 pr-3.5 transition-colors hover:border-brand/30"
       >
@@ -92,6 +95,12 @@ export function UserMenu() {
             >
               <UserCog className="h-4 w-4" /> {t("profile.title")}
             </Link>
+            {openTouchMenu && (
+              <button type="button" className="touch-user-more flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-ink-soft"
+                onClick={() => { setOpen(false); openTouchMenu(); }} aria-haspopup="dialog">
+                <Menu size={17} aria-hidden="true" /> {t("nav.more")}
+              </button>
+            )}
             <div>
               <div className="my-1 border-t border-white/10" />
               <p className="px-3 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-ink-dim">{t("nav.menuLanguage")}</p>

@@ -1,3 +1,11 @@
+## v1.28.167 — 18. November 2026
+
+### Touch-Browser und Android Mobile
+
+- Startseite, Entdecken, Mein Bereich, Downloads und Profil orientieren sich im Touch-Browser an Movviz Android, mit Plattformlogos und dunklen Flächen.
+- Im Touch-Browser und in Android NX Mobile öffnen Staffelcover die Episodenlisten. Auf Tablets zeigt die Merkliste mehr Spalten.
+- Kompatible Safari-Steuerelemente unterstützen Bild-in-Bild. Die installierte iOS-Web-App zeigt bei einer Sperre einen Hinweis.
+
 ## v1.28.166 — 17. November 2026
 
 ### Fan-Versionen von Animes (Fan-Kai)

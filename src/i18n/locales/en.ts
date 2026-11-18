@@ -646,6 +646,11 @@ export const en: Dictionary = {
   },
 
   dashboard: {
+    touchNight: "Good night",
+    touchDay: "Hello",
+    touchEvening: "Good evening",
+    touchGreeting: "{salutation}, {name}",
+    touchGreetingHint: "Ready for a new story?",
     cinema: {
       eyebrow: "Cinema, at home",
       title: "Your next",
@@ -2877,6 +2882,8 @@ export const en: Dictionary = {
     betaSpeed: "Speed",
     betaSpeedNormal: "Normal",
     betaPiP: "Picture in Picture",
+    pipSafariHint: "Open Movviz in Safari to use Picture in Picture on this iPhone or iPad.",
+    pipUnavailable: "Picture in Picture is unavailable for this video.",
     betaVolume: "Volume",
     betaMute: "Mute",
     betaUnmute: "Unmute",

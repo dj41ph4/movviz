@@ -28,6 +28,8 @@ import { mergeNxDashboardLayout } from "@/lib/dashboard/homeLayout";
 import { recentEpisodePage } from "@/lib/library/recentEpisodes";
 import { seriesFirstAvailableAt } from "@/lib/dashboard/recentlyAdded";
 import { Compass } from "lucide-react";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useTouchPortrait } from "@/lib/appearance/useTouchLayout";
 
 const SPLASH_SEEN_KEY = "movviz-splash-seen";
 const noopSubscribe = () => () => {};
@@ -35,6 +37,10 @@ const noopSubscribe = () => () => {};
 
 export default function DashboardPage() {
   const t = useT();
+  const user = useCurrentUser();
+  const portrait = useTouchPortrait();
+  const hour = new Date().getHours();
+  const salutation = t(hour < 5 ? "dashboard.touchNight" : hour < 18 ? "dashboard.touchDay" : "dashboard.touchEvening");
   const { optimized, ready: interfaceModeReady } = useInterfaceDataMode();
   const { data: optimizedData, error: optimizedError, mutate: mutateOptimized } = useSWR<DashboardInterfaceData>(
     interfaceModeReady && optimized ? "/api/interface/dashboard" : null,
@@ -211,8 +217,14 @@ export default function DashboardPage() {
     <>
       <DashboardSplash show={showSplash} progress={splashPct} />
       <div className="nx-dashboard-content nx-dashboard-premium w-full max-w-[2000px] space-y-8">
-      {richMode && (
-        <div className="nx-home-hero-grid">
+      {portrait && (
+        <div className="touch-home-greeting">
+          <h1>{user?.username ? t("dashboard.touchGreeting", { salutation, name: user.username }) : salutation}</h1>
+          <p>{t("dashboard.touchGreetingHint")}</p>
+        </div>
+      )}
+      {richMode && !portrait && (
+        <div className="nx-home-hero-grid touch-wide-home-hero">
           <CardErrorBoundary>
             <DashboardHero settings={layout.hero} />
           </CardErrorBoundary>
@@ -221,11 +233,12 @@ export default function DashboardPage() {
 
       {richMode && (providerData?.tiles?.length ?? 0) > 0 && (
         <section className="nx-home-providers" aria-label={t("discover.watchProviders")}>
-          <div className="mt-2 grid w-full grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+          <h2 className="touch-provider-heading">{t("discover.watchProviders")}</h2>
+          <div className="touch-provider-track mt-2 grid w-full grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
             {providerData!.tiles.slice(0, 8).map((provider) => {
               const localSvg = PROVIDER_SVG[provider.id];
               return (
-                <Link data-premium-card key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className={cn("nx-provider-tile", localSvg && PROVIDER_LIGHT_TILE.has(provider.id) && "nx-provider-tile-light")} title={provider.name}>
+                <Link data-premium-card key={provider.id} href={`/discover?watchProvider=${provider.id}&watchProviderName=${encodeURIComponent(provider.name)}`} className={cn("nx-provider-tile touch-provider-tile", localSvg && PROVIDER_LIGHT_TILE.has(provider.id) && "nx-provider-tile-light")} title={provider.name}>
                   {localSvg ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={localSvg} alt={provider.name} className="max-h-[64%] max-w-[84%] object-contain" />

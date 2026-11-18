@@ -146,6 +146,7 @@ export interface MetaWatchProvider {
 export interface MetaSeasonSummary {
   overview?: string;
   posterUrl?: string;
+  posterPath?: string | null;
   seasonNumber: number;
   name: string;
   episodeCount: number;

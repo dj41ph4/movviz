@@ -617,7 +617,7 @@ export function ChatWidget() {
   if (enabled === false || enabled === null) return null;
 
   return (
-    <div className="fixed right-4 bottom-20 z-[90] flex flex-col items-end gap-3 md:right-6 md:bottom-6">
+    <div className="touch-ai-widget fixed right-4 bottom-20 z-[90] flex flex-col items-end gap-3 md:right-6 md:bottom-6">
       {open && (
         <div data-premium-ai className="flex h-[min(560px,70vh)] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl glass-strong shadow-2xl">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
@@ -817,11 +817,11 @@ export function ChatWidget() {
         }}
         title={open ? t("ai.close") : t("ai.open")}
         className={cn(
-          "relative flex h-12 w-12 items-center justify-center rounded-full glass-strong text-brand-glow shadow-xl transition-transform hover:scale-105",
+          "touch-ai-launcher relative flex h-12 w-12 items-center justify-center rounded-full glass-strong text-brand-glow shadow-xl transition-transform hover:scale-105",
           pulse && "animate-badge-pulse"
         )}
       >
-        {open ? <X className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
+        {open ? <X className="h-5 w-5" /> : <><Bot className="touch-ai-desktop-icon h-5 w-5" /><Sparkles className="touch-ai-mobile-icon h-5 w-5" /></>}
         {!open && unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border border-white/20 bg-brand-glow px-1 text-[10px] font-bold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}

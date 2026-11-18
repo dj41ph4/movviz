@@ -149,7 +149,7 @@ export function PosterRow({
             <ChevronRight className="h-6 w-6" />
           </button>
         )}
-        <div ref={scrollRef} onScroll={measure} className={cn("flex gap-4 pb-2", expanded ? "flex-wrap justify-between" : "overflow-x-auto overflow-y-hidden")}>
+        <div ref={scrollRef} onScroll={measure} className={cn("nx-poster-track flex gap-4 pb-2", expanded ? "flex-wrap justify-between" : "overflow-x-auto overflow-y-hidden")}>
           <CarouselImageContext.Provider value={true}>{children}</CarouselImageContext.Provider>
         </div>
       </div>

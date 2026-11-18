@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import Link from "next/link";
-import { Menu, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavSearch } from "@/lib/nav/useNavSearch";
 import { SearchSuggestPanel } from "./SearchSuggestPanel";
@@ -162,16 +162,13 @@ export function Topbar({ inputRef, touchSearchOpen, openTouchSearch, closeTouchS
       <button type="button" className="touch-header-button touch-header-search ring-focus" aria-label={t("common.searchEverything")} aria-expanded={touchSearchOpen} aria-controls="movviz-global-search" onClick={(e) => openTouchSearch(e.currentTarget)}>
         <Search size={20} aria-hidden="true" />
       </button>
-      <button type="button" className="touch-header-button touch-header-more ring-focus" aria-label={t("nav.more")} aria-haspopup="dialog" onClick={openTouchMenu}>
-        <Menu size={20} aria-hidden="true" />
-      </button>
       <button type="button" className="touch-header-button touch-header-close ring-focus" aria-label={t("common.close")} onClick={() => closeTouchSearch()}>
         <X size={20} aria-hidden="true" />
       </button>
       <div className="nx-topbar-tools ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         {user?.role === "admin" && <ActivityMonitor />}
         <NotificationBell />
-        <UserMenu />
+        <UserMenu openTouchMenu={openTouchMenu} />
       </div>
     </header>
   );

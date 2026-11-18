@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useId, useState, useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 
@@ -14,6 +14,7 @@ import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { isVisibleSeason } from "@/lib/settings/seasonVisibility";
 import { BLEACH_TMDB_ID } from "@/lib/metadata/bleachEpisodeOrder";
 import { BLEACH_COURS, type BleachPart } from "@/lib/metadata/bleachPresentation";
+import { useTouchLayout } from "@/lib/appearance/useTouchLayout";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -30,6 +31,7 @@ const STATUS_ICON: Record<SeasonDisplayStatus, React.ElementType> = {
 
 interface SeasonInfo {
   posterUrl?: string;
+  posterPath?: string | null;
   overview?: string;
   bleachPart?: number;
   episodeOffset?: number;
@@ -497,7 +499,7 @@ function SeasonRow({
           ) : tmdbSeason?.episodes?.length ? (
             <div className="space-y-1.5">
               {tmdbSeason.episodes.map((ep) => (
-                <div key={ep.episodeNumber} className="flex items-start gap-3 rounded-lg p-2 hover:bg-white/5">
+                <div key={ep.episodeNumber} className="touch-season-episode flex items-start gap-3 rounded-lg p-2 hover:bg-white/5">
                   <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{ep.episodeNumber - (season.episodeOffset ?? 0)}</span>
                   {ep.stillPath ? (
                     <TmdbImage
@@ -514,7 +516,7 @@ function SeasonRow({
                     </div>
                   )}
                   <div className="min-w-0 flex-1 py-0.5">
-                    <div className="flex items-center gap-2">
+                    <div className="touch-season-episode-copy flex items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{ep.title || `${t("title.episode")} ${ep.episodeNumber - (season.episodeOffset ?? 0)}`}</span>
                       {ep.airDate && (
                         <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-dim">
@@ -617,6 +619,8 @@ export function SeasonAccordion({
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState<number | null>(null);
+  const seasonRailId = useId();
+  const touchLayout = useTouchLayout();
   const { enabled: includeSpecials } = useSpecialEpisodes();
 
   // TMDb supplies the canonical season list while the library can contain
@@ -655,18 +659,25 @@ export function SeasonAccordion({
   const bleachAiredOrder = tmdbId === BLEACH_TMDB_ID && effectiveSeasons.some((s) => s.seasonNumber > 2);
   const sorted = seriesPart === "tybw" ? BLEACH_COURS.map(c => ({ seasonNumber: 17, name: `${t("title.season")} ${c.part} · ${c.title}`, episodeCount: c.count, bleachPart: c.part, episodeOffset: c.offset, episodeEnd: c.offset + c.count } as SeasonInfo)) : [...effectiveSeasons].sort((a, b) => bleachAiredOrder ? a.seasonNumber - b.seasonNumber : b.seasonNumber - a.seasonNumber);
 
-  return (
-    <div className="space-y-2">
-      {sorted.map((season) => {
+  const seasonKey = (season: SeasonInfo) => season.bleachPart ? 100 + season.bleachPart : season.seasonNumber;
+  const getLibrarySeason = (season: SeasonInfo) => {
         const rawLibrarySeason = librarySeasons?.find((s) => s.seasonNumber === season.seasonNumber);
-        const libSeason = rawLibrarySeason && season.bleachPart ? { ...rawLibrarySeason, episodes: rawLibrarySeason.episodes.filter(e => (e.episodeNumber ?? 0) > (season.episodeOffset ?? 0) && (e.episodeNumber ?? 0) <= (season.episodeEnd ?? 50)) } : rawLibrarySeason;
-        const rowKey = season.bleachPart ? 100 + season.bleachPart : season.seasonNumber;
+    return rawLibrarySeason && season.bleachPart
+      ? { ...rawLibrarySeason, episodes: rawLibrarySeason.episodes.filter(e => (e.episodeNumber ?? 0) > (season.episodeOffset ?? 0) && (e.episodeNumber ?? 0) <= (season.episodeEnd ?? 50)) }
+      : rawLibrarySeason;
+  };
+  const seasonLabel = (season: SeasonInfo) => bleachAiredOrder && season.seasonNumber > 0 && season.seasonNumber < 17
+    ? `${t("title.season")} ${season.seasonNumber}`
+    : season.name;
+
+  const renderSeason = (season: SeasonInfo) => {
+    const rowKey = seasonKey(season);
         return (
           <div key={rowKey}>
-            {!seriesPart && bleachAiredOrder && (season.seasonNumber === 1 || season.seasonNumber === 17) && <h3 className="mb-3 mt-5 text-base font-semibold text-ink">{t(season.seasonNumber === 17 ? "bleach.sequel" : "bleach.original")}</h3>}
+            {!touchLayout && !seriesPart && bleachAiredOrder && (season.seasonNumber === 1 || season.seasonNumber === 17) && <h3 className="mb-3 mt-5 text-base font-semibold text-ink">{t(season.seasonNumber === 17 ? "bleach.sequel" : "bleach.original")}</h3>}
           <SeasonRow
-            season={bleachAiredOrder && season.seasonNumber > 0 && season.seasonNumber < 17 ? { ...season, name: `${t("title.season")} ${season.seasonNumber}` } : season}
-            libSeason={libSeason}
+            season={{ ...season, name: seasonLabel(season) }}
+            libSeason={getLibrarySeason(season)}
             readOnly={readOnly}
             searchMissingOnly={searchMissingOnly}
             searchingBleachPart={searchingBleachPart}
@@ -674,7 +685,7 @@ export function SeasonAccordion({
             tmdbId={tmdbId}
             seriesTitle={seriesTitle}
             isExpanded={expanded === rowKey}
-            onToggle={() => setExpanded(expanded === rowKey ? null : rowKey)}
+            onToggle={() => setExpanded((current) => current === rowKey ? null : rowKey)}
             onSearchSeason={onSearchSeason}
             onManualSearchSeason={onManualSearchSeason}
             onSearchEpisode={onSearchEpisode}
@@ -690,7 +701,40 @@ export function SeasonAccordion({
           />
           </div>
         );
-      })}
+  };
+
+  if (!touchLayout) return <div className="space-y-2">{sorted.map(renderSeason)}</div>;
+
+  const cards = [...sorted].sort((a, b) => a.seasonNumber - b.seasonNumber);
+  const openSeason = cards.find((season) => seasonKey(season) === expanded);
+  return (
+    <div className="touch-seasons">
+      <div className="touch-season-track" role="group" aria-label={t("title.seasons")}>
+        {cards.map((season) => {
+          const key = seasonKey(season);
+          const open = expanded === key;
+          const watchable = (getLibrarySeason(season)?.episodes ?? []).filter((episode) => episode.episodeNumber != null && episode.status !== "upcoming");
+          const remaining = watchable.filter((episode) => !watchedEpisodes?.has(`${season.seasonNumber}.${episode.episodeNumber}`)).length;
+          return (
+            <button key={key} type="button" className="touch-season-card" aria-expanded={open} aria-controls={seasonRailId}
+              onClick={() => setExpanded((current) => current === key ? null : key)}>
+              <span className="touch-season-cover">
+                <span className="touch-season-number" aria-hidden="true">{String(season.bleachPart ?? season.seasonNumber).padStart(2, "0")}</span>
+                {season.posterUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={season.posterUrl} alt="" loading="lazy" />
+                ) : <TmdbImage path={season.posterPath ?? null} size="w342" alt="" loading="lazy" />}
+                {watchable.length > 0 && <span className="touch-season-badge" aria-hidden="true">
+                  {remaining || <Check size={13} />}
+                </span>}
+              </span>
+              <span className="touch-season-label">{seasonLabel(season)}</span>
+              <span className="touch-season-count">{season.episodeCount} {t("title.episodes")}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div id={seasonRailId} hidden={!openSeason}>{openSeason && renderSeason(openSeason)}</div>
     </div>
   );
 }

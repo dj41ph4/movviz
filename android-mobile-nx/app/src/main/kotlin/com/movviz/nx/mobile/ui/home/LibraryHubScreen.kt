@@ -94,7 +94,7 @@ fun LibraryHubScreen(
     LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = if (compactPortrait) GridCells.Fixed(3) else GridCells.Adaptive(minSize = 112.dp),
         state = listState,
         modifier = Modifier.fillMaxSize()
             .padding(horizontal = if (narrow) 16.dp else 56.dp),

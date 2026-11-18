@@ -27,6 +27,7 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   manifest: "/manifest.json",
+  appleWebApp: { capable: true, title: "Movviz", statusBarStyle: "black-translucent" },
   icons: {
     icon: [
       { url: "/brand/movviz-icon-32.png", sizes: "32x32", type: "image/png" },
@@ -47,7 +48,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#05060b",
+  themeColor: [
+    { media: TOUCH_LAYOUT_QUERY, color: "#0b0c10" },
+    { color: "#05060b" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

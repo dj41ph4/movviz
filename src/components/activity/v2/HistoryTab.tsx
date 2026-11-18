@@ -69,16 +69,17 @@ type HistoryPage = {
   nextCursor: string | null;
 };
 
-export function HistoryTab({ failuresOnly = false, active = true }: { failuresOnly?: boolean; active?: boolean } = {}) {
+export function HistoryTab({ failuresOnly = false, active = true, initialCompleted = false }: { failuresOnly?: boolean; active?: boolean; initialCompleted?: boolean } = {}) {
   const t = useT();
   const { locale } = useI18n();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(["all"]);
+  const initialStatus = initialCompleted ? STATUS_TABS[1] : STATUS_TABS[0];
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([...initialStatus.types]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [selectedIndexers, setSelectedIndexers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusTab, setStatusTab] = useState("all");
+  const [statusTab, setStatusTab] = useState<string>(initialStatus.id);
   const sentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), 250);

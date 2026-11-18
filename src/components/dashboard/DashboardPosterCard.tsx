@@ -182,7 +182,7 @@ export function DashboardPosterCard({
   layout?: "row" | "fill";
   /** Desktop dashboard recommendations use a real cinema poster treatment;
    * other editorial rails retain their landscape artwork. */
-  variant?: "landscape" | "poster";
+  variant?: "landscape" | "poster" | "touch-poster";
   /** Keeps the title mark clear of an action supplied by the parent card. */
   reserveBottomRight?: boolean;
   /** Present only for a concrete locally available movie or episode. */
@@ -236,7 +236,8 @@ export function DashboardPosterCard({
   const previewRuntime = runtime ?? previewDetail?.runtime ?? null;
   const previewGenres = genres?.length ? genres : (previewDetail?.genres ?? []);
   const hasMeta = !!previewYear || !!previewRuntime || !!technical;
-  const showRank = !!rank && rank >= 1 && rank <= 10;
+  const touchCard = variant === "touch-poster";
+  const showRank = !touchCard && !!rank && rank >= 1 && rank <= 10;
   const ambientVideoKeys = previewDetail?.ambientVideoKeys ?? [];
   // Same candidate pipeline as the dashboard hero: direct enhanced source
   // then YouTube. Previously card previews bypassed this and mounted YouTube
@@ -497,18 +498,19 @@ export function DashboardPosterCard({
   useEffect(() => () => clearTimers(), []);
 
   if (dismissed) return null;
-  const posterVariant = variant === "poster";
+  const posterVariant = variant === "poster" || touchCard;
 
   return (
     <>
     <Link
       href={bleachTitleHref(tmdbId, type, seriesPart)}
       prefetch={false}
-      onMouseEnter={(event) => openPreview(event.currentTarget)}
+      onMouseEnter={touchCard ? undefined : (event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
       onClick={closeOnClick}
       className={cn(
         "nx-row-card group shrink-0 transition-opacity duration-200",
+        touchCard && "touch-poster-card",
         showRank
           ? "flex w-[238px] items-end sm:w-[275px]"
           : posterVariant
@@ -586,7 +588,7 @@ export function DashboardPosterCard({
             </div>
           )}
 
-          {typeof rating === "number" && rating > 0 && (
+          {!touchCard && typeof rating === "number" && rating > 0 && (
             <div data-premium-badge className={cn(BADGE_SHAPE, "absolute left-2 top-2 z-10 border-white/15 bg-black/55 text-amber")}>
               <Star className="h-3 w-3 fill-amber" /> {rating.toFixed(1)}
             </div>
@@ -608,7 +610,9 @@ export function DashboardPosterCard({
           )}
         </div>
         {(showRank || posterVariant) && <p className="mt-1.5 truncate text-center text-sm font-semibold text-ink">{title}</p>}
-        {(showRank || posterVariant) && subtitle && <p className="truncate text-center text-xs text-ink-dim">{subtitle}</p>}
+        {touchCard ? (
+          <p className="truncate text-xs text-ink-dim">{[year, t(type === "movie" ? "common.movies" : "common.series")].filter(Boolean).join(" · ")}</p>
+        ) : (showRank || posterVariant) && subtitle && <p className="truncate text-center text-xs text-ink-dim">{subtitle}</p>}
       </div>
     </Link>
     {hovered && popover && typeof document !== "undefined" && createPortal(

@@ -104,6 +104,8 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("current");
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  const [touchFiltersOpen, setTouchFiltersOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -468,21 +470,30 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           {t("activity.queueSnapshotWarning")}
         </p>
       )}
-      {activeItems.length > 0 && (
-        <section className="touch-queue-summary rounded-2xl border border-white/10 bg-surface p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-ink">{t("downloads.inProgress")} · {activeItems.length}</h2>
-            <span className="text-sm font-semibold tabular-nums text-ink">{batchPercent} %</span>
+      {filterCounts.current > 0 && (
+        <section className="touch-queue-summary">
+          <span className="touch-queue-progress" role="progressbar" aria-label={t("downloads.inProgress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={batchPercent} style={{ "--queue-progress": `${batchPercent}%` } as React.CSSProperties}>
+            <b>{batchPercent} %</b>
+          </span>
+          <div>
+            <h2 className="text-sm font-bold text-ink">{t("downloads.inProgress")} · {filterCounts.current}</h2>
+            <p className="flex flex-wrap gap-x-3 text-xs tabular-nums text-ink-soft">
+              {batchSpeed > 0 && <span>↓ {formatSpeed(batchSpeed)}</span>}
+              {batchEta > 0 && <span>{t("downloads.eta")}: {formatEta(Math.ceil(batchEta / 60))}</span>}
+            </p>
           </div>
-          <progress max={100} value={batchPercent} aria-label={t("downloads.inProgress")} className="my-3 block h-1.5 w-full accent-brand" />
-          <p className="flex flex-wrap gap-x-3 text-xs tabular-nums text-ink-soft">
-            {batchSpeed > 0 && <span>↓ {formatSpeed(batchSpeed)}</span>}
-            {batchEta > 0 && <span>{t("downloads.eta")}: {formatEta(Math.ceil(batchEta / 60))}</span>}
-          </p>
         </section>
       )}
       {/* Tuiles : débit en direct, file active, espace disque */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="touch-queue-tools">
+        <button type="button" aria-expanded={touchFiltersOpen} onClick={() => setTouchFiltersOpen((open) => !open)}>
+          <Settings2 size={16} aria-hidden="true" /> {t("activity.filters")}
+        </button>
+        <button type="button" aria-expanded={metricsOpen} onClick={() => setMetricsOpen((open) => !open)}>
+          <Gauge size={16} aria-hidden="true" /> {t("nav.stats")}
+        </button>
+      </div>
+      <div className="touch-queue-metrics grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)]" data-open={metricsOpen}>
         <div className="sm:col-span-2 lg:col-span-1"><LiveRateTile /></div>
         <div className="rounded-3xl border border-white/8 bg-gradient-to-br from-white/[.07] to-white/[.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_20px_40px_-24px_#000] sm:p-5">
           <p className="text-[10.5px] font-bold uppercase tracking-[.08em] text-ink-dim">{t("downloads.queueTile")}</p>
@@ -505,7 +516,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       {/* Capsule : filtres (avec compteurs), recherche, réglages, actions groupées */}
-      <div className="nx-dlq-bar sticky top-[calc(var(--nx-topbar-h,3.5rem)+0.5rem)] z-20 flex flex-wrap items-center gap-2 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)] backdrop-blur-xl lg:flex-nowrap">
+      <div data-touch-open={touchFiltersOpen} className="nx-dlq-bar sticky top-[calc(var(--nx-topbar-h,3.5rem)+0.5rem)] z-20 flex flex-wrap items-center gap-2 rounded-[26px] border border-white/10 bg-gradient-to-b from-white/[.07] to-white/[.03] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_16px_34px_-14px_rgba(0,0,0,.65)] backdrop-blur-xl lg:flex-nowrap">
         <div className="nx-dl-filter no-scrollbar flex min-w-0 max-w-full gap-0.5 overflow-x-auto rounded-full bg-black/30 p-1 shadow-[inset_0_1px_3px_rgba(0,0,0,.45)]">
           {FILTERS.map((f) => (
             <button
@@ -744,7 +755,7 @@ const QueueItemRow = memo(function QueueItemRow({
         onClick={() => onToggleExpand(item.id)}
       >
         <div className="flex items-start gap-3">
-          <span className={cn("flex h-[70px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-xl",
+          <span className={cn("touch-queue-poster flex h-[70px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-xl",
             item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
             {item.media.posterPath ? (
               <TmdbImage path={item.media.posterPath} size="w154" alt="" className="h-full w-full object-cover" />
