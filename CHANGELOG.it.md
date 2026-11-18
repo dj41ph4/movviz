@@ -1,3 +1,11 @@
+## v1.28.170 — 18 novembre 2026
+
+### Browser mobile e riproduzione su iPhone
+
+- Le schede si aprono a schermo intero in verticale, con il pulsante Indietro, un’azione principale più ampia e le copertine delle stagioni. La navigazione rispetta le aree sicure dello schermo.
+- In Scopri, il titolo in evidenza appare subito e le schede delle piattaforme evitano di ripetere l’anno.
+- Su iPhone, il lettore prova ManagedMediaSource per i flussi FFmpeg compatibili. AirPlay non è disponibile in questa modalità di riproduzione.
+
 ## v1.28.169 — 18 novembre 2026
 
 ### Riproduzione su iPhone e iPad

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mimeFromInit } from "../src/lib/playback/ffmpeg/deepBuffer.ts";
+import { deepBufferSupported, mimeFromInit } from "../src/lib/playback/ffmpeg/deepBuffer.ts";
 
 // Segments d'initialisation (ftyp + moov) produits par ffmpeg avec les mêmes options que le serveur
 // (frag_keyframe+empty_moov+delay_moov+default_base_moof+omit_tfhd_offset), 2 s de mire.
@@ -12,6 +12,28 @@ const INIT = {
   h264Eac3: "AAAAIGZ0eXBpc281AAACAGlzbzVpc282ZGJ5MW1wNDEAAATmbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAC7gAAAAAAAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAg90cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAoAAAAFoAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAAAAAAEAAABAAAAAAGHbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAwAAAAAABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABMm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAPJzdGJsAAAApnN0c2QAAAAAAAAAAQAAAJZhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAoABaABIAAAASAAAAAAAAAABFExhdmM2My4xLjEwMCBsaWJ4MjY0AAAAAAAAAAAAAAAAGP//AAAAMGF2Y0MBTUAe/+EAGGdNQB7soFAX/LgIgAAAAwCAAAAYB4sWywEABWjr48sgAAAAEHBhc3AAAAABAAAAAQAAABBzdHRzAAAAAAAAAAAAAAAQc3RzYwAAAAAAAAAAAAAAFHN0c3oAAAAAAAAAAAAAAAAAAAAQc3RjbwAAAAAAAAAAAAABunRyYWsAAABcdGtoZAAAAAMAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAACRlZHRzAAAAHGVsc3QAAAAAAAAAAQAAAAAAAAEAAAEAAAAAATJtZGlhAAAAIG1kaGQAAAAAAAAAAAAAAAAAALuAAAAAAFXEAAAAAAAtaGRscgAAAAAAAAAAc291bgAAAAAAAAAAAAAAAFNvdW5kSGFuZGxlcgAAAADdbWluZgAAABBzbWhkAAAAAAAAAAAAAAAkZGluZgAAABxkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAChc3RibAAAAFVzdHNkAAAAAAAAAAEAAABFZWMtMwAAAAAAAAABAAAAAAAAAAAAAQAQAAAAALuAAAAAAAANZGVjMwMAIAIAAAAAFGJ0cnQAAAAAAAF3AAABdwAAAAAQc3R0cwAAAAAAAAAAAAAAEHN0c2MAAAAAAAAAAAAAABRzdHN6AAAAAAAAAAAAAAAAAAAAEHN0Y28AAAAAAAAAAAAAAEhtdmV4AAAAIHRyZXgAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAAgdHJleAAAAAAAAAACAAAAAQAAAAAAAAAAAAAAAAAAAGF1ZHRhAAAAWW1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALGlsc3QAAAAkqXRvbwAAABxkYXRhAAAAAQAAAABMYXZmNjMuMS4xMDA=",
 };
 const bytes = (b64: string) => new Uint8Array(Buffer.from(b64, "base64"));
+
+test("le tampon profond accepte ManagedMediaSource uniquement pour les lecteurs qui le demandent", () => {
+  const globals = globalThis as typeof globalThis & { window?: unknown };
+  const originalWindow = Object.getOwnPropertyDescriptor(globals, "window");
+  try {
+    Object.defineProperty(globals, "window", {
+      configurable: true,
+      value: { ManagedMediaSource: class {} },
+    });
+    assert.equal(deepBufferSupported(), false);
+    assert.equal(deepBufferSupported(true), true);
+
+    Object.defineProperty(globals, "window", {
+      configurable: true,
+      value: { MediaSource: class {} },
+    });
+    assert.equal(deepBufferSupported(), true);
+  } finally {
+    if (originalWindow) Object.defineProperty(globals, "window", originalWindow);
+    else Reflect.deleteProperty(globals, "window");
+  }
+});
 
 test("tampon profond : H.264 High 3.0 + AAC LC", () => {
   assert.equal(mimeFromInit(bytes(INIT.h264Aac)), 'video/mp4; codecs="avc1.64001e,mp4a.40.2"');

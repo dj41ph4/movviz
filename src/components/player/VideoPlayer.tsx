@@ -1899,7 +1899,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         engine.setExpectedDuration((prep.media.durationMs ?? infoRef.current.durationMs ?? 0) / 1000);
         localEngineOverridesRef.current = overrides;
         try {
-          await engine.load(prep.sessionId, { seekTo, debug: b.debug });
+          await engine.load(prep.sessionId, { seekTo, debug: b.debug, allowManagedMediaSource: isAppleMobile(navigator) });
         } catch {
           // Ownership was already taken above (ffmpegEngineRef/setFfmpegActive)
           // and onLocalEngineFailure() already ran its own fallback/error —

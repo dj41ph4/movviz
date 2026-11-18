@@ -199,17 +199,25 @@ function reserveMaxBytes(): number {
   return memory >= 8 ? 1024 * MIB : memory >= 4 ? 512 * MIB : 256 * MIB;
 }
 
-export function deepBufferSupported(): boolean {
+function getMediaSource(allowManaged: boolean) {
+  if (typeof window === "undefined") return null;
+  if (typeof window.MediaSource === "function") return { constructor: window.MediaSource, managed: false };
+  const managed = (window as Window & { ManagedMediaSource?: typeof MediaSource }).ManagedMediaSource;
+  return allowManaged && typeof managed === "function" ? { constructor: managed, managed: true } : null;
+}
+
+export function deepBufferSupported(allowManaged = false): boolean {
   try {
     if (localStorage.getItem("movviz.deepBuffer") === "0") return false;
   } catch { /* stockage indisponible */ }
-  return typeof window !== "undefined" && typeof window.MediaSource === "function" && typeof fetch === "function";
+  return typeof fetch === "function" && getMediaSource(allowManaged) !== null;
 }
 
 export class DeepBufferFeed {
   private ms: MediaSource | null = null;
   private sb: SourceBuffer | null = null;
   private objectUrl: string | null = null;
+  private restoreRemotePlayback = false;
   private ctrl = new AbortController();
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   private queue = new ChunkQueue();
@@ -230,7 +238,7 @@ export class DeepBufferFeed {
   private jump: { target: number; resolve: (ok: boolean) => void } | null = null;
   private feedEnded = false;
 
-  constructor(private video: HTMLVideoElement, private url: string) {}
+  constructor(private video: HTMLVideoElement, private url: string, private allowManaged = false) {}
 
   /**
    * true : le flux alimente le `<video>` (la lecture peut démarrer). false :
@@ -239,22 +247,30 @@ export class DeepBufferFeed {
   async start(onFailure: (reason: string, kind: DeepBufferFailure) => void): Promise<boolean> {
     this.onFailure = onFailure;
     try {
+      const source = getMediaSource(this.allowManaged);
+      if (!source) return this.giveUp();
       const res = await fetch(this.url, { cache: "no-store", signal: this.ctrl.signal });
       if (!res.ok || !res.body) return this.giveUp();
       this.reader = res.body.getReader();
       const init = await this.readInit();
-      if (!init) return this.giveUp();
+      if (!init || this.stopped) return this.giveUp();
       const mime = mimeFromInit(init);
-      if (!mime || !MediaSource.isTypeSupported(mime)) return this.giveUp();
+      if (!mime || !source.constructor.isTypeSupported(mime)) return this.giveUp();
 
-      const ms = new MediaSource();
+      const ms = new source.constructor();
       this.ms = ms;
       this.objectUrl = URL.createObjectURL(ms);
+      // iPhone requires an AirPlay alternative or explicit opt-out for ManagedMediaSource.
+      if (source.managed && !this.video.disableRemotePlayback) {
+        this.video.disableRemotePlayback = true;
+        this.restoreRemotePlayback = true;
+      }
       this.video.src = this.objectUrl;
       await new Promise<void>((resolve, reject) => {
         const t = setTimeout(() => reject(new Error("sourceopen trop long")), OPEN_TIMEOUT_MS);
         ms.addEventListener("sourceopen", () => { clearTimeout(t); resolve(); }, { once: true });
       });
+      if (this.stopped) return false;
       const sb = ms.addSourceBuffer(mime);
       sb.mode = "segments";
       this.sb = sb;
@@ -353,6 +369,10 @@ export class DeepBufferFeed {
     try { this.ctrl.abort(); } catch { /* déjà coupé */ }
     try { void this.reader?.cancel(); } catch { /* ignore */ }
     if (this.objectUrl) { try { URL.revokeObjectURL(this.objectUrl); } catch { /* ignore */ } this.objectUrl = null; }
+    if (this.restoreRemotePlayback) {
+      this.video.disableRemotePlayback = false;
+      this.restoreRemotePlayback = false;
+    }
   }
 
   private fail(e: unknown, kind: DeepBufferFailure): void {

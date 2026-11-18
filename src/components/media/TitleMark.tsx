@@ -7,16 +7,16 @@ import { useLogoRetry } from "@/lib/useLogoRetry";
 import { TmdbImage } from "@/components/media/TmdbImage";
 
 /**
- * Resolves one hero's official title mark. It waits three seconds before
- * showing the text title as a stand-in, but the official logo always takes
- * over as soon as it resolves — a slow or retried request must not leave the
- * slide on text until the visitor changes slide.
+ * Resolves one hero's official title mark. Callers can show the text title
+ * immediately or wait three seconds for the logo. A logo that arrives later
+ * still replaces the text.
  */
 export function TitleMark({
   tmdbId,
   type,
   title,
   locale,
+  showTitleImmediately = false,
   className,
   logoClassName,
 }: {
@@ -24,6 +24,7 @@ export function TitleMark({
   type: "movie" | "series";
   title: string;
   locale: string;
+  showTitleImmediately?: boolean;
   className?: string;
   logoClassName?: string;
 }) {
@@ -60,7 +61,7 @@ export function TitleMark({
             className={cn("max-h-16 max-w-[70vw] object-contain object-left align-middle sm:max-h-24 sm:max-w-md", logoClassName)}
           />
         </>
-      ) : display === "title" ? (
+      ) : display === "title" || showTitleImmediately ? (
         title
       ) : (
         <span className="sr-only">{title}</span>

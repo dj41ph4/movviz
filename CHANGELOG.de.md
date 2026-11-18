@@ -1,3 +1,11 @@
+## v1.28.170 — 18. November 2026
+
+### Mobiler Browser und Wiedergabe auf dem iPhone
+
+- Titelseiten öffnen sich im Hochformat im Vollbild, mit einer Zurück-Schaltfläche, einer breiteren Hauptaktion und Staffelcovern. Die Navigation berücksichtigt die sicheren Bildschirmbereiche.
+- Entdecken zeigt den hervorgehobenen Titel sofort an. Plattformkarten wiederholen das Erscheinungsjahr nicht.
+- Auf dem iPhone versucht der Player, kompatible FFmpeg-Streams über ManagedMediaSource abzuspielen. In diesem Wiedergabemodus ist AirPlay nicht verfügbar.
+
 ## v1.28.169 — 18. November 2026
 
 ### Wiedergabe auf iPhone und iPad

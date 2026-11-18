@@ -1,3 +1,11 @@
+## v1.28.170 — 18 november 2026
+
+### Mobiele browser en afspelen op iPhone
+
+- Titelpagina’s openen in staande stand op het volledige scherm, met een terugknop, een bredere hoofdactie en seizoenshoezen. De navigatie houdt rekening met de veilige schermranden.
+- Ontdekken toont de uitgelichte titel meteen en platformkaarten herhalen het jaar niet.
+- Op iPhone probeert de speler ManagedMediaSource voor compatibele FFmpeg-streams. AirPlay is tijdens deze afspeelmodus niet beschikbaar.
+
 ## v1.28.169 — 18 november 2026
 
 ### Afspelen op iPhone en iPad

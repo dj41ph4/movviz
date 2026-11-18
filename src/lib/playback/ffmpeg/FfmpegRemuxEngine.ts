@@ -25,6 +25,7 @@ export interface FfmpegEngineOptions {
   audioStreamId?: number | null;
   seekTo?: number;
   debug?: boolean;
+  allowManagedMediaSource?: boolean;
   /** Profil de compression vidéo (remuxSession) — "original" = copie bit-exacte. */
   quality?: "original" | "4k" | "2k" | "fhd" | "hd";
 }
@@ -185,8 +186,8 @@ export class FfmpegRemuxEngine {
     const seq = ++this._loadSeq;
     this.stopDeep();
     this.active = true;
-    if (!this.deepDisabled && deepBufferSupported()) {
-      const deep = new DeepBufferFeed(video, this.src);
+    if (!this.deepDisabled && deepBufferSupported(options.allowManagedMediaSource)) {
+      const deep = new DeepBufferFeed(video, this.src, options.allowManagedMediaSource);
       this.deep = deep;
       const started = await deep.start((reason, kind) => this.onDeepFailure(deep, reason, kind));
       if (this.destroyed || seq !== this._loadSeq) {

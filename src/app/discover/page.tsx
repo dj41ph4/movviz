@@ -1486,6 +1486,7 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
           type={result.type}
           title={result.title}
           locale={locale}
+          showTitleImmediately={portrait}
           className="min-h-11 text-2xl sm:min-h-16 sm:text-3xl"
           logoClassName="max-h-14 max-w-[60vw] sm:max-h-16 sm:max-w-sm"
         />
@@ -1988,6 +1989,7 @@ function DiscoverCard({
   const cardBadge = status === "upcoming" && daysToRelease != null
       ? daysToRelease <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: daysToRelease })
       : undefined;
+  const releaseDate = formatDate(result.releaseDate, locale);
 
   return (
     <motion.article className="touch-discover-card group/discover w-full" {...cascadeAnim}>
@@ -2041,14 +2043,16 @@ function DiscoverCard({
           </div>
         )}
       </div>
-      <div className="mt-1.5 flex items-center gap-2 px-0.5 text-xs text-ink-dim">
-        {formatDate(result.releaseDate, locale) ? (
-          <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> {formatDate(result.releaseDate, locale)}</span>
-        ) : (
-          <span>{result.year ?? "—"}</span>
-        )}
-        {feedback && <span className="truncate text-amber">{feedback}</span>}
-      </div>
+      {(!portrait || releaseDate || feedback) && (
+        <div className="mt-1.5 flex items-center gap-2 px-0.5 text-xs text-ink-dim">
+          {releaseDate ? (
+            <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> {releaseDate}</span>
+          ) : !portrait ? (
+            <span>{result.year ?? "—"}</span>
+          ) : null}
+          {feedback && <span className="truncate text-amber">{feedback}</span>}
+        </div>
+      )}
     </motion.article>
   );
 }

@@ -1,3 +1,11 @@
+## v1.28.170 — 18 novembre 2026
+
+### Navigateur mobile et lecture sur iPhone
+
+- Les fiches s’ouvrent en plein écran en portrait, avec un bouton Retour, une action principale plus large et les jaquettes des saisons. La navigation tient compte des marges de sécurité de l’écran.
+- Dans Découverte, le titre de la vedette s’affiche dès le départ et les cartes de plateforme évitent de répéter l’année.
+- Sur iPhone, le lecteur essaie ManagedMediaSource pour les flux FFmpeg compatibles. AirPlay est indisponible pendant ce mode de lecture.
+
 ## v1.28.169 — 18 novembre 2026
 
 ### Lecture sur iPhone et iPad

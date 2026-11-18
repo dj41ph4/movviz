@@ -1,3 +1,11 @@
+## v1.28.170 — November 18, 2026
+
+### Mobile browser and iPhone playback
+
+- Title pages open full screen in portrait, with a back button, a wider primary action and season covers. Navigation respects the screen’s safe areas.
+- Discover shows the featured title immediately, and platform cards avoid repeating the year.
+- On iPhone, the player tries ManagedMediaSource for compatible FFmpeg streams. AirPlay is unavailable during this playback mode.
+
 ## v1.28.169 — November 18, 2026
 
 ### Playback on iPhone and iPad
