@@ -364,6 +364,11 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   const videoCheck = checkVideoCompatibility(media.video, client, toneMapAllowed);
   const audioCheck = audioTrack ? checkAudioCompatibility(audioTrack, client) : { compatible: true, reasons: [] as PlaybackReasonCode[] };
   const containerOk = isContainerCompatible(media.container, client);
+  const copyHevcSampleEntry = client.hevcSampleEntry === "hvc1" &&
+    normalizeCodecName(media.video.codec) === "hevc" &&
+    media.video.hdr?.type !== "dolby-vision" &&
+    media.video.codecTag !== "dvh1" && media.video.codecTag !== "dvhe";
+  const needsHevcRemux = copyHevcSampleEntry && media.video.codecTag !== "hvc1";
   const subtitleAction = decideSubtitleAction(subtitleTrack, client);
   const forcedQualityMaxWidth = requestedQualityMaxWidth(input.quality);
   // A user-selected lower quality is an explicit request to encode the VIDEO
@@ -376,6 +381,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   reasons.push(...videoCheck.reasons, ...audioCheck.reasons);
   if (forcedQualityDownscale) reasons.push("FORCED_QUALITY");
   if (!containerOk) reasons.push("CONTAINER_UNSUPPORTED");
+  if (needsHevcRemux) reasons.push("HEVC_SAMPLE_ENTRY_UNSUPPORTED");
   if (needsAudioTrackSelection) reasons.push("AUDIO_TRACK_SELECTION_REQUIRED");
   if (subtitleAction === "BURN") reasons.push("SUBTITLE_BURN_REQUIRED");
 
@@ -386,7 +392,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   const needsAudioTranscode = !audioCheck.compatible;
   // Rule §1.3: a container-only mismatch is a remux, never promoted to a
   // codec transcode — only reached when video didn't already need one.
-  const needsRemuxOnly = (!containerOk || needsAudioTrackSelection) && !needsVideoTranscode;
+  const needsRemuxOnly = (!containerOk || needsAudioTrackSelection || needsHevcRemux) && !needsVideoTranscode;
   const audioTranscodeTarget = needsAudioTranscode ? pickTranscodeAudioCodec(client, audioTrack?.channels) : null;
 
   if (needsVideoTranscode) {
@@ -426,6 +432,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       targetContainer: "mp4",
       videoAction: "TRANSCODE",
       targetVideoCodec,
+      ...(targetVideoCodec === "hevc" && client.hevcSampleEntry === "hvc1" ? { hevcSampleEntry: "hvc1" as const } : {}),
       videoEncoderImpl: encoder.impl,
       encoderPreset: encoder.preset,
       targetVideoWidth,
@@ -456,6 +463,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       containerAction: needsRemuxOnly ? "REMUX" : "COPY",
       targetContainer: needsRemuxOnly ? "mp4" : undefined,
       videoAction: "COPY",
+      ...(copyHevcSampleEntry ? { hevcSampleEntry: "hvc1" as const } : {}),
       audioAction: "TRANSCODE",
       targetAudioCodec: audioTranscodeTarget?.codec,
       targetAudioChannels: audioTranscodeTarget?.channels,
@@ -482,6 +490,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       containerAction: "REMUX",
       targetContainer: "mp4",
       videoAction: "COPY",
+      ...(copyHevcSampleEntry ? { hevcSampleEntry: "hvc1" as const } : {}),
       audioAction: "COPY",
       subtitleAction,
       protocol: "PROGRESSIVE",

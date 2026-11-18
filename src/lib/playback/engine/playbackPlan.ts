@@ -25,6 +25,7 @@ export type StreamProtocol = "PROGRESSIVE" | "HLS" | "DASH";
  */
 export type PlaybackReasonCode =
   | "CONTAINER_UNSUPPORTED"
+  | "HEVC_SAMPLE_ENTRY_UNSUPPORTED"
   | "VIDEO_CODEC_UNSUPPORTED"
   | "VIDEO_PROFILE_UNSUPPORTED"
   | "VIDEO_LEVEL_UNSUPPORTED"
@@ -55,6 +56,7 @@ export interface PlaybackPlan {
 
   videoAction: TrackAction;
   targetVideoCodec?: string;
+  hevcSampleEntry?: "hvc1";
   /** Exact ffmpeg -c:v implementation name for the transcode (e.g. "libx264",
    *  "hevc_nvenc") — only set when videoAction is TRANSCODE. Decided against
    *  the server's actual compiled encoder list (Phase 6), preferring

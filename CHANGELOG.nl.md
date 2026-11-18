@@ -1,3 +1,9 @@
+## v1.28.169 — 18 november 2026
+
+### Afspelen op iPhone en iPad
+
+- Movviz controleert HEVC-ondersteuning en gebruikt de MP4-aanduiding hvc1 bij het kopiëren van compatibele video. Bij een incompatibel HEVC-profiel kan de speler de stream omzetten naar H.264.
+
 ## v1.28.168 — 18 november 2026
 
 ### Touchbrowser

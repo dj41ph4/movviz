@@ -1,3 +1,9 @@
+## v1.28.169 — 18 novembre 2026
+
+### Riproduzione su iPhone e iPad
+
+- Movviz verifica il supporto HEVC e usa la marcatura MP4 hvc1 per copiare i video compatibili. Se il profilo HEVC è incompatibile, il motore può convertire il flusso in H.264.
+
 ## v1.28.168 — 18 novembre 2026
 
 ### Browser touch

@@ -100,6 +100,7 @@ interface FfprobeStream {
   index: number;
   codec_type?: string;
   codec_name?: string;
+  codec_tag_string?: string;
   profile?: string;
   level?: number | string;
   width?: number;
@@ -299,6 +300,7 @@ export async function probeMediaFile(
     video: {
       index: videoStream.index,
       codec: videoStream.codec_name ?? "unknown",
+      codecTag: videoStream.codec_tag_string,
       profile: videoStream.profile,
       level: videoStream.level != null ? String(videoStream.level) : undefined,
       width: videoStream.width,

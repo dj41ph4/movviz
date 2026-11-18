@@ -1,3 +1,9 @@
+## v1.28.169 — November 18, 2026
+
+### Playback on iPhone and iPad
+
+- Movviz checks HEVC support and uses the hvc1 MP4 sample entry when copying compatible video. The engine can convert the stream to H.264 when the HEVC profile is unsupported.
+
 ## v1.28.168 — November 18, 2026
 
 ### Touch browser

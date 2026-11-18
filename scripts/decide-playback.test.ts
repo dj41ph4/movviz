@@ -49,6 +49,47 @@ test("§60: MKV/HEVC/DTS source, MP4/HEVC/AAC client → DIRECT_STREAM, video CO
   assert.equal(plan.targetContainer, "mp4");
 });
 
+test("Apple mobile gets hvc1 from an HEVC MKV while desktop keeps its current output", () => {
+  const input = { media: media(), server: FFMPEG_OK };
+  const apple = decidePlayback({ ...input, client: client({ hevcSampleEntry: "hvc1" }) });
+  const desktop = decidePlayback({ ...input, client: client() });
+  assert.equal(apple.hevcSampleEntry, "hvc1");
+  assert.equal(apple.mode, "DIRECT_STREAM");
+  assert.equal(apple.videoAction, "COPY");
+  assert.equal(desktop.hevcSampleEntry, undefined);
+});
+
+test("Apple mobile remuxes an hev1 MP4 and direct plays an already-tagged hvc1 MP4", () => {
+  const input = media({ container: "mp4", audioTracks: [{ index: 1, codec: "aac", default: true }] });
+  const decide = (codecTag: string, profile: ClientPlaybackProfile) => decidePlayback({
+    media: { ...input, video: { ...input.video, codecTag } },
+    client: profile,
+    server: FFMPEG_OK,
+  });
+  const apple = client({ hevcSampleEntry: "hvc1" });
+  const remux = decide("hev1", apple);
+  assert.equal(remux.mode, "REMUX");
+  assert.equal(remux.hevcSampleEntry, "hvc1");
+  assert.equal(remux.videoAction, "COPY");
+  assert.equal(decide("hvc1", apple).mode, "DIRECT_PLAY");
+  assert.equal(decide("hev1", client()).mode, "DIRECT_PLAY");
+});
+
+test("Apple mobile uses H.264 if HEVC is unavailable and preserves Dolby Vision tagging on copy", () => {
+  const h264Only = client({ hevcSampleEntry: "hvc1", videoCapabilities: [{ codec: "h264" }] });
+  const transcode = decidePlayback({ media: media(), client: h264Only, server: FFMPEG_OK });
+  assert.equal(transcode.mode, "TRANSCODE");
+  assert.equal(transcode.targetVideoCodec, "h264");
+  assert.equal(transcode.hevcSampleEntry, undefined);
+
+  const dolbyVision = media();
+  dolbyVision.video.hdr = { type: "dolby-vision", dolbyVisionProfile: 5 };
+  dolbyVision.video.codecTag = "dvh1";
+  const copy = decidePlayback({ media: dolbyVision, client: client({ hevcSampleEntry: "hvc1" }), server: FFMPEG_OK });
+  assert.equal(copy.videoAction, "COPY");
+  assert.equal(copy.hevcSampleEntry, undefined);
+});
+
 // ── real bug found live: a 5.1 source transcoded with no downmix played back missing dialogue on a real 2.0 setup ──
 test("a 6-channel source transcoded for a client capped at 2 channels sets targetAudioChannels — no silent channel drop", () => {
   const plan = decidePlayback({

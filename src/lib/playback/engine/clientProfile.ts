@@ -60,6 +60,7 @@ export interface ClientPlaybackProfile {
   };
 
   containers: string[];
+  hevcSampleEntry?: "hvc1";
 
   videoCapabilities: VideoCapability[];
   audioCapabilities: AudioCapability[];

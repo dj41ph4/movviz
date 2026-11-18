@@ -37,6 +37,7 @@ export type HdrType = "sdr" | "hdr10" | "hlg" | "dolby-vision";
 export interface VideoStreamDescriptor {
   index: number;
   codec: string;
+  codecTag?: string;
   profile?: string;
   level?: string;
   width?: number;

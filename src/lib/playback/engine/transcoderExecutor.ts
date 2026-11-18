@@ -422,6 +422,7 @@ export function startTranscoderSession(
   } else {
     args.push("-c:v", "copy");
   }
+  if (plan.hevcSampleEntry === "hvc1") args.push("-tag:v", "hvc1");
 
   if (plan.audioAction === "TRANSCODE") {
     args.push("-c:a", plan.targetAudioCodec === "aac" || !plan.targetAudioCodec ? "aac" : plan.targetAudioCodec, "-b:a", `${bitrateK}k`);

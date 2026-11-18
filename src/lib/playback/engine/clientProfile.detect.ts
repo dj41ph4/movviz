@@ -15,6 +15,7 @@
  */
 
 import { detectCodecs } from "@/lib/player/webcodecs";
+import { isAppleMobile } from "@/lib/player/pictureInPicture";
 import { detectCapabilities } from "../capabilities";
 import { deepBufferSupported } from "../ffmpeg/deepBuffer";
 import type { AudioCapability, ClientPlaybackProfile, SubtitleCapability, VideoCapability } from "./clientProfile";
@@ -41,8 +42,33 @@ function detectHdrSupport(): HdrType[] {
   return hasHdrVideo ? ["sdr", "hdr10", "hlg"] : ["sdr"];
 }
 
+async function probeAppleHevc() {
+  const video = document.createElement("video");
+  const probe = async (codec: string, width: number, height: number) => {
+    const contentType = `video/mp4; codecs="${codec}"`;
+    if (!video.canPlayType(contentType)) return false;
+    if (!navigator.mediaCapabilities?.decodingInfo) return width <= 1920;
+    try {
+      const info = await navigator.mediaCapabilities.decodingInfo({
+        type: "file",
+        video: { contentType, width, height, bitrate: width > 1920 ? 15_000_000 : 6_000_000, framerate: 30 },
+      });
+      return info.supported;
+    } catch {
+      return width <= 1920;
+    }
+  };
+  const [main, main10, main10_4k] = await Promise.all([
+    probe("hvc1.1.6.L123.B0", 1920, 1080),
+    probe("hvc1.2.4.L123.B0", 1920, 1080),
+    probe("hvc1.2.4.L153.B0", 3840, 2160),
+  ]);
+  return { main, main10, main10_4k };
+}
+
 export async function detectDesktopClientProfile(deviceId: string, appVersion: string): Promise<ClientPlaybackProfile> {
   const [codecs, browserCaps] = await Promise.all([detectCodecs(), detectCapabilities()]);
+  const appleMobile = typeof navigator !== "undefined" && typeof document !== "undefined" && isAppleMobile(navigator);
 
   // maxWidth/maxHeight left unset (unbounded) once the codec is confirmed
   // to decode at 3840x2160 — checkVideoCompatibility() (decidePlayback.ts)
@@ -65,7 +91,16 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
   // actually fire instead of being silently skipped. hdr only declared on
   // hevc/av1 — real-world HDR-graded H.264 content is exotic enough not to
   // be worth the extra surface here.
-  if (codecs.hevc) videoCapabilities.push({ codec: "hevc", bitDepths: codecs.hevcMain10 ? [8, 10] : [8], hdr, ...res4k(codecs.hevc4k) });
+  if (appleMobile) {
+    const { main, main10, main10_4k } = await probeAppleHevc();
+    if (main || main10 || main10_4k) {
+      const bitDepths = [...(main ? [8] : []), ...(main10 || main10_4k ? [10] : [])];
+      const resolution = main10_4k ? { maxWidth: 3840, maxHeight: 2160 } : { maxWidth: 1920, maxHeight: 1080 };
+      videoCapabilities.push({ codec: "hevc", bitDepths, hdr, ...resolution });
+    }
+  } else if (codecs.hevc) {
+    videoCapabilities.push({ codec: "hevc", bitDepths: codecs.hevcMain10 ? [8, 10] : [8], hdr, ...res4k(codecs.hevc4k) });
+  }
   if (codecs.av1) videoCapabilities.push({ codec: "av1", bitDepths: codecs.av1Main10 ? [8, 10] : [8], hdr, ...res4k(codecs.av1_4k) });
 
   const audioCapabilities: AudioCapability[] = [];
@@ -131,6 +166,7 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
     // flux du serveur (vidéo et audio copiés), seul chemin où l'on maîtrise l'avance. Un `<video>`
     // en lecture directe reste à 3-15 s de tampon, sans réglage possible (mesuré en prod).
     containers: deepBufferSupported() ? [] : ["mp4"],
+    ...(appleMobile ? { hevcSampleEntry: "hvc1" as const } : {}),
     videoCapabilities,
     audioCapabilities,
     subtitleCapabilities,

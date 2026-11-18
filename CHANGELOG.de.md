@@ -1,3 +1,9 @@
+## v1.28.169 — 18. November 2026
+
+### Wiedergabe auf iPhone und iPad
+
+- Movviz prüft die HEVC-Unterstützung und verwendet beim Kopieren kompatibler Videos die MP4-Kennung hvc1. Bei einem inkompatiblen HEVC-Profil kann der Stream zu H.264 konvertiert werden.
+
 ## v1.28.168 — 18. November 2026
 
 ### Touch-Browser
