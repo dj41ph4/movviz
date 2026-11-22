@@ -82,7 +82,7 @@ test.after(async () => {
   }
 });
 
-test("manual exit and Next share the server boundary and cannot bypass actual viewing", () => {
+test("manual exit and Next share the server boundary; reaching it is enough", () => {
   for (const [type, duration, position, expected] of [
     // 40 min episode: 72 s before the end. 2 h film: 90 s before the end.
     ["episode", 2_400_000, 2_327_999, false],
@@ -96,7 +96,7 @@ test("manual exit and Next share the server boundary and cannot bypass actual vi
   }
   const { session } = openPlaybackSession("seek-only", { ratingKey: "seek-only", mediaType: "episode", durationMs: 2_400_000 });
   applySeek(session.id, 2_330_000);
-  assert.equal(stopPlayback(session.id, 2_330_000).watched, false, "seeking alone is not real viewing");
+  assert.equal(stopPlayback(session.id, 2_330_000).watched, true, "the position reached the boundary: watched, however it was reached");
 });
 
 test("a player session survives a server restart: progress and « terminé » are still recorded", async () => {

@@ -1,3 +1,11 @@
+## v1.28.172 — 22. November 2026
+
+### Gesehen: Das Erreichen der Endschwelle genügt
+
+- Eine Folge oder ein Film gilt als gesehen, sobald die Wiedergabe die Endschwelle erreicht (Abspann oder letzte Sekunden), auch nach dem Vorspulen: der tatsächlich gesehene Anteil wird nicht mehr gezählt.
+- Android TV und Mobile öffnen die Wiedergabesitzung bei Bedarf, wenn sie beim Verlassen oder beim Wechsel zur nächsten Folge noch fehlt.
+- Wiedergaben, die über der Schwelle beendet und durch die alte Bedingung ungesehen blieben, werden einmalig mit Sicherheitsprüfungen nachgeholt.
+
 ## v1.28.171 — 22. November 2026
 
 ### Als gesehen markierte Folgen

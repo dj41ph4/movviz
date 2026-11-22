@@ -1,3 +1,11 @@
+## v1.28.172 — 22 november 2026
+
+### Gezien: het einddrempel halen is genoeg
+
+- Een aflevering of film wordt als gezien gemarkeerd zodra het afspelen de einddrempel bereikt (aftiteling of laatste seconden), ook na vooruitspoelen: het werkelijk bekeken deel telt niet meer mee.
+- Android TV en mobiel openen de afspeelsessie ter plekke als die nog ontbreekt bij het verlaten of doorgaan naar de volgende aflevering.
+- Afspeelacties die al voorbij de drempel waren gestopt en door de oude voorwaarde ongezien bleven, worden eenmalig bijgewerkt, met veiligheidscontroles.
+
 ## v1.28.171 — 22 november 2026
 
 ### Afleveringen als gezien gemarkeerd

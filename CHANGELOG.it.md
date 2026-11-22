@@ -1,3 +1,11 @@
+## v1.28.172 — 22 novembre 2026
+
+### Visto: basta raggiungere la soglia finale
+
+- Un episodio o un film è segnato come visto non appena la riproduzione raggiunge la soglia finale (titoli di coda o ultimi secondi), anche dopo aver avanzato nella barra: la quota realmente guardata non viene più contata.
+- Android TV e mobile aprono la sessione di riproduzione al volo se manca ancora quando si esce o si passa all’episodio successivo.
+- Le riproduzioni già interrotte oltre la soglia e rimaste non viste per la vecchia condizione vengono recuperate una sola volta, con controlli di sicurezza.
+
 ## v1.28.171 — 22 novembre 2026
 
 ### Episodi segnati come visti

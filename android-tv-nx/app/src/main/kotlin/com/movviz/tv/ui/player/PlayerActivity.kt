@@ -1232,7 +1232,22 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         onDispose {
             runCatching {
                 kotlinx.coroutines.runBlocking {
-                    val id = playbackSessionId
+                    var id = playbackSessionId
+                    // Quitté avant l'ouverture de la session (premier cycle de 10 s) :
+                    // on l'ouvre pour que le serveur juge la position de sortie.
+                    if (id == null) {
+                        val dur = timelineDur()
+                        val item = queue[currentIndex]
+                        if (dur > 0) id = repository.openPlaybackSession(
+                            ratingKey = item.ratingKey,
+                            durationMs = dur,
+                            tmdbId = tmdbId,
+                            title = item.label ?: mainTitle,
+                            mediaType = if (type == "series") "episode" else "movie",
+                            seasonNumber = item.seasonNumber.takeIf { type == "series" },
+                            episodeNumber = item.episodeNumber.takeIf { type == "series" },
+                        )?.sessionId
+                    }
                     // Only a natural end bypasses the shared server stop policy.
                     val shouldComplete = completeCurrentOnDispose
                     if (id != null) {

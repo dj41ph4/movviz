@@ -1,3 +1,11 @@
+## v1.28.172 — November 22, 2026
+
+### Watched: reaching the end threshold is enough
+
+- An episode or film is marked watched as soon as playback reaches its end threshold (credits or last seconds), even after scrubbing forward: the share actually watched is no longer counted.
+- Android TV and mobile open the playback session on the fly if it is still missing when leaving or moving to the next episode.
+- Playbacks already stopped past the threshold and left unwatched by the old condition are caught up once, with safeguards.
+
 ## v1.28.171 — November 22, 2026
 
 ### Episodes marked as watched

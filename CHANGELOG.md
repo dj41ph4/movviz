@@ -1,3 +1,11 @@
+## v1.28.172 — 22 novembre 2026
+
+### Vu : le seuil de fin suffit
+
+- Un épisode ou un film est marqué vu dès que la lecture atteint son seuil de fin (générique ou dernières secondes), même après avoir avancé dans la barre : la part réellement regardée n’est plus comptée.
+- Android TV et mobile ouvrent la session de lecture à la volée si elle manque encore en quittant ou en passant à l’épisode suivant.
+- Les lectures déjà arrêtées au-delà du seuil, restées non vues à cause de l’ancienne condition, sont rattrapées une seule fois, avec des garde-fous.
+
 ## v1.28.171 — 22 novembre 2026
 
 ### Épisodes marqués comme vus

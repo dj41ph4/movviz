@@ -76,23 +76,27 @@ test("épisode spécial long sans marqueur : même règle, pas de validation pr�
   assert.equal(play(session, 80 * MIN, 95 * MIN - 90_000).watched, true);
 });
 
-test("saut manuel vers la fin : ni le seuil, ni l'arrêt, ni la fin de lecture ne marquent vu", () => {
+test("saut manuel vers la fin : atteindre le seuil suffit, sans part de contenu regardé", () => {
   const { session } = open("movie", 120 * MIN);
   play(session, 0, 2 * MIN);
   applySeek(session.id, 119 * MIN);
-  assert.equal(play(session, 119 * MIN, 120 * MIN - 10_000).watched, false);
-  assert.equal(completePlayback(session.id).watched, false, "fin atteinte après un saut");
-  assert.equal(stopPlayback(session.id, 120 * MIN).watched, false);
+  assert.equal(play(session, 119 * MIN, 120 * MIN - 10_000).watched, true);
 });
 
-test("saut non signalé par le lecteur (détecté au battement) : même protection", () => {
+test("saut vers la fin puis arrêt : vu dès que la position a atteint le seuil", () => {
+  const { session } = open("episode", 40 * MIN);
+  play(session, 0, 2 * MIN);
+  applySeek(session.id, 39 * MIN);
+  assert.equal(stopPlayback(session.id, 39 * MIN).watched, true);
+});
+
+test("saut non signalé par le lecteur (détecté au battement) : même règle", () => {
   const { session } = open("episode", 40 * MIN);
   play(session, 0, 2 * MIN);
   const c = clocks.get(session.id)!;
   c.now += 10_000;
   applyHeartbeat(session.id, { sequence: ++c.seq, positionMs: 39 * MIN, isPlaying: true, nowMs: c.now });
-  play(session, 39 * MIN, 40 * MIN - 10_000);
-  assert.equal(completePlayback(session.id).watched, false);
+  assert.equal(completePlayback(session.id).watched, true);
 });
 
 test("revenir en arrière après un saut puis tout regarder : vu normalement", () => {
@@ -107,8 +111,8 @@ test("fin naturelle : reprise au milieu puis lecture jusqu'au bout", () => {
   const { session } = open("movie", 100 * MIN);
   applySeek(session.id, 70 * MIN);
   const p = play(session, 70 * MIN, 100 * MIN - 10_000);
-  assert.equal(p.watched, false, "30 % réellement vus : le seuil automatique ne suffit pas");
-  assert.equal(completePlayback(session.id).watched, true, "mais la lecture est arrivée à la fin");
+  assert.equal(p.watched, true, "reprise au milieu : le seuil atteint suffit");
+  assert.equal(completePlayback(session.id).watched, true);
 });
 
 test("actions explicites : épisode suivant et « Passer le générique » marquent vu immédiatement", () => {
@@ -176,11 +180,11 @@ test("seule une action explicite retire « Vu » : aucune source automatique", (
   assert.equal(getWatchStatus("guard")?.movies.includes(603), false, "« Marquer comme non vu » le retire");
 });
 
-test("canComplete : position ET 40 % réellement vus", () => {
+test("canComplete : la position seule décide, sans part de contenu regardé", () => {
   const d = 100 * MIN, b = d - 90_000;
-  assert.equal(canComplete(39 * MIN, b, b, d, "fallback"), false);
-  assert.equal(canComplete(40 * MIN, b, b, d, "fallback"), true);
-  assert.equal(canComplete(40 * MIN, b - 1, b, d, "fallback"), false);
+  assert.equal(canComplete(b, b), true);
+  assert.equal(canComplete(b - 1, b), false);
+  assert.equal(canComplete(b, null), false);
 });
 
 test("épisode d'anime : récap et intro passés, quitté pendant le générique → vu", () => {

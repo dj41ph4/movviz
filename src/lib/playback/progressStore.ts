@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { completionBoundaryMs, canComplete, endCreditsLengthMs, estimateCreditsLengthMs, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition, requiredWatchedMs, ENDED_BOUNDARY_TOLERANCE_MS, MIN_REAL_PLAYBACK_MS, type CompletionBoundarySource } from "./progressPolicy";
+import { completionBoundaryMs, canComplete, endCreditsLengthMs, estimateCreditsLengthMs, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition, ENDED_BOUNDARY_TOLERANCE_MS, MIN_REAL_PLAYBACK_MS, type CompletionBoundarySource } from "./progressPolicy";
 import { getPlaybackMarkers } from "./markers/store";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, syncPlaybackContext } from "@/lib/userContext/ingest";
@@ -68,9 +68,6 @@ export interface PlaybackSession {
   lastSequence: number;
   actualPlayedMs: number;
   seekPending: boolean;
-  /** The timeline was moved into the end zone: reaching the end from there
-   *  is not « watched to the end ». Cleared by a seek back out of it. */
-  soughtIntoEndZone?: boolean;
   durationMs: number;
   mediaType: "movie" | "episode";
   /** Play/pause state from the most recent heartbeat — set by applyHeartbeat().
@@ -87,6 +84,7 @@ interface PlaybackProgressStore {
   backfilledQuitWatchedV1?: boolean;
   backfilledEpisodeWatchedV2?: boolean;
   backfilledRealWatchRatioV3?: boolean;
+  backfilledPositionOnlyV4?: boolean;
   /** Open player sessions, kept on disk so they survive a server restart. */
   sessions?: Record<string, PlaybackSession>;
 }
@@ -191,7 +189,34 @@ function store(): PlaybackProgressStore {
     }
     writeJsonCached(FILE, loaded);
   }
+  if (!loaded.backfilledPositionOnlyV4) {
+    // Règle « atteindre le seuil suffit » (v1.28.172) : rattrape UNE fois ce que
+    // l'ancienne condition « 40 % réellement vus » ou une session absente avait
+    // laissé « non vu ». Prudent : durée plausible, seuil dans la seconde moitié,
+    // dernière position entre le seuil et la fin, au moins 5 min réellement
+    // jouées. Daté de la dernière lecture : un « non vu » demandé depuis l'emporte.
+    loaded.backfilledPositionOnlyV4 = true;
+    let fixed = 0;
+    for (const bucket of Object.values(loaded.byUser)) for (const p of Object.values(bucket)) {
+      if (!isBackfillableMissedWatch(p)) continue;
+      markPlaybackWatched(p, p.boundarySource, p.lastPlayedAt ?? p.updatedAt);
+      fixed++;
+    }
+    if (fixed > 0) console.log(`[playback] rattrapage « vu » : ${fixed} lecture(s) corrigée(s)`);
+    writeJsonCached(FILE, loaded);
+  }
   return (g.__movvizPlaybackProgress = loaded);
+}
+const BACKFILL_MIN_DURATION_MS = { episode: 5 * 60_000, movie: 20 * 60_000 } as const;
+const BACKFILL_MIN_PLAYED_MS = 5 * 60_000;
+function isBackfillableMissedWatch(p: PlaybackProgress): boolean {
+  if (p.watched || p.tmdbId == null || p.lastPlayedAt == null) return false;
+  if (p.mediaType === "episode" && (p.seasonNumber == null || p.episodeNumber == null)) return false;
+  const boundary = p.completionBoundaryMs;
+  if (boundary == null || !p.durationMs || p.durationMs < BACKFILL_MIN_DURATION_MS[p.mediaType]) return false;
+  if (boundary < p.durationMs * 0.5) return false;
+  if (p.lastPositionMs < boundary || p.lastPositionMs > p.durationMs + 60_000) return false;
+  return p.actualPlayedMs >= BACKFILL_MIN_PLAYED_MS;
 }
 function persist() { writeJsonCached(FILE, store()); }
 function id() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; }
@@ -225,15 +250,8 @@ function boundaryFor(ratingKey: string, mediaId: string | undefined, durationMs:
 
 function watchedContent(p: PlaybackProgress): number { return p.watchedContentMs ?? p.actualPlayedMs; }
 function reachedCompletion(p: PlaybackProgress, positionMs: number): boolean {
-  return canComplete(watchedContent(p), positionMs, p.completionBoundaryMs, p.durationMs, p.boundarySource);
+  return canComplete(positionMs, p.completionBoundaryMs);
 }
-/** A manual jump into the end zone, by someone who has not really watched the content. */
-function isEndZoneJump(p: PlaybackProgress, positionMs: number): boolean {
-  if (p.completionBoundaryMs == null) return false;
-  return positionMs >= p.completionBoundaryMs - ENDED_BOUNDARY_TOLERANCE_MS
-    && watchedContent(p) < requiredWatchedMs(p.durationMs, p.completionBoundaryMs, p.boundarySource);
-}
-
 function ensure(userId: string, ratingKey: string, input: { mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string }): PlaybackProgress {
   if (input.mediaType === "episode" && (input.tmdbId == null || input.seasonNumber == null || input.episodeNumber == null)) {
     const found = resolvePlaybackEpisode(ratingKey, input.mediaId);
@@ -458,7 +476,6 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
   const advancedMs = realPlayback ? Math.max(0, input.positionMs - session.lastPositionMs) : 0;
   if (realPlayback) session.actualPlayedMs += Math.min(elapsed, 30_000);
   // A player that does not report its seeks still shows them as a jump.
-  if (!plausible && !p0.watched) session.soughtIntoEndZone = isEndZoneJump(p0, input.positionMs);
   session.seekPending = false; session.lastSequence = input.sequence; session.lastHeartbeatAt = now; session.lastPositionMs = Math.max(0, input.positionMs); session.lastIsPlaying = input.isPlaying;
    const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.watchedContentMs = watchedContent(p) + advancedMs; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
    if (!p.watched && p.actualPlayedMs >= MIN_REAL_PLAYBACK_MS) {
@@ -482,7 +499,6 @@ export function applySeek(sessionId: string, positionMs: number): PlaybackProgre
   const session = getPlaybackSession(sessionId); if (!session) throw new Error("session_not_found");
   session.seekPending = true; session.lastPositionMs = Math.max(0, positionMs); session.lastHeartbeatAt = Date.now();
   const p = get(session.userId, session.ratingKey, session.mediaId)!;
-  session.soughtIntoEndZone = !p.watched && isEndZoneJump(p, session.lastPositionMs);
   p.lastPositionMs = session.lastPositionMs; p.updatedAt = Date.now(); p.revision++; persist(); syncPlaybackContext(p); return p;
 }
 
@@ -490,18 +506,19 @@ export function applyMarkerSkip(sessionId: string, positionMs: number, markerTyp
   const session = getPlaybackSession(sessionId); if (!session) throw new Error("session_not_found");
   const p = applySeek(sessionId, positionMs);
   // « Passer le générique » is an explicit « I am done »: film or episode.
-  if (markerType === "credits") { session.soughtIntoEndZone = false; if (!p.watched) markPlaybackWatched(p, "explicit"); }
+  if (markerType === "credits") { if (!p.watched) markPlaybackWatched(p, "explicit"); }
   persist(); return p;
 }
 
-export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBoundarySource = "ended"): PlaybackProgress {
+/** [at] : date réelle de la lecture, pour un rattrapage — un « non vu » demandé depuis par l'utilisateur, plus récent, l'emporte alors. */
+export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBoundarySource = "ended", at?: number): PlaybackProgress {
   if (p.watched) return p;
-  p.watched = true; p.watchedAt = Date.now(); p.resumeOffsetMs = null; p.eligibleForResume = false; p.boundarySource = source; p.updatedAt = Date.now(); p.revision++;
-  if (p.mediaType === "movie" && p.tmdbId != null) setWatchedMovies(p.userId, [p.tmdbId], true, p.title ?? "", undefined, "movviz_playback");
+  p.watched = true; p.watchedAt = at ?? Date.now(); p.resumeOffsetMs = null; p.eligibleForResume = false; p.boundarySource = source; p.updatedAt = Date.now(); p.revision++;
+  if (p.mediaType === "movie" && p.tmdbId != null) setWatchedMovies(p.userId, [p.tmdbId], true, p.title ?? "", at, "movviz_playback");
   if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) {
     const series = getSeriesByTmdbId(p.tmdbId);
     const episodeNumbers = series ? combinedEpisodePeers(series, p.seasonNumber, p.episodeNumber) : [p.episodeNumber];
-    setWatchedEpisodes(p.userId, episodeNumbers.map((episode) => ({ tmdbId: p.tmdbId!, season: p.seasonNumber!, episode })), true, p.title ?? "", "movviz_playback");
+    setWatchedEpisodes(p.userId, episodeNumbers.map((episode) => ({ tmdbId: p.tmdbId!, season: p.seasonNumber!, episode, watchedAt: at })), true, p.title ?? "", "movviz_playback");
     if (episodeNumbers.length > 1) {
       // store() can call markPlaybackWatched during its one-time backfill;
       // reading the already-loaded global avoids re-entering that load.
@@ -527,10 +544,6 @@ export function completePlayback(sessionId: string, reason?: PlaybackExplicitRea
   const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found");
   const p = get(s.userId, s.ratingKey, s.mediaId)!;
   if (reason === "next_episode") { markPlaybackWatched(p, "explicit"); persist(); return p; }
-  if (!p.watched && s.soughtIntoEndZone) {
-    console.log("[playback] fin atteinte après un saut manuel vers la fin — non marqué vu");
-    return p;
-  }
   if (!p.watched && !isCredibleEnd(s.lastPositionMs, p.completionBoundaryMs)) {
     console.log(`[playback] fin reçue à ${Math.round(s.lastPositionMs / 1000)}s, loin de la fin (${Math.round((p.completionBoundaryMs ?? 0) / 1000)}s) — non marqué vu`);
     return p;

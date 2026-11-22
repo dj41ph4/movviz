@@ -881,6 +881,7 @@ ExoPlayer.Builder(context)
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
         val outgoingPosition = timelinePos()
+        val outgoingDuration = timelineDur()
         // Manual transitions use the server's shared completion policy.
         playbackSessionId = null
         completeCurrentOnDispose = false
@@ -888,7 +889,22 @@ ExoPlayer.Builder(context)
         exoPlayer.clearMediaItems()
         scope.launch {
             if (markOutgoingWatched) {
-                outgoingSession?.let { repository.playbackEnded(it, explicitNext) }
+                // Session pas encore ouverte (premier cycle de 10 s, ou échec
+                // d'ouverture) : on l'ouvre à la volée, avec la position réelle.
+                var sessionId = outgoingSession
+                if (sessionId == null && outgoingDuration > 0) {
+                    sessionId = repository.openPlaybackSession(
+                        ratingKey = outgoing.ratingKey,
+                        durationMs = outgoingDuration,
+                        tmdbId = tmdbId,
+                        title = outgoing.label ?: mainTitle,
+                        mediaType = if (type == "series") "episode" else "movie",
+                        seasonNumber = outgoing.seasonNumber.takeIf { type == "series" },
+                        episodeNumber = outgoing.episodeNumber.takeIf { type == "series" },
+                    )?.sessionId
+                    if (sessionId != null) repository.playbackHeartbeat(sessionId, 1L, outgoingPosition, false)
+                }
+                sessionId?.let { repository.playbackEnded(it, explicitNext) }
             } else {
                 outgoingSession?.let { repository.playbackStop(it, outgoingPosition) }
                 repository.reportStop(outgoing.ratingKey)
@@ -1199,7 +1215,22 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         onDispose {
             runCatching {
                 kotlinx.coroutines.runBlocking {
-                    val id = playbackSessionId
+                    var id = playbackSessionId
+                    // Quitté avant l'ouverture de la session (premier cycle de 10 s) :
+                    // on l'ouvre pour que le serveur juge la position de sortie.
+                    if (id == null) {
+                        val dur = timelineDur()
+                        val item = queue[currentIndex]
+                        if (dur > 0) id = repository.openPlaybackSession(
+                            ratingKey = item.ratingKey,
+                            durationMs = dur,
+                            tmdbId = tmdbId,
+                            title = item.label ?: mainTitle,
+                            mediaType = if (type == "series") "episode" else "movie",
+                            seasonNumber = item.seasonNumber.takeIf { type == "series" },
+                            episodeNumber = item.episodeNumber.takeIf { type == "series" },
+                        )?.sessionId
+                    }
                     // Covers system-initiated Activity teardown too (not only
                     // our Back/Retour callback): credits must not resurrect a
                     // Continue Watching card.

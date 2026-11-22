@@ -5,12 +5,6 @@ export const MAX_HEARTBEAT_INTERVAL_MS = 30_000;
 export const FALLBACK_REMAINING_RATIO = 0.03;
 export const FALLBACK_MIN_REMAINING_MS = 30_000;
 export const FALLBACK_MAX_REMAINING_MS = 90_000;
-/** Share of the content that must really have been played (not sought past).
- *  40 %, not 85 %: a skipped recap + intro, a few ±10 s jumps and the beats
- *  lost around each seek easily cost 15 % of an anime episode, and episodes
- *  watched to their credits stayed « not watched » (2026-11-11). The share
- *  only has to rule out « jumped straight to the end ». */
-export const REAL_WATCH_RATIO = 0.4;
 /** A « credits » marker in the first half is an opening sequence, not the end. */
 const CREDITS_MIN_START_RATIO = 0.5;
 /** Sibling-episode estimate: enough samples, tightly grouped, never a large slice. */
@@ -95,21 +89,14 @@ export function isPlausiblePlaybackAdvance(
   return delta <= allowed;
 }
 
-/** Real playback required before a position-based completion: 40 % of the
- *  content — the whole runtime without a marker, what precedes the credits
- *  with one. */
-export function requiredWatchedMs(durationMs: number, boundaryMs: number | null, source: CompletionBoundarySource): number {
-  const content = source === "plex_final_credits" || source === "plex_credits" ? (boundaryMs ?? durationMs) : durationMs;
-  return Math.max(Math.min(MIN_REAL_PLAYBACK_MS, content), Math.round(content * REAL_WATCH_RATIO));
-}
-
 /**
- * Automatic completion: the position passed the boundary AND the content was
- * really played. Jumping into the end zone on the timeline never satisfies it.
+ * Automatic completion: the position reached the boundary. Nothing else counts:
+ * not the share of the content really played, nor how the position was
+ * reached (a seek into the end zone included) — reaching the threshold is
+ * « watched ».
  */
-export function canComplete(watchedMs: number, positionMs: number, boundaryMs: number | null, durationMs: number, source: CompletionBoundarySource): boolean {
-  if (boundaryMs == null || positionMs < boundaryMs) return false;
-  return watchedMs >= requiredWatchedMs(durationMs, boundaryMs, source);
+export function canComplete(positionMs: number, boundaryMs: number | null): boolean {
+  return boundaryMs != null && positionMs >= boundaryMs;
 }
 
 export const NEAR_START_MS = 10_000;

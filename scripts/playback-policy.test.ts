@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canComplete, completionBoundaryMs, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition, MIN_REAL_PLAYBACK_MS } from "../src/lib/playback/progressPolicy.ts";
+import { canComplete, completionBoundaryMs, isCredibleEnd, isPlausiblePlaybackAdvance, isSpuriousRestartPosition } from "../src/lib/playback/progressPolicy.ts";
 
 test("fallback leaves 3 % of the runtime, capped at 90 s, for a feature film", () => {
   const result = completionBoundaryMs(7_200_000, [], "movie");
@@ -22,10 +22,10 @@ test("a seek-sized jump is not plausible playback", () => {
   assert.equal(isPlausiblePlaybackAdvance(10_000, 20_000, 10_000, 1), true);
 });
 
-test("completion requires 40 % of the content really played", () => {
-  assert.equal(canComplete(MIN_REAL_PLAYBACK_MS, 7_110_000, 7_110_000, 7_200_000, "fallback"), false);
-  assert.equal(canComplete(2_880_000 - 1, 7_110_000, 7_110_000, 7_200_000, "fallback"), false);
-  assert.equal(canComplete(2_880_000, 7_110_000, 7_110_000, 7_200_000, "fallback"), true);
+test("completion only needs the position to reach the boundary", () => {
+  assert.equal(canComplete(7_110_000 - 1, 7_110_000), false);
+  assert.equal(canComplete(7_110_000, 7_110_000), true);
+  assert.equal(canComplete(7_110_000, null), false);
 });
 
 test("episodes follow their end-credits marker, no longer a fixed 80 %", () => {
@@ -33,8 +33,8 @@ test("episodes follow their end-credits marker, no longer a fixed 80 %", () => {
     { type: "credits", startMs: 1_380_000, endMs: 1_440_000, final: true },
   ], "episode");
   assert.equal(boundaryMs, 1_380_000);
-  assert.equal(canComplete(1_300_000, 1_379_999, boundaryMs, 1_440_000, source), false);
-  assert.equal(canComplete(1_300_000, 1_380_000, boundaryMs, 1_440_000, source), true);
+  assert.equal(canComplete(1_379_999, boundaryMs), false);
+  assert.equal(canComplete(1_380_000, boundaryMs), true);
   // Without a marker: 3 % of 24 min = 43.2 s before the end.
   assert.equal(completionBoundaryMs(1_440_000, [], "episode").boundaryMs, 1_396_800);
 });
