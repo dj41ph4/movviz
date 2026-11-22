@@ -1,3 +1,9 @@
+## v1.28.171 — 22 novembre 2026
+
+### Episodi segnati come visti
+
+- Passare all’episodio successivo segna ora sempre come visto l’episodio che lasci, sul web e su Android TV, anche se passi molto in fretta o poco prima della fine.
+
 ## v1.28.170 — 18 novembre 2026
 
 ### Browser mobile e riproduzione su iPhone

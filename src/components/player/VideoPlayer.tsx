@@ -241,6 +241,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const localEngineSubtitleTracksRef = useRef<{ index: number }[]>([]);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackSessionRef = useRef<string | null>(null);
+  // « Épisode suivant » demandé : le /stop du démontage porte la même raison, car
+  // /ended et /stop partent ensemble et /stop supprime la session — s'il passe
+  // en premier, /ended reçoit 404 et l'épisode n'était jamais marqué vu.
+  const nextEpisodeRequestedRef = useRef(false);
   const playbackSequenceRef = useRef(0);
   /** Last movie position read from a <video> really carrying a stream —
    *  what closing the player reports once the stream is gone (error,
@@ -1928,7 +1932,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     }).then((r) => r.ok ? r.json() : null).then((data: { sessionId?: string; resumeOffsetMs?: number | null; watched?: boolean } | null) => {
       if (!data?.sessionId) return begin();
       sessionReady = true;
-      playbackSessionRef.current = data.sessionId;
+      playbackSessionRef.current = data.sessionId; nextEpisodeRequestedRef.current = false;
       const saved = Number(data.resumeOffsetMs);
       const explicitResume = Number(resumeFromSeconds);
       if (!startFromBeginning && Number.isFinite(explicitResume) && explicitResume > 0) {
@@ -2038,7 +2042,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           keepalive: true,
         }).catch(() => void 0);
         const sessionId = playbackSessionRef.current;
-        if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/stop`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(positionMs === null ? {} : { positionMs }), keepalive: true }).catch(() => void 0);
+        if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/stop`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...(positionMs === null ? {} : { positionMs }), ...(nextEpisodeRequestedRef.current ? { reason: "next_episode" } : {}) }), keepalive: true }).catch(() => void 0);
       } catch { /* ignore */ }
       if (mseEngineRef.current) {
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
@@ -2728,6 +2732,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // l'épisode quitté est terminé pour l'utilisateur, le serveur le marque vu.
   const goNextEpisode = () => {
     const sessionId = playbackSessionRef.current;
+    nextEpisodeRequestedRef.current = true;
     if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/ended`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: "next_episode" }), keepalive: true }).catch(() => void 0);
     onNextEpisodeRef.current?.();
   };

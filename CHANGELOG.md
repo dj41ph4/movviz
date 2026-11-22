@@ -1,3 +1,9 @@
+## v1.28.171 — 22 novembre 2026
+
+### Épisodes marqués comme vus
+
+- Passer à l’épisode suivant marque désormais toujours l’épisode quitté comme vu, sur le web comme sur Android TV, même en enchaînant très vite ou juste avant la fin.
+
 ## v1.28.170 — 18 novembre 2026
 
 ### Navigateur mobile et lecture sur iPhone

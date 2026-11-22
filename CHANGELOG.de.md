@@ -1,3 +1,9 @@
+## v1.28.171 — 22. November 2026
+
+### Als gesehen markierte Folgen
+
+- Der Wechsel zur nächsten Folge markiert die verlassene Folge jetzt immer als gesehen, im Web wie auf Android TV, auch wenn du sehr schnell oder kurz vor dem Ende weiterschaltest.
+
 ## v1.28.170 — 18. November 2026
 
 ### Mobiler Browser und Wiedergabe auf dem iPhone

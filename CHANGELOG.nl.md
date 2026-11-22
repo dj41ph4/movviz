@@ -1,3 +1,9 @@
+## v1.28.171 — 22 november 2026
+
+### Afleveringen als gezien gemarkeerd
+
+- Doorgaan naar de volgende aflevering markeert de aflevering die je verlaat nu altijd als gezien, op het web en op Android TV, ook als je heel snel of vlak voor het einde doorgaat.
+
 ## v1.28.170 — 18 november 2026
 
 ### Mobiele browser en afspelen op iPhone

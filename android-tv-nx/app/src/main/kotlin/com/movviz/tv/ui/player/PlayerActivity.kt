@@ -846,14 +846,33 @@ ExoPlayer.Builder(context)
         val outgoing = queue[currentIndex]
         val outgoingSession = playbackSessionId
         val outgoingPosition = timelinePos()
+        val outgoingDuration = timelineDur()
         // Manual transitions use the server's shared completion policy.
         playbackSessionId = null
         completeCurrentOnDispose = false
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         scope.launch {
-            if (markOutgoingWatched) outgoingSession?.let { repository.playbackEnded(it, explicitNext) }
-            else {
+            if (markOutgoingWatched) {
+                // La session d'un épisode local n'est ouverte qu'au premier cycle de
+                // progression (10 s) : enchaîner avant, ou après un échec d'ouverture,
+                // laissait l'épisode quitté sans session — jamais marqué vu. On
+                // l'ouvre alors à la volée, avec la position réelle, avant de conclure.
+                var sessionId = outgoingSession
+                if (sessionId == null && outgoingDuration > 0) {
+                    sessionId = repository.openPlaybackSession(
+                        ratingKey = outgoing.ratingKey,
+                        durationMs = outgoingDuration,
+                        tmdbId = tmdbId,
+                        title = outgoing.label ?: mainTitle,
+                        mediaType = if (type == "series") "episode" else "movie",
+                        seasonNumber = outgoing.seasonNumber.takeIf { type == "series" },
+                        episodeNumber = outgoing.episodeNumber.takeIf { type == "series" },
+                    )?.sessionId
+                    if (sessionId != null) repository.playbackHeartbeat(sessionId, 1L, outgoingPosition, false)
+                }
+                sessionId?.let { repository.playbackEnded(it, explicitNext) }
+            } else {
                 outgoingSession?.let { repository.playbackStop(it, outgoingPosition) }
                 repository.reportStop(outgoing.ratingKey)
             }

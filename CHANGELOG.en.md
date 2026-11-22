@@ -1,3 +1,9 @@
+## v1.28.171 — November 22, 2026
+
+### Episodes marked as watched
+
+- Moving to the next episode now always marks the episode you leave as watched, on the web and on Android TV, even when you move on quickly or just before the end.
+
 ## v1.28.170 — November 18, 2026
 
 ### Mobile browser and iPhone playback
