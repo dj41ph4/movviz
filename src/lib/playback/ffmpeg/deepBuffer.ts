@@ -12,6 +12,8 @@
  * `video.src` — voir FfmpegRemuxEngine.
  */
 
+import { sleep } from "../keepAlive";
+
 const FORWARD_MAX_SEC = 90;
 const FORWARD_MIN_SEC = 20;
 /** Part du tampon confiée au SourceBuffer, sous le quota du navigateur. */
@@ -452,8 +454,9 @@ export class DeepBufferFeed {
   private waitChange(ms: number): Promise<void> {
     return new Promise((resolve) => {
       const previous = this.wake;
-      const t = setTimeout(() => { if (this.wake === done) this.wake = null; resolve(); }, ms);
-      const done = () => { clearTimeout(t); previous?.(); resolve(); };
+      // Minuterie du Worker : une page cachée (jeu en plein écran) ne la ralentit pas.
+      void sleep(ms).then(() => { if (this.wake === done) this.wake = null; resolve(); });
+      const done = () => { previous?.(); resolve(); };
       this.wake = done;
     });
   }
@@ -495,7 +498,7 @@ export class DeepBufferFeed {
         const ahead = this.ahead();
         if (ahead < 1) throw e;
         this.quotaLimitSec = Math.max(4, ahead * 0.7);
-        while (!this.stopped && this.ahead() > this.quotaLimitSec) await new Promise((r) => setTimeout(r, 400));
+        while (!this.stopped && this.ahead() > this.quotaLimitSec) await sleep(400);
         if (this.stopped) return;
       }
     }
@@ -551,7 +554,7 @@ export class DeepBufferFeed {
         }
         const limit = this.forwardLimit();
         if (this.ahead() > limit) {
-          while (!this.stopped && !this.jump && this.ahead() > limit * 0.85) await new Promise((r) => setTimeout(r, 400));
+          while (!this.stopped && !this.jump && this.ahead() > limit * 0.85) await sleep(400);
           continue;
         }
         const frag = this.reserve.shift();
@@ -560,7 +563,7 @@ export class DeepBufferFeed {
             // Tout ce qui est déjà reçu se joue avant de relancer le flux.
             const range = this.bufferedRange();
             if (!range || range[1] - this.video.currentTime < 1) return this.fail(this.readerError, "network");
-            await new Promise((r) => setTimeout(r, 500));
+            await sleep(500);
             continue;
           }
           if (this.readerDone) break;

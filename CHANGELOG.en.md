@@ -1,3 +1,10 @@
+## v1.28.174 — November 24, 2026
+
+### Playback: buffer no longer slows down when the window is hidden
+
+- When the movie window is hidden (full-screen game on another screen, background tab), the browser slows down page timers and buffer filling could fall behind. The deep buffer waits now go through a Web Worker, which the browser does not slow down.
+- The player also holds a Web Locks lock during playback, which stops the browser from freezing the page in the background. No effect on browsers that do not support them.
+
 ## v1.28.173 — November 23, 2026
 
 ### Android: "Watched" finally reaches the server

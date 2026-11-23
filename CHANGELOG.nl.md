@@ -1,3 +1,10 @@
+## v1.28.174 — 24 november 2026
+
+### Afspelen: buffer vertraagt niet meer bij verborgen venster
+
+- Als het filmvenster verborgen is (volledig scherm game op het andere scherm, tabblad op de achtergrond), vertraagt de browser de timers van de pagina en kon het vullen van de buffer achterop raken. De wachttijden van de diepe buffer lopen nu via een Web Worker, die de browser niet vertraagt.
+- De speler houdt tijdens het afspelen ook een Web Locks-vergrendeling vast, waardoor de browser de pagina niet bevriest op de achtergrond. Geen effect in browsers die ze niet ondersteunen.
+
 ## v1.28.173 — 23 november 2026
 
 ### Android: „Gezien” bereikt eindelijk de server

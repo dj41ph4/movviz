@@ -33,6 +33,7 @@ import { PROGRESS_STORAGE_KEY } from "@/lib/player/watchProgress";
 import { detectDesktopClientProfile } from "@/lib/playback/engine/clientProfile.detect";
 import { getOrCreateDeviceId } from "@/lib/playback/engine/deviceId";
 import { usePlaybackTelemetry } from "@/lib/playback/usePlaybackTelemetry";
+import { usePlaybackKeepAlive } from "@/lib/playback/keepAlive";
 import { isAppleMobile, pictureInPictureMode, type WebKitVideo } from "@/lib/player/pictureInPicture";
 import { toast } from "@/components/ui/Toast";
 
@@ -347,7 +348,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const telemetryModeRef = useRef<string>("DIRECT");
   // Suffixe « +tampon » : flux lu avec le tampon profond (MSE) plutôt qu'en natif.
   telemetryModeRef.current = (localEnginePlanInfo?.mode ?? (hlsRef.current ? "HLS" : ffmpegActiveRef.current ? "FFMPEG" : mseEngineRef.current ? "MSE" : "DIRECT")) + (ffmpegEngineRef.current?.deepBuffered ? "+tampon" : "");
-  usePlaybackTelemetry(videoRef, () => telemetryModeRef.current, () => playbackSessionRef.current, () => ffmpegEngineRef.current?.reserveSeconds ?? 0);
+  usePlaybackKeepAlive();
+  usePlaybackTelemetry(videoRef,() => telemetryModeRef.current, () => playbackSessionRef.current, () => ffmpegEngineRef.current?.reserveSeconds ?? 0);
   /** Size of the picture really decoded — the quality shown on the progress bar. */
   const [frameSize, setFrameSize] = useState<{ width: number; height: number } | null>(null);
   /** Dynamic range of the source, known from the local engine's probe. */

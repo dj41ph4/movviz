@@ -1,3 +1,10 @@
+## v1.28.174 — 24 novembre 2026
+
+### Riproduzione: il buffer non rallenta più con la finestra nascosta
+
+- Quando la finestra del film è nascosta (gioco a schermo intero sull’altro schermo, scheda in secondo piano), il browser rallenta i timer della pagina e il riempimento del buffer poteva restare indietro. Le attese del buffer profondo passano ora da un Web Worker, che il browser non rallenta.
+- Il lettore mantiene inoltre un blocco Web Locks durante la riproduzione, che impedisce al browser di congelare la pagina in secondo piano. Nessun effetto sui browser che non li supportano.
+
 ## v1.28.173 — 23 novembre 2026
 
 ### Android: « Visto » arriva finalmente al server

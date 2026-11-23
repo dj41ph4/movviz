@@ -1,3 +1,10 @@
+## v1.28.174 — 24. November 2026
+
+### Wiedergabe: Puffer wird bei verstecktem Fenster nicht mehr langsamer
+
+- Ist das Filmfenster verdeckt (Vollbildspiel auf dem anderen Bildschirm, Tab im Hintergrund), drosselt der Browser die Timer der Seite und das Füllen des Puffers konnte ins Hintertreffen geraten. Die Wartezeiten des tiefen Puffers laufen jetzt über einen Web Worker, den der Browser nicht drosselt.
+- Der Player hält zusätzlich während der Wiedergabe eine Web-Locks-Sperre, die verhindert, dass der Browser die Seite im Hintergrund einfriert. Ohne Wirkung in Browsern, die sie nicht unterstützen.
+
 ## v1.28.173 — 23. November 2026
 
 ### Android: „Gesehen“ erreicht endlich den Server

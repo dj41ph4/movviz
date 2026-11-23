@@ -15,6 +15,7 @@
  */
 
 import { DeepBufferFeed, deepBufferSupported } from "./deepBuffer";
+import { sleep } from "../keepAlive";
 
 /** Secondes de tampon à réunir avant de lancer la lecture (chemin tampon profond). */
 const START_BUFFER_SEC = 12;
@@ -243,7 +244,7 @@ export class FfmpegRemuxEngine {
           }
         }
         if (ahead >= START_BUFFER_SEC || (reachesEnd && ahead > 0)) break;
-        await new Promise<void>((resolve) => setTimeout(resolve, 200));
+        await sleep(200);
       }
     } finally {
       if (seq === this._loadSeq) this.startGate = false;

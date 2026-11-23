@@ -1,3 +1,10 @@
+## v1.28.174 — 24 novembre 2026
+
+### Lecture : tampon qui ne ralentit plus quand la fenêtre est cachée
+
+- Quand la fenêtre du film est cachée (jeu en plein écran sur l’autre écran, onglet en arrière-plan), le navigateur ralentit les minuteries de la page et le remplissage du tampon pouvait prendre du retard. Les attentes du tampon profond passent désormais par un Web Worker, que le navigateur ne ralentit pas.
+- Le lecteur tient en plus un verrou Web Locks pendant la lecture, ce qui empêche le navigateur de geler la page en arrière-plan. Sans effet sur les navigateurs qui ne les gèrent pas.
+
 ## v1.28.173 — 23 novembre 2026
 
 ### Android : « Vu » enfin transmis au serveur
