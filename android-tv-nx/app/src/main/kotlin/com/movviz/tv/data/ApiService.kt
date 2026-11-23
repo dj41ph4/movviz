@@ -167,13 +167,13 @@ interface MovvizApiService {
     suspend fun playbackHeartbeat(@Path("sessionId") sessionId: String, @Body body: PlaybackHeartbeatRequest): Response<Map<String, Any?>>
 
     @POST("api/playback/sessions/{sessionId}/seek")
-    suspend fun playbackSeek(@Path("sessionId") sessionId: String, @Body body: Map<String, Any?>): Response<Map<String, Any?>>
+    suspend fun playbackSeek(@Path("sessionId") sessionId: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): Response<Map<String, Any?>>
 
     @POST("api/playback/sessions/{sessionId}/stop")
-    suspend fun playbackStop(@Path("sessionId") sessionId: String, @Body body: Map<String, Any?> = emptyMap()): Response<Map<String, Any?>>
+    suspend fun playbackStop(@Path("sessionId") sessionId: String, @Body body: Map<String, @JvmSuppressWildcards Any?> = emptyMap()): Response<Map<String, Any?>>
 
     @POST("api/playback/sessions/{sessionId}/ended")
-    suspend fun playbackEnded(@Path("sessionId") sessionId: String, @Body body: Map<String, Any?> = emptyMap()): Response<Map<String, Any?>>
+    suspend fun playbackEnded(@Path("sessionId") sessionId: String, @Body body: Map<String, @JvmSuppressWildcards Any?> = emptyMap()): Response<Map<String, Any?>>
 
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>
@@ -344,5 +344,5 @@ interface MovvizApiService {
     suspend fun aiChat(@Body body: AiChatRequestDto): Response<AiChatResponseDto>
 
     @POST("api/ai/session")
-    suspend fun aiClearSession(@Body body: Map<String, Any>): Response<Map<String, Any?>>
+    suspend fun aiClearSession(@Body body: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, Any?>>
 }

@@ -350,13 +350,13 @@ class MovvizRepository(private val baseUrl: String) {
     }
 
     suspend fun playbackStop(sessionId: String, positionMs: Long) {
-        runCatching { api.playbackStop(sessionId, mapOf("positionMs" to positionMs.coerceAtLeast(0))) }
+        runCatching { api.playbackStop(sessionId, mapOf("positionMs" to positionMs.coerceAtLeast(0))) }.onFailure { android.util.Log.e("MovvizPlayback", "playbackStop failed", it) }
     }
 
     /** [explicitNext] : « Épisode suivant » demandé — le serveur marque vu
      *  sans condition ; sinon c'est une fin naturelle, qu'il vérifie. */
     suspend fun playbackEnded(sessionId: String, explicitNext: Boolean = false) {
-        runCatching { api.playbackEnded(sessionId, if (explicitNext) mapOf("reason" to "next_episode") else emptyMap()) }
+        runCatching { api.playbackEnded(sessionId, if (explicitNext) mapOf("reason" to "next_episode") else emptyMap()) }.onFailure { android.util.Log.e("MovvizPlayback", "playbackEnded failed", it) }
     }
 
     /** Position de reprise (ms) — l'entrée on-deck expose désormais offsetMs

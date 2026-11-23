@@ -1,3 +1,10 @@
+## v1.28.173 — 23 novembre 2026
+
+### Android: « Visto » arriva finalmente al server
+
+- Android TV e mobile inviano ora davvero arresto, fine episodio e salti al server: finora queste richieste venivano rifiutate dall’app prima di partire, lasciando episodi e film non visti uscendo dal lettore o passando all’episodio successivo.
+- Gli errori di invio sono ora registrati su Android TV per la diagnosi.
+
 ## v1.28.172 — 22 novembre 2026
 
 ### Visto: basta raggiungere la soglia finale

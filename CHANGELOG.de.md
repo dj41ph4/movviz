@@ -1,3 +1,10 @@
+## v1.28.173 — 23. November 2026
+
+### Android: „Gesehen“ erreicht endlich den Server
+
+- Android TV und Mobile senden Stopp, Folgenende und Sprünge jetzt wirklich an den Server: bisher wurden diese Anfragen von der App verworfen, bevor sie gesendet wurden, sodass Folgen und Filme beim Verlassen des Players oder beim Wechsel zur nächsten Folge ungesehen blieben.
+- Sendefehler werden auf Android TV jetzt zur Diagnose protokolliert.
+
 ## v1.28.172 — 22. November 2026
 
 ### Gesehen: Das Erreichen der Endschwelle genügt

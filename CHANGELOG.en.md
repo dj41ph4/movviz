@@ -1,3 +1,10 @@
+## v1.28.173 — November 23, 2026
+
+### Android: "Watched" finally reaches the server
+
+- Android TV and mobile now really send stop, end-of-episode and seek events to the server: until now these requests were rejected by the app before being sent, leaving episodes and films unwatched when leaving the player or moving to the next episode.
+- Send failures are now logged on Android TV for diagnosis.
+
 ## v1.28.172 — November 22, 2026
 
 ### Watched: reaching the end threshold is enough

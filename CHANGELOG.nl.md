@@ -1,3 +1,10 @@
+## v1.28.173 — 23 november 2026
+
+### Android: „Gezien” bereikt eindelijk de server
+
+- Android TV en mobiel sturen stoppen, einde van een aflevering en sprongen nu echt naar de server: tot nu toe werden die verzoeken door de app geweigerd voordat ze werden verzonden, waardoor afleveringen en films ongezien bleven bij het verlaten van de speler of doorgaan naar de volgende aflevering.
+- Verzendfouten worden nu op Android TV gelogd voor diagnose.
+
 ## v1.28.172 — 22 november 2026
 
 ### Gezien: het einddrempel halen is genoeg

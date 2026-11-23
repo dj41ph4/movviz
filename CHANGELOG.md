@@ -1,3 +1,10 @@
+## v1.28.173 — 23 novembre 2026
+
+### Android : « Vu » enfin transmis au serveur
+
+- Android TV et mobile envoient désormais réellement l’arrêt, la fin d’épisode et les sauts de lecture au serveur : jusqu’ici ces requêtes étaient rejetées par l’application avant de partir, ce qui laissait épisodes et films non vus en quittant le lecteur ou en passant à l’épisode suivant.
+- Les échecs d’envoi sont désormais journalisés côté Android TV pour être diagnostiqués.
+
 ## v1.28.172 — 22 novembre 2026
 
 ### Vu : le seuil de fin suffit
