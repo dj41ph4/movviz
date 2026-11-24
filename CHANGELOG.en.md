@@ -1,3 +1,9 @@
+## v1.28.175 — November 24, 2026
+
+### Diagnostics: reason for the playback mode
+
+- Every server stream start now records the reasons behind the playback plan (unsupported video or audio codec, resolution, etc.) in the `/api/perf` telemetry and in the server log. This shows exactly why a device, for example an iPhone, asks for a transcode.
+
 ## v1.28.174 — November 24, 2026
 
 ### Playback: buffer no longer slows down when the window is hidden

@@ -1,3 +1,9 @@
+## v1.28.175 — 24 novembre 2026
+
+### Diagnostic : raison du mode de lecture
+
+- Chaque démarrage de flux serveur enregistre maintenant les raisons du plan de lecture (codec vidéo ou audio non pris en charge, résolution, etc.), dans la télémétrie de `/api/perf` et dans le journal serveur. Cela permet de voir exactement pourquoi un appareil, par exemple un iPhone, demande un transcodage.
+
 ## v1.28.174 — 24 novembre 2026
 
 ### Lecture : tampon qui ne ralentit plus quand la fenêtre est cachée

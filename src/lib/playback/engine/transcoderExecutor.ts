@@ -464,7 +464,7 @@ export function startTranscoderSession(
   }
 
   const bin = resolveFfmpegBinary();
-  console.log(`[transcoder] start ${key} — mode=${plan.mode} video=${plan.videoAction}${needsVideoTranscode ? `(${plan.videoEncoderImpl ?? "?"})` : ""} audio=${plan.audioAction} subtitle=${plan.subtitleAction} seek=${seekSec}s`);
+  console.log(`[transcoder] start ${key} — mode=${plan.mode} video=${plan.videoAction}${needsVideoTranscode ? `(${plan.videoEncoderImpl ?? "?"})` : ""} audio=${plan.audioAction} subtitle=${plan.subtitleAction} seek=${seekSec}s reasons=${plan.reasons.join(",") || "-"}`);
 
   const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
 
@@ -478,6 +478,7 @@ export function startTranscoderSession(
     mediaId,
     mode: plan.mode,
     actions: `video=${plan.videoAction} audio=${plan.audioAction}`,
+    reasons: plan.reasons.join(",").slice(0, 300),
     seekSec,
     probeMs: opts.probeMs ?? null,
     firstOutputMs: null,

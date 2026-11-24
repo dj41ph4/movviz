@@ -1,3 +1,9 @@
+## v1.28.175 — 24 november 2026
+
+### Diagnose: reden van de afspeelmodus
+
+- Elke start van een serverstream registreert nu de redenen achter het afspeelplan (niet-ondersteunde video- of audiocodec, resolutie, enz.) in de telemetrie van `/api/perf` en in het serverlogboek. Zo is precies te zien waarom een apparaat, bijvoorbeeld een iPhone, om transcodering vraagt.
+
 ## v1.28.174 — 24 november 2026
 
 ### Afspelen: buffer vertraagt niet meer bij verborgen venster

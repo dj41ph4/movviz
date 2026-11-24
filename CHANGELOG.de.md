@@ -1,3 +1,9 @@
+## v1.28.175 — 24. November 2026
+
+### Diagnose: Grund für den Wiedergabemodus
+
+- Jeder Start eines Server-Streams erfasst jetzt die Gründe des Wiedergabeplans (nicht unterstützter Video- oder Audiocodec, Auflösung usw.) in der Telemetrie von `/api/perf` und im Serverprotokoll. So ist genau zu sehen, warum ein Gerät, etwa ein iPhone, eine Transkodierung anfordert.
+
 ## v1.28.174 — 24. November 2026
 
 ### Wiedergabe: Puffer wird bei verstecktem Fenster nicht mehr langsamer

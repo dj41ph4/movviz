@@ -46,6 +46,8 @@ export interface StartupTrace {
   mode: string;
   /** Vidéo copiée ou transcodée, audio copié ou transcodé. */
   actions: string;
+  /** Raisons du plan (ex. VIDEO_CODEC_UNSUPPORTED, AUDIO_CODEC_UNSUPPORTED) : pourquoi ce mode et pas un autre. */
+  reasons?: string;
   seekSec: number;
   /** Durée de l'analyse (ffprobe) du fichier avant le lancement de ffmpeg. */
   probeMs: number | null;

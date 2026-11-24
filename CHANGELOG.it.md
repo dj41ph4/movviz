@@ -1,3 +1,9 @@
+## v1.28.175 — 24 novembre 2026
+
+### Diagnostica: motivo della modalità di riproduzione
+
+- Ogni avvio di un flusso server registra ora i motivi del piano di riproduzione (codec video o audio non supportato, risoluzione, ecc.) nella telemetria di `/api/perf` e nel log del server. Così si vede esattamente perché un dispositivo, ad esempio un iPhone, richiede una transcodifica.
+
 ## v1.28.174 — 24 novembre 2026
 
 ### Riproduzione: il buffer non rallenta più con la finestra nascosta
