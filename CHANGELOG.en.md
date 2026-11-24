@@ -1,3 +1,9 @@
+## v1.29.1 — November 24, 2026
+
+### UGREEN package: builds again
+
+- The UGREEN package (UPK) had not built since v1.28.100: the official tool rejects a three-digit patch number (“version is invalid”). The new 1.29.x numbering is back under the limit, and the script now has a safeguard: above 99, the real number goes into the package build number, which keeps increasing. No change to the application.
+
 ## v1.28.179 — November 24, 2026
 
 ### iPhone: seeking no longer gets stuck

@@ -8,10 +8,14 @@ for tool in node docker ugcli sha256sum; do command -v "$tool" >/dev/null || { e
 docker buildx version >/dev/null
 VERSION="$(node -p "require('$ROOT/package.json').version")"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $VERSION" >&2; exit 1; }
+# ugcli refuse un patch à 3 chiffres (« version is invalid: 1.28.178.0001 », OK jusqu'à 1.28.99) :
+# le patch est plafonné à 99 et le vrai numéro passe dans le numéro de build, qui reste croissant.
+IFS=. read -r V_MAJOR V_MINOR V_PATCH <<<"$VERSION"
+if (( V_PATCH > 99 )); then PKG_VERSION="$V_MAJOR.$V_MINOR.99"; PKG_BUILD=$V_PATCH; else PKG_VERSION="$VERSION"; PKG_BUILD=1; fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 cp -a "$(dirname "$0")/." "$WORK/"
-sed -i "s/^version: 0\.0\.0$/version: $VERSION/" "$WORK/project.yaml"
+sed -i "s/^version: 0\.0\.0$/version: $PKG_VERSION/" "$WORK/project.yaml"
 sed -i "s/movviz:0\.0\.0-ugreen/movviz:${VERSION}-ugreen/" "$WORK/rootfs_common/docker-compose.yaml"
 if [[ "$ARCH" == amd64 ]]; then sed -i '/^  - arm64$/d' "$WORK/project.yaml"; fi
 if [[ "$ARCH" == arm64 ]]; then sed -i '/^  - amd64$/d' "$WORK/project.yaml"; fi
@@ -24,7 +28,7 @@ build_one() {
 if [[ "$ARCH" == all ]]; then build_one amd64; build_one arm64; else build_one "$ARCH"; fi
 cd "$WORK"
 ugcli check
-ugcli pack --arch "$ARCH" --build 1 --product-series nasync
+ugcli pack --arch "$ARCH" --build "$PKG_BUILD" --product-series nasync
 OUT="$ROOT/dist/nas"
 mkdir -p "$OUT"
 find build_dir -type f -name '*.upk' -exec cp {} "$OUT/" \;

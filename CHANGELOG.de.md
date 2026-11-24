@@ -1,3 +1,9 @@
+## v1.29.1 — 24. November 2026
+
+### UGREEN-Paket: wird wieder gebaut
+
+- Das UGREEN-Paket (UPK) wurde seit v1.28.100 nicht mehr gebaut: Das offizielle Tool lehnt eine dreistellige Patch-Nummer ab („version is invalid“). Die neue Nummerierung 1.29.x liegt wieder unter dem Limit, und das Skript hat zusätzlich eine Absicherung: Ab 99 wandert die echte Nummer in die Build-Nummer des Pakets, die weiter steigt. Keine Änderung an der Anwendung.
+
 ## v1.28.179 — 24. November 2026
 
 ### iPhone: Springen im Film bleibt nicht mehr hängen
