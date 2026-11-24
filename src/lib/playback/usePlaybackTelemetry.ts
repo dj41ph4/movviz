@@ -15,6 +15,8 @@ type Ev = {
   ms?: number | null;
   readyState?: number;
   networkState?: number;
+  /** iPhone/iPad seulement : plages de tampon, erreur, état du lecteur au moment de la coupure. */
+  diag?: string;
 };
 
 const SAMPLE_EVERY_MS = 10_000;
@@ -33,6 +35,15 @@ function deviceLabel(): string {
 function networkType(): string | null {
   const c = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
   return c?.effectiveType ?? null;
+}
+
+/** Diagnostic réservé à iOS : où est le tampon, l'élément a-t-il une erreur, est-il en saut ou en pause. */
+function iosDiag(el: HTMLVideoElement): string | undefined {
+  if (!/iPhone|iPad/i.test(navigator.userAgent)) return undefined;
+  const r: string[] = [];
+  for (let i = 0; i < el.buffered.length && i < 6; i++) r.push(`${el.buffered.start(i).toFixed(1)}-${el.buffered.end(i).toFixed(1)}`);
+  const ms = (window as Window & { ManagedMediaSource?: unknown }).ManagedMediaSource ? "mms" : "-";
+  return `buf=[${r.join(",")}] t=${el.currentTime.toFixed(1)} err=${el.error?.code ?? 0} seeking=${el.seeking ? 1 : 0} paused=${el.paused ? 1 : 0} dur=${Number.isFinite(el.duration) ? Math.round(el.duration) : "inf"} ${ms}`;
 }
 
 /** Secondes de tampon devant la tête de lecture (0 si elle est hors de toute plage). */
@@ -61,7 +72,7 @@ export function usePlaybackTelemetry(
     if (!el) return;
     const device = deviceLabel();
     const queue: Ev[] = [];
-    let open: { start: number; cause: "waiting" | "seek"; bufAhead: number; pos: number; readyState: number; networkState: number } | null = null;
+    let open: { start: number; cause: "waiting" | "seek"; bufAhead: number; pos: number; readyState: number; networkState: number; diag?: string } | null = null;
 
     const base = () => ({
       t: Date.now(),
@@ -84,6 +95,7 @@ export function usePlaybackTelemetry(
         pos: open.pos,
         readyState: open.readyState,
         networkState: open.networkState,
+        diag: open.diag,
       });
       open = null;
     };
@@ -108,6 +120,7 @@ export function usePlaybackTelemetry(
         pos: el.currentTime,
         readyState: el.readyState,
         networkState: el.networkState,
+        diag: iosDiag(el),
       };
     };
     const onResume = () => {

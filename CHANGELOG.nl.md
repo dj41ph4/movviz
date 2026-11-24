@@ -1,3 +1,10 @@
+## v1.28.177 — 24 november 2026
+
+### iPhone: springen in de film
+
+- Op iPhone en iPad werd, wanneer de film vanaf een andere positie herstartte (sprong, hervatten), de nieuwe stream op het video-element gezet zonder de oude los te koppelen, waardoor Safari vastliep. De oude stream wordt nu eerst losgekoppeld. Alleen Safari (ManagedMediaSource): geen wijziging in andere browsers.
+- iPhone-diagnose: bij elke onderbreking legt de telemetrie bufferbereiken, videofout en status vast.
+
 ## v1.28.176 — 24 november 2026
 
 ### iPhone: Dolby Vision herkend

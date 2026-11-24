@@ -1,3 +1,10 @@
+## v1.28.177 — 24. November 2026
+
+### iPhone: Springen im Film
+
+- Wenn der Film auf iPhone und iPad an einer anderen Position neu startete (Sprung, Fortsetzen), wurde der neue Stream auf das Video-Element gesetzt, ohne den alten zu lösen, und Safari blieb hängen. Der alte Stream wird jetzt zuerst gelöst. Nur Safari (ManagedMediaSource): keine Änderung bei anderen Browsern.
+- iPhone-Diagnose: Bei jedem Stocken erfasst die Telemetrie Pufferbereiche, Videofehler und Zustand.
+
 ## v1.28.176 — 24. November 2026
 
 ### iPhone: Dolby Vision erkannt

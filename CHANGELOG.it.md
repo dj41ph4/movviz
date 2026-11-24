@@ -1,3 +1,10 @@
+## v1.28.177 — 24 novembre 2026
+
+### iPhone: salti nel film
+
+- Su iPhone e iPad, quando il film ripartiva da un’altra posizione (salto, ripresa), il nuovo flusso veniva impostato sull’elemento video senza staccare il precedente e Safari restava bloccato. Il vecchio flusso viene ora staccato prima. Solo Safari (ManagedMediaSource): nessuna modifica sugli altri browser.
+- Diagnostica iPhone: a ogni interruzione la telemetria registra gli intervalli di buffer, l’errore del video e il suo stato.
+
 ## v1.28.176 — 24 novembre 2026
 
 ### iPhone: Dolby Vision riconosciuto

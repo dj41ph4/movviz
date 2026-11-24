@@ -1,3 +1,10 @@
+## v1.28.177 — November 24, 2026
+
+### iPhone: seeking in the movie
+
+- On iPhone and iPad, when the movie restarted from another position (seek, resume), the new stream was set on the video element without detaching the old one and Safari stayed stuck. The old stream is now detached first. Safari-only (ManagedMediaSource): no change on other browsers.
+- iPhone diagnostics: on each stall, telemetry records the buffered ranges, the video error and its state.
+
 ## v1.28.176 — November 24, 2026
 
 ### iPhone: Dolby Vision recognised

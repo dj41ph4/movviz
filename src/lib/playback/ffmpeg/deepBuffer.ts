@@ -267,6 +267,16 @@ export class DeepBufferFeed {
         this.video.disableRemotePlayback = true;
         this.restoreRemotePlayback = true;
       }
+      // Safari (ManagedMediaSource, donc iPhone/iPad uniquement) : un nouveau flux posé sur la
+      // balise sans détacher l'ancien reste bloqué à « métadonnées seulement » (saut, reprise à
+      // une position, changement de piste). On repart d'une balise vide, comme le conseille WebKit.
+      if (source.managed && (this.video.getAttribute("src") || this.video.currentSrc)) {
+        try {
+          this.video.pause();
+          this.video.removeAttribute("src");
+          this.video.load();
+        } catch { /* ignore */ }
+      }
       this.video.src = this.objectUrl;
       await new Promise<void>((resolve, reject) => {
         const t = setTimeout(() => reject(new Error("sourceopen trop long")), OPEN_TIMEOUT_MS);

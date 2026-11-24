@@ -25,6 +25,8 @@ export interface PlaybackStall {
   networkState: number;
   net: string | null;
   sid: string | null;
+  /** iPhone/iPad : plages de tampon et état du lecteur au moment de la coupure. */
+  diag?: string;
 }
 
 export interface PlaybackSample {

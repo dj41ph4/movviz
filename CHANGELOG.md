@@ -1,3 +1,10 @@
+## v1.28.177 — 24 novembre 2026
+
+### iPhone : saut dans le film
+
+- Sur iPhone et iPad, quand le film repartait d’une autre position (saut, reprise), le nouveau flux était posé sur la balise vidéo sans détacher l’ancien et Safari restait bloqué. L’ancien flux est maintenant détaché d’abord. Réservé à Safari (ManagedMediaSource) : aucun changement sur les autres navigateurs.
+- Diagnostic iPhone : à chaque coupure, la télémétrie enregistre les plages de tampon, l’erreur de la vidéo et son état.
+
 ## v1.28.176 — 24 novembre 2026
 
 ### iPhone : Dolby Vision reconnu
