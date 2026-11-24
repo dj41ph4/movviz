@@ -82,6 +82,14 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
   const res4k = (supports4k: boolean) => (supports4k ? {} : { maxWidth: 1920, maxHeight: 1080 });
 
   const hdr = detectHdrSupport();
+  // iPhone/iPad : Safari décode le Dolby Vision (profils 5 et 8 ; un profil 7
+  // retombe sur sa couche de base HDR10). Sans cette déclaration, le plan
+  // affichait « Dolby Vision non pris en charge » alors que la vidéo est
+  // simplement copiée.
+  if (appleMobile && hdr.includes("hdr10") && !hdr.includes("dolby-vision")) {
+    const probeVideo = document.createElement("video");
+    if (probeVideo.canPlayType('video/mp4; codecs="dvh1.08.06"')) hdr.push("dolby-vision");
+  }
   const videoCapabilities: VideoCapability[] = [];
   if (codecs.h264) videoCapabilities.push({ codec: "h264", bitDepths: [8], ...res4k(codecs.h264_4k) });
   // bitDepths: [8] always (the base `hevc` flag only ever probed 8-bit Main)

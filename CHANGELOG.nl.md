@@ -1,3 +1,9 @@
+## v1.28.176 — 24 november 2026
+
+### iPhone: Dolby Vision herkend
+
+- Op iPhone en iPad speelt Safari Dolby Vision af, maar Movviz meldde het als niet ondersteund en noemde het een reden voor conversie, terwijl de video alleen naar een afspeelbare container wordt gekopieerd (Safari leest MKV niet native). Dolby Vision wordt nu gemeld wanneer Safari het bevestigt.
+
 ## v1.28.175 — 24 november 2026
 
 ### Diagnose: reden van de afspeelmodus
