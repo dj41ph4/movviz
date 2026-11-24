@@ -1,3 +1,9 @@
+## v1.28.178 — November 24, 2026
+
+### iPhone diagnostics: stall when seeking
+
+- On iPhone and iPad, the player keeps a trace of its latest steps (seek, load, stream opening, first append) and sends it to telemetry as soon as a stall lasts more than 4 seconds, without waiting for it to end. This shows where the seek gets stuck. Safari-only: no change on other browsers.
+
 ## v1.28.177 — November 24, 2026
 
 ### iPhone: seeking in the movie

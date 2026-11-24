@@ -16,6 +16,7 @@
 
 import { DeepBufferFeed, deepBufferSupported } from "./deepBuffer";
 import { sleep } from "../keepAlive";
+import { iosMark } from "../iosTrace";
 
 /** Secondes de tampon à réunir avant de lancer la lecture (chemin tampon profond). */
 const START_BUFFER_SEC = 12;
@@ -191,6 +192,7 @@ export class FfmpegRemuxEngine {
       const deep = new DeepBufferFeed(video, this.src, options.allowManagedMediaSource);
       this.deep = deep;
       const started = await deep.start((reason, kind) => this.onDeepFailure(deep, reason, kind));
+      iosMark(`start=${started ? 1 : 0}`);
       if (this.destroyed || seq !== this._loadSeq) {
         if (this.deep === deep) this.stopDeep();
         return;
@@ -199,6 +201,7 @@ export class FfmpegRemuxEngine {
         // Attendre un vrai tampon avant de lancer la lecture : sans lui, elle démarre à
         // 0 s d'avance et chaque à-coup du serveur devient une coupure visible.
         await this.waitForStartBuffer(video, seq);
+        iosMark("gate<");
         if (this.destroyed || seq !== this._loadSeq) return;
         void video.play().catch(() => void 0);
       } else {
@@ -384,26 +387,31 @@ export class FfmpegRemuxEngine {
     // GET, and stopAllForRatingKey would kill the just-created session —
     // the seek would always fall back to HLS.
     const mySeq = ++this._seekSeq;
+    iosMark(`seek${Math.round(time)}`);
     // Saut dans la partie déjà reçue : on déplace la tête de lecture, sans relancer ffmpeg.
     const video = this.video;
     if (this.deep && video) {
       const range = this.deep.bufferedRange();
       const local = time - this._seekBase;
       if (range && local >= range[0] + 0.5 && local <= range[1] - 2) {
+        iosMark("inbuf");
         video.currentTime = local;
         return;
       }
       // Saut en avant dans la réserve (reçue, pas encore confiée au navigateur) : on la réutilise.
       if (range && local > range[1] - 2 && (await this.deep.jumpInReserve(local))) {
+        iosMark("reserve");
         if (mySeq !== this._seekSeq || this.destroyed) return;
         video.currentTime = local;
         return;
       }
       if (mySeq !== this._seekSeq || this.destroyed) return;
     }
+    iosMark("del>");
     if (this.ratingKey) {
       await fetch(`${this.urlPrefix}/${this.ratingKey}${this.urlSuffix}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
     }
+    iosMark("del<");
     // A NEWER seek() call started while this one's DELETE was still in
     // flight (rapid progress-bar scrubbing fires seekTo() repeatedly with
     // no debounce). Without this guard, two overlapping seeks race and can
@@ -416,6 +424,7 @@ export class FfmpegRemuxEngine {
     // latest request). Abandoning every superseded seek here — only the
     // most recent one is ever allowed to actually call load().
     if (mySeq !== this._seekSeq) return;
+    iosMark("load>");
     await this.load(this.ratingKey, { ...this.lastOptions, seekTo: time });
   }
 

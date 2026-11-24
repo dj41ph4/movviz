@@ -1,3 +1,9 @@
+## v1.28.178 — 24. November 2026
+
+### iPhone-Diagnose: Hängen beim Springen
+
+- Auf iPhone und iPad merkt sich der Player seine letzten Schritte (Sprung, Laden, Öffnen des Streams, erstes Anhängen) und sendet sie an die Telemetrie, sobald ein Stocken länger als 4 Sekunden dauert, ohne sein Ende abzuwarten. So sieht man, wo der Sprung hängen bleibt. Nur Safari: keine Änderung bei anderen Browsern.
+
 ## v1.28.177 — 24. November 2026
 
 ### iPhone: Springen im Film

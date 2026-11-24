@@ -1,3 +1,9 @@
+## v1.28.178 — 24 novembre 2026
+
+### Diagnostic iPhone : blocage au saut
+
+- Sur iPhone et iPad, le lecteur garde la trace de ses dernières étapes (saut, chargement, ouverture du flux, premier ajout) et l’envoie à la télémétrie dès qu’une coupure dure plus de 4 secondes, sans attendre sa fin. Cela permet de voir où le saut se bloque. Réservé à Safari : aucun changement sur les autres navigateurs.
+
 ## v1.28.177 — 24 novembre 2026
 
 ### iPhone : saut dans le film

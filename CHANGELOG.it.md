@@ -1,3 +1,9 @@
+## v1.28.178 — 24 novembre 2026
+
+### Diagnostica iPhone: blocco durante il salto
+
+- Su iPhone e iPad il lettore conserva la traccia delle ultime fasi (salto, caricamento, apertura del flusso, primo inserimento) e la invia alla telemetria appena un’interruzione supera i 4 secondi, senza attenderne la fine. Così si vede dove si blocca il salto. Solo Safari: nessuna modifica sugli altri browser.
+
 ## v1.28.177 — 24 novembre 2026
 
 ### iPhone: salti nel film

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         ms: typeof e.ms === "number" && Number.isFinite(e.ms) ? Math.round(num(e.ms, 0, 3_600_000)) : null,
         readyState: num(e.readyState, 0, 4),
         networkState: num(e.networkState, 0, 3),
-        ...(typeof e.diag === "string" && e.diag ? { diag: str(e.diag, 240) } : {}),
+        ...(typeof e.diag === "string" && e.diag ? { diag: str(e.diag, 480) } : {}),
       });
     } else if (e.type === "sample") {
       recordSample(base);

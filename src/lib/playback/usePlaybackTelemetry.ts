@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
+import { iosTrace } from "./iosTrace";
 
 type Ev = {
   type: "stall" | "sample";
@@ -43,7 +44,7 @@ function iosDiag(el: HTMLVideoElement): string | undefined {
   const r: string[] = [];
   for (let i = 0; i < el.buffered.length && i < 6; i++) r.push(`${el.buffered.start(i).toFixed(1)}-${el.buffered.end(i).toFixed(1)}`);
   const ms = (window as Window & { ManagedMediaSource?: unknown }).ManagedMediaSource ? "mms" : "-";
-  return `buf=[${r.join(",")}] t=${el.currentTime.toFixed(1)} err=${el.error?.code ?? 0} seeking=${el.seeking ? 1 : 0} paused=${el.paused ? 1 : 0} dur=${Number.isFinite(el.duration) ? Math.round(el.duration) : "inf"} ${ms}`;
+  return `buf=[${r.join(",")}] t=${el.currentTime.toFixed(1)} err=${el.error?.code ?? 0} seeking=${el.seeking ? 1 : 0} paused=${el.paused ? 1 : 0} dur=${Number.isFinite(el.duration) ? Math.round(el.duration) : "inf"} ${ms} | ${iosTrace()}`;
 }
 
 /** Secondes de tampon devant la tête de lecture (0 si elle est hors de toute plage). */
@@ -72,6 +73,7 @@ export function usePlaybackTelemetry(
     if (!el) return;
     const device = deviceLabel();
     const queue: Ev[] = [];
+    let reported = false;
     let open: { start: number; cause: "waiting" | "seek"; bufAhead: number; pos: number; readyState: number; networkState: number; diag?: string } | null = null;
 
     const base = () => ({
@@ -98,6 +100,7 @@ export function usePlaybackTelemetry(
         diag: open.diag,
       });
       open = null;
+      reported = false;
     };
 
     const flush = () => {
@@ -137,6 +140,12 @@ export function usePlaybackTelemetry(
     };
 
     const sampleTimer = window.setInterval(() => {
+      // iPhone/iPad : une coupure qui dure est envoyée sans attendre sa fin (diagnostic).
+      if (open && !reported && performance.now() - open.start > 4000 && iosDiag(el)) {
+        reported = true;
+        queue.push({ ...base(), type: "stall", cause: open.cause, ms: null, bufAhead: open.bufAhead, pos: open.pos, readyState: el.readyState, networkState: el.networkState, diag: iosDiag(el) });
+        flush();
+      }
       if (el.paused || el.ended || el.readyState < 2 || !el.currentSrc) return;
       const sample = base();
       queue.push({ ...sample, type: "sample", bufAhead: sample.bufAhead + getReserveSeconds() });

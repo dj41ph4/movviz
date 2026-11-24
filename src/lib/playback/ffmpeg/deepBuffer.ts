@@ -13,6 +13,7 @@
  */
 
 import { sleep } from "../keepAlive";
+import { iosMark } from "../iosTrace";
 
 const FORWARD_MAX_SEC = 90;
 const FORWARD_MIN_SEC = 20;
@@ -254,7 +255,9 @@ export class DeepBufferFeed {
       const res = await fetch(this.url, { cache: "no-store", signal: this.ctrl.signal });
       if (!res.ok || !res.body) return this.giveUp();
       this.reader = res.body.getReader();
+      iosMark("fetch ok");
       const init = await this.readInit();
+      iosMark(init ? "init" : "noinit");
       if (!init || this.stopped) return this.giveUp();
       const mime = mimeFromInit(init);
       if (!mime || !source.constructor.isTypeSupported(mime)) return this.giveUp();
@@ -282,6 +285,7 @@ export class DeepBufferFeed {
         const t = setTimeout(() => reject(new Error("sourceopen trop long")), OPEN_TIMEOUT_MS);
         ms.addEventListener("sourceopen", () => { clearTimeout(t); resolve(); }, { once: true });
       });
+      iosMark("sourceopen");
       if (this.stopped) return false;
       const sb = ms.addSourceBuffer(mime);
       sb.mode = "segments";
@@ -514,6 +518,7 @@ export class DeepBufferFeed {
     }
     this.appendedBytes += data.byteLength;
     const b = sb.buffered;
+    if (this.firstStart === null) iosMark(`append1 buf=${b.length ? b.start(0).toFixed(1) : "-"}`);
     if (b.length && this.firstStart === null) {
       this.firstStart = b.start(0);
       if (this.video.currentTime < this.firstStart) this.video.currentTime = this.firstStart;

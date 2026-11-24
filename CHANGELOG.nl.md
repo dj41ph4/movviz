@@ -1,3 +1,9 @@
+## v1.28.178 — 24 november 2026
+
+### iPhone-diagnose: vastlopen bij springen
+
+- Op iPhone en iPad houdt de speler de laatste stappen bij (sprong, laden, openen van de stream, eerste toevoeging) en stuurt die naar de telemetrie zodra een onderbreking langer dan 4 seconden duurt, zonder het einde af te wachten. Zo is te zien waar de sprong vastloopt. Alleen Safari: geen wijziging in andere browsers.
+
 ## v1.28.177 — 24 november 2026
 
 ### iPhone: springen in de film
