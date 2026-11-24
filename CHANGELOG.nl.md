@@ -1,3 +1,9 @@
+## v1.28.179 — 24 november 2026
+
+### iPhone: springen in de film loopt niet meer vast
+
+- Na een sprong start de stream met het geluid even vóór het eerste beeld (bijvoorbeeld een buffer vanaf 1,4 s terwijl het afspelen op 0 staat). Safari op iPhone en iPad steekt die kleine kloof niet over en bleef 20 seconden of langer op bufferen staan. De speler springt nu over deze kleine bufferkloven, bij het starten en tijdens het afspelen, zoals hls.js en Shaka Player. Alleen iPhone en iPad: geen wijziging in andere browsers.
+
 ## v1.28.178 — 24 november 2026
 
 ### iPhone-diagnose: vastlopen bij springen

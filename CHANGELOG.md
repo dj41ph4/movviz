@@ -1,3 +1,9 @@
+## v1.28.179 — 24 novembre 2026
+
+### iPhone : le saut dans le film ne reste plus bloqué
+
+- Après un saut, le flux redémarre avec l’audio quelques instants avant la première image (par exemple un tampon qui commence à 1,4 s alors que la lecture est à 0). Safari sur iPhone et iPad ne franchit pas ce petit trou et restait sur « mise en mémoire tampon » pendant 20 secondes ou plus. Le lecteur franchit maintenant ces petits trous du tampon, au démarrage et pendant la lecture, comme le font hls.js et Shaka Player. Réservé à iPhone et iPad : aucun changement sur les autres navigateurs.
+
 ## v1.28.178 — 24 novembre 2026
 
 ### Diagnostic iPhone : blocage au saut

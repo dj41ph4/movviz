@@ -1,3 +1,9 @@
+## v1.28.179 — 24 novembre 2026
+
+### iPhone: il salto nel film non si blocca più
+
+- Dopo un salto il flusso riparte con l’audio un istante prima della prima immagine (ad esempio un buffer che inizia a 1,4 s mentre la riproduzione è a 0). Safari su iPhone e iPad non supera questo piccolo vuoto e restava in caricamento per 20 secondi o più. Il lettore ora supera questi piccoli vuoti del buffer, all’avvio e durante la riproduzione, come fanno hls.js e Shaka Player. Solo iPhone e iPad: nessuna modifica sugli altri browser.
+
 ## v1.28.178 — 24 novembre 2026
 
 ### Diagnostica iPhone: blocco durante il salto

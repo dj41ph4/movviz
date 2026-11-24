@@ -1,3 +1,9 @@
+## v1.28.179 — 24. November 2026
+
+### iPhone: Springen im Film bleibt nicht mehr hängen
+
+- Nach einem Sprung startet der Stream mit dem Ton einen Moment vor dem ersten Bild (z. B. Puffer ab 1,4 s, während die Wiedergabe bei 0 steht). Safari auf iPhone und iPad überquert diese kleine Lücke nicht und blieb 20 Sekunden oder länger bei „Pufferung“. Der Player überspringt diese kleinen Pufferlücken jetzt beim Start und während der Wiedergabe, wie hls.js und Shaka Player. Nur iPhone und iPad: keine Änderung bei anderen Browsern.
+
 ## v1.28.178 — 24. November 2026
 
 ### iPhone-Diagnose: Hängen beim Springen

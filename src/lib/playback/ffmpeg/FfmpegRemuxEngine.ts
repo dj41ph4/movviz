@@ -17,9 +17,12 @@
 import { DeepBufferFeed, deepBufferSupported } from "./deepBuffer";
 import { sleep } from "../keepAlive";
 import { iosMark } from "../iosTrace";
+import { isAppleMobile } from "@/lib/player/pictureInPicture";
 
 /** Secondes de tampon à réunir avant de lancer la lecture (chemin tampon profond). */
 const START_BUFFER_SEC = 12;
+/** iPhone/iPad seulement : le correctif du trou de début de tampon ne touche aucun autre navigateur. */
+const IOS_GAP_FIX = typeof navigator !== "undefined" && isAppleMobile(navigator);
 /** Attente maximale de ce tampon de départ. */
 const START_BUFFER_MAX_WAIT_MS = 20_000;
 
@@ -117,6 +120,41 @@ export class FfmpegRemuxEngine {
     const deep = this.deep;
     this.deep = null;
     deep?.stop();
+    this.stopGapWatch();
+  }
+
+  private gapTimer: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Contrôleur de trous, réservé à iPhone/iPad (même principe que hls.js et Shaka Player) :
+   * Safari ne franchit pas seul un petit trou du tampon (audio qui commence avant l'image
+   * après un saut, jonction de deux plages). Si la lecture est coincée juste devant une plage
+   * qui démarre à moins de 5 s, on la place au début de cette plage.
+   */
+  private startGapWatch(video: HTMLVideoElement): void {
+    this.stopGapWatch();
+    if (!IOS_GAP_FIX) return;
+    this.gapTimer = setInterval(() => {
+      if (this.destroyed || video.paused || video.ended || video.seeking) return;
+      const t = video.currentTime;
+      const b = video.buffered;
+      for (let r = 0; r < b.length; r++) if (t >= b.start(r) - 0.05 && t <= b.end(r) - 0.05) return;
+      for (let r = 0; r < b.length; r++) {
+        const gap = b.start(r) - t;
+        if (gap > 0 && gap <= 5) {
+          iosMark(`gap${gap.toFixed(1)}`);
+          video.currentTime = b.start(r) + 0.1;
+          return;
+        }
+      }
+    }, 300);
+  }
+
+  private stopGapWatch(): void {
+    if (this.gapTimer) {
+      clearInterval(this.gapTimer);
+      this.gapTimer = null;
+    }
   }
 
   /** Le tampon profond a lâché : repli sur la lecture native, à la même position. */
@@ -198,6 +236,7 @@ export class FfmpegRemuxEngine {
         return;
       }
       if (started) {
+        this.startGapWatch(video);
         // Attendre un vrai tampon avant de lancer la lecture : sans lui, elle démarre à
         // 0 s d'avance et chaque à-coup du serveur devient une coupure visible.
         await this.waitForStartBuffer(video, seq);
@@ -247,6 +286,19 @@ export class FfmpegRemuxEngine {
           }
         }
         if (ahead >= START_BUFFER_SEC || (reachesEnd && ahead > 0)) break;
+        // Safari (iPhone/iPad) ne franchit pas seul un petit trou au début du tampon : après un
+        // saut, l'audio commence avant la première image (ex. tampon [1.4-91.9] et lecture à 0).
+        // On place la tête de lecture au début des données (trou de 5 s au plus).
+        if (ahead === 0 && IOS_GAP_FIX) {
+          const b = video.buffered;
+          for (let r = 0; r < b.length; r++) {
+            if (b.start(r) > t && b.start(r) - t <= 5) {
+              iosMark(`gap${(b.start(r) - t).toFixed(1)}`);
+              video.currentTime = b.start(r) + 0.05;
+              break;
+            }
+          }
+        }
         await sleep(200);
       }
     } finally {

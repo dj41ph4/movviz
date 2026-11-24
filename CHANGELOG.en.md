@@ -1,3 +1,9 @@
+## v1.28.179 — November 24, 2026
+
+### iPhone: seeking no longer gets stuck
+
+- After a seek, the stream restarts with the audio a moment before the first picture (for example a buffer starting at 1.4 s while playback is at 0). Safari on iPhone and iPad does not cross that small gap and stayed on buffering for 20 seconds or more. The player now jumps these small buffer gaps, at start and during playback, as hls.js and Shaka Player do. iPhone and iPad only: no change on other browsers.
+
 ## v1.28.178 — November 24, 2026
 
 ### iPhone diagnostics: stall when seeking
