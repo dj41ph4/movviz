@@ -1,3 +1,9 @@
+## v1.29.7 — 25. November 2026
+
+### Abspielen auf…: unterwegs die Bildschirme in der Nähe des Telefons
+
+- Das Cast-Symbol bietet die Bildschirme im Wohnzimmer (Chromecast, DLNA-Fernseher, die der Server findet) nicht mehr an, wenn Telefon oder Computer woanders sind: Es zeigt die Bildschirme in der Nähe des Geräts. Zu Hause ändert sich nichts, auch über die öffentliche Adresse: Der Server erkennt die Adresse des Routers, indem er ihn direkt fragt. Ein Bildschirm, der bereits abspielt, bleibt von überall steuerbar.
+
 ## v1.29.6 — 25. November 2026
 
 ### Abspielen auf…: flüssigere 4K-Filme auf einem Server ohne Grafikkarte

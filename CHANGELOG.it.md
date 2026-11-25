@@ -1,3 +1,9 @@
+## v1.29.7 — 25 novembre 2026
+
+### Riproduci su…: fuori casa, gli schermi vicini al telefono
+
+- L'icona Cast non propone più gli schermi del soggiorno (Chromecast, TV DLNA trovati dal server) quando il telefono o il computer è altrove: mostra gli schermi vicini al dispositivo. A casa non cambia nulla, anche passando dall'indirizzo pubblico: il server riconosce l'indirizzo del router chiedendolo direttamente al router. Uno schermo che sta già riproducendo resta controllabile da ovunque.
+
 ## v1.29.6 — 25 novembre 2026
 
 ### Riproduci su…: film 4K più fluidi su un server senza scheda grafica

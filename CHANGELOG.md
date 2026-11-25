@@ -1,3 +1,9 @@
+## v1.29.7 — 25 novembre 2026
+
+### Lire sur… : hors de chez soi, les écrans proches du téléphone
+
+- L'icône Caster ne propose plus les écrans du salon (Chromecast, téléviseurs DLNA trouvés par le serveur) quand le téléphone ou l'ordinateur est ailleurs : on y voit les écrans proches de l'appareil. À la maison, rien ne change, même en passant par l'adresse publique : le serveur reconnaît l'adresse de la box en la lui demandant directement. Un écran qui lit déjà reste pilotable de partout.
+
 ## v1.29.6 — 25 novembre 2026
 
 ### Lire sur… : films 4K plus fluides sur un serveur sans carte graphique

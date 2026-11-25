@@ -45,8 +45,8 @@ export function parseRendererDescription(xml: string, location: string): DlnaRen
   return { udn, name: name.slice(0, 60), model: tag(xml, "modelName"), avTransportUrl, avTransportType: type };
 }
 
-/** Une recherche SSDP (M-SEARCH) : la réponse de chaque lecteur donne l'adresse de sa description. */
-export async function searchDlnaRenderers(timeoutMs = 2500): Promise<DlnaRenderer[]> {
+/** Une recherche SSDP (M-SEARCH) : la réponse de chaque appareil donne l'adresse de sa description. */
+export async function ssdpSearch(target: string, timeoutMs = 2500): Promise<string[]> {
   const locations = new Set<string>();
   await new Promise<void>((resolve) => {
     let socket: dgram.Socket;
@@ -69,7 +69,7 @@ export async function searchDlnaRenderers(timeoutMs = 2500): Promise<DlnaRendere
     });
     socket.bind(0, () => {
       const query = Buffer.from(
-        `M-SEARCH * HTTP/1.1\r\nHOST: ${SSDP_ADDR}:${SSDP_PORT}\r\nMAN: "ssdp:discover"\r\nMX: 2\r\nST: ${TARGET}\r\nUSER-AGENT: Movviz/1 UPnP/1.1\r\n\r\n`,
+        `M-SEARCH * HTTP/1.1\r\nHOST: ${SSDP_ADDR}:${SSDP_PORT}\r\nMAN: "ssdp:discover"\r\nMX: 2\r\nST: ${target}\r\nUSER-AGENT: Movviz/1 UPnP/1.1\r\n\r\n`,
       );
       // Deux envois : un paquet UDP perdu ne fait pas disparaître le téléviseur.
       socket.send(query, SSDP_PORT, SSDP_ADDR);
@@ -77,7 +77,12 @@ export async function searchDlnaRenderers(timeoutMs = 2500): Promise<DlnaRendere
     });
     setTimeout(finish, timeoutMs);
   });
-  const found = await Promise.all([...locations].slice(0, 32).map(async (location) => {
+  return [...locations];
+}
+
+export async function searchDlnaRenderers(timeoutMs = 2500): Promise<DlnaRenderer[]> {
+  const locations = await ssdpSearch(TARGET, timeoutMs);
+  const found = await Promise.all(locations.slice(0, 32).map(async (location) => {
     try {
       const response = await fetch(location, { signal: AbortSignal.timeout(2500) });
       if (!response.ok) return null;

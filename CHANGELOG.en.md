@@ -1,3 +1,9 @@
+## v1.29.7 — November 25, 2026
+
+### Play on…: away from home, the screens near the phone
+
+- The Cast icon no longer offers the living-room screens (Chromecast, DLNA TVs found by the server) when the phone or computer is elsewhere: it shows the screens near the device. At home nothing changes, even through the public address: the server recognises the router's address by asking the router directly. A screen already playing stays controllable from anywhere.
+
 ## v1.29.6 — November 25, 2026
 
 ### Play on…: smoother 4K films on a server without a graphics card

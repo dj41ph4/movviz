@@ -99,6 +99,25 @@ test("Identifiants des écrans réseau compatibles avec le contrat des appareils
   }
 });
 
+test("Même réseau : les écrans du salon ne sont proposés qu'à la maison", async () => {
+  const { isSameNetwork, v6Prefix64 } = await import("../src/lib/connect/network/sameNetwork.ts");
+  const home = { publicV4: "91.86.41.92", v6Prefixes: ["2a01:cc00:ca42:0"] };
+  // Chez soi par le nom de domaine public : la box voit sa propre adresse publique.
+  assert.equal(isSameNetwork("91.86.41.92", home), true);
+  assert.equal(isSameNetwork("::ffff:91.86.41.92", home), true);
+  assert.equal(isSameNetwork("10.0.1.23", home), true);
+  // En 4G ou chez un ami : autre adresse publique.
+  assert.equal(isSameNetwork("37.165.12.8", home), false);
+  // IPv6 : même /64 que le serveur, quelle que soit l'écriture.
+  assert.equal(v6Prefix64("2a01:cc00:ca42::8906:6431:8efd:43d"), "2a01:cc00:ca42:0");
+  assert.equal(isSameNetwork("2a01:cc00:ca42:0:1111:2222:3333:4444", home), true);
+  assert.equal(isSameNetwork("2a04:cec0:1000:5::1", home), false);
+  // Dans le doute (aucune adresse, box muette) : liste complète, comme avant.
+  assert.equal(isSameNetwork(null, home), true);
+  assert.equal(isSameNetwork("37.165.12.8", { publicV4: null, v6Prefixes: [] }), true);
+  assert.equal(isSameNetwork("2a04:cec0:1000:5::1", { publicV4: null, v6Prefixes: [] }), true);
+});
+
 test("Profil Cast : le Nest Hub reçoit du H.264 + AAC, un Google TV garde la source", async () => {
   const { castProfileFor, remuxArgs } = await import("../src/lib/connect/castMedia.ts");
   const uhd = { videoCodec: "hevc", bitDepth: 10, width: 3840, hdr: true, audioCodec: "eac3" };

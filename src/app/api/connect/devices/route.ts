@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { listDevices, registerDevice, removeDevice } from "@/lib/connect/registry";
 import { DEVICE_ID_RE, parseLeave, parseRegistration } from "@/lib/connect/types";
 import { listNetworkDevices } from "@/lib/connect/network/manager";
+import { isRequestOnServerNetwork } from "@/lib/connect/network/sameNetwork";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +11,14 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  // Apps Movviz d'abord, puis les écrans du réseau local (Chromecast, DLNA) trouvés par le serveur.
-  const network = await listNetworkDevices(user.id).catch(() => []);
+  // Apps Movviz d'abord, puis les écrans du réseau local (Chromecast, DLNA) trouvés par le serveur :
+  // seulement si l'appareil est sur ce réseau (hors de chez soi, ce sont les écrans proches du
+  // téléphone qui comptent) ; un écran qui lit déjà pour lui reste pilotable de partout.
+  const [all, home] = await Promise.all([
+    listNetworkDevices(user.id).catch(() => []),
+    isRequestOnServerNetwork(req).catch(() => true),
+  ]);
+  const network = home ? all : all.filter((d) => d.state && d.state.status !== "idle");
   return NextResponse.json({ devices: [...listDevices(user.id), ...network] }, { headers: { "cache-control": "no-store" } });
 }
 

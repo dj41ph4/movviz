@@ -1,3 +1,9 @@
+## v1.29.7 — 25 november 2026
+
+### Afspelen op…: buitenshuis de schermen bij de telefoon
+
+- Het Cast-pictogram biedt de schermen in de woonkamer (Chromecast, DLNA-tv's die de server vindt) niet meer aan als de telefoon of computer elders is: het toont de schermen bij het apparaat. Thuis verandert er niets, ook via het openbare adres: de server herkent het adres van de router door het de router rechtstreeks te vragen. Een scherm dat al afspeelt, blijft overal bedienbaar.
+
 ## v1.29.6 — 25 november 2026
 
 ### Afspelen op…: vloeiendere 4K-films op een server zonder grafische kaart
