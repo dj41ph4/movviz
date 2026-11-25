@@ -1,3 +1,9 @@
+## v1.29.5 — 25 novembre 2026
+
+### Riproduci su…: la conversione HDR → SDR segue l'impostazione del lettore
+
+- Un film HDR inviato a uno schermo Google Cast che non riproduce l'HDR (Nest Hub, Chromecast classico) non viene più convertito in SDR quando la conversione è disattivata o il server non è abbastanza potente (stessa regola del lettore: impostazione attiva e benchmark di almeno 3× il tempo reale). Passa semplicemente in H.264 a 8 bit: colori un po' più spenti, ma riproduzione fluida. Verificato su un vero Nest Hub, dove la conversione forzata faceva girare il NAS a metà del tempo reale.
+
 ## v1.29.4 — 25 novembre 2026
 
 ### Riproduci su…: gli schermi Google Cast riproducono davvero i tuoi film

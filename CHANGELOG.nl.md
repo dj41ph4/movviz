@@ -1,3 +1,9 @@
+## v1.29.5 — 25 november 2026
+
+### Afspelen op…: HDR → SDR-omzetting volgt de spelerinstelling
+
+- Een HDR-film die naar een Google Cast-scherm zonder HDR (Nest Hub, klassieke Chromecast) gaat, wordt niet meer naar SDR omgezet als de omzetting uit staat of de server niet krachtig genoeg is (zelfde regel als de speler: instelling aan en een benchmark van minstens 3× realtime). Hij gaat gewoon naar 8-bits H.264: iets doffere kleuren, maar vloeiend afspelen. Gecontroleerd op een echte Nest Hub, waar de geforceerde omzetting de NAS op halve realtime liet draaien.
+
 ## v1.29.4 — 25 november 2026
 
 ### Afspelen op…: Google Cast-schermen spelen je films echt af

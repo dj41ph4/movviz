@@ -81,6 +81,8 @@ interface SourceInfo {
   width?: number;
   hdr?: boolean;
   audioCodec?: string;
+  /** Réglage HDR/DV → SDR activé ET banc d'essai ≥ 3× temps réel (castToneMapAllowed). */
+  toneMapAllowed?: boolean;
 }
 
 /**
@@ -103,9 +105,10 @@ export function castProfileFor(model: string | null | undefined, src: SourceInfo
   const hdrOk = !src.hdr || advanced;
   const video: CastVideoTranscode | null = codecOk && hdrOk && width <= maxWidth
     ? null
-    : src.hdr && !advanced
-      // Conversion HDR→SDR : coûteuse, limitée à 960 px pour rester en temps réel sur un NAS sans GPU.
-      ? { width: Math.min(maxWidth, 960, width || 960), toneMap: true, preset: "ultrafast" }
+    : src.hdr && !advanced && src.toneMapAllowed
+      // Conversion HDR→SDR autorisée : 720 px, comme le moteur de lecture (coût du tonemap logiciel).
+      ? { width: Math.min(maxWidth, 720, width || 720), toneMap: true, preset: "ultrafast" }
+      // Sans conversion autorisée : simple passage en H.264 8 bits (couleurs plus ternes, lecture fluide).
       : { width: Math.min(maxWidth, width || maxWidth), toneMap: false, preset: "veryfast" };
   const audio = (src.audioCodec ?? "aac").toLowerCase();
   const audioOk = ["aac", "mp3", "opus", "vorbis", "flac"].includes(audio) || (advanced && (audio === "ac3" || audio === "eac3"));

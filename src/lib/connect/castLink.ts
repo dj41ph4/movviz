@@ -1,5 +1,6 @@
 import { resolveConnectPlay } from "@/lib/connect/resolve";
 import { castProfileFor, createCastMedia } from "@/lib/connect/castMedia";
+import { castToneMapAllowed } from "@/lib/connect/castPolicy";
 import { resolveEpisodePlayback, resolveMoviePlayback } from "@/lib/playback/sourceResolver";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { openPlaybackSession } from "@/lib/playback/progressStore";
@@ -49,6 +50,7 @@ export async function createCastLink(
   const profile = castProfileFor(model, {
     videoCodec: descriptor?.video.codec, bitDepth: descriptor?.video.bitDepth, width: descriptor?.video.width,
     hdr: !!descriptor?.video.hdr, audioCodec: descriptor?.audioTracks[0]?.codec,
+    toneMapAllowed: castToneMapAllowed(),
   });
   const subtitle = t.seasonNumber != null ? `S${t.seasonNumber} E${t.episodeNumber}${t.episodeTitle ? ` · ${t.episodeTitle}` : ""}` : null;
   const token = createCastMedia({

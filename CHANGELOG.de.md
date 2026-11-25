@@ -1,3 +1,9 @@
+## v1.29.5 — 25. November 2026
+
+### Abspielen auf…: HDR → SDR-Umwandlung folgt der Player-Einstellung
+
+- Ein HDR-Film, der an einen Google-Cast-Bildschirm ohne HDR (Nest Hub, klassischer Chromecast) gesendet wird, wird nicht mehr in SDR umgewandelt, wenn die Umwandlung deaktiviert ist oder der Server nicht leistungsfähig genug ist (gleiche Regel wie im Player: Einstellung aktiv und Benchmark von mindestens 3× Echtzeit). Er wird einfach zu 8-Bit-H.264: etwas mattere Farben, aber flüssige Wiedergabe. Auf einem echten Nest Hub geprüft, wo die erzwungene Umwandlung das NAS auf halbe Echtzeit brachte.
+
 ## v1.29.4 — 25. November 2026
 
 ### Abspielen auf…: Google-Cast-Bildschirme spielen Ihre Filme wirklich ab
