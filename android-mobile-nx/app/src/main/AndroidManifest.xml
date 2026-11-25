@@ -46,6 +46,15 @@
              HTTP simple sur le réseau local (port 9810) — voir la même
              tolérance déjà en place côté web/desktop. -->
 
+        <!-- Google Cast (SDK officiel) : options du lecteur par défaut, voir connect/LocalCast.kt. -->
+
+        <meta-data
+
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+
+            android:value="com.movviz.nx.mobile.connect.CastOptionsProvider" />
+
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

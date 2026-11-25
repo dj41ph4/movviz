@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { eventBus } from "@/lib/events/EventBus";
 import { resolveConnectPlay } from "@/lib/connect/resolve";
-import { CHROMECAST_AUDIO, contentTypeFor, createCastMedia } from "@/lib/connect/castMedia";
+import { castProfileFor, contentTypeFor, createCastMedia } from "@/lib/connect/castMedia";
 import { resolveEpisodePlayback, resolveMoviePlayback } from "@/lib/playback/sourceResolver";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { applyHeartbeat, openPlaybackSession, stopPlayback } from "@/lib/playback/progressStore";
@@ -142,7 +142,10 @@ function endSession(s: NetSession, finished: boolean) {
 function onCastStatus(s: NetSession, status: CastMediaStatus) {
   const state = status.playerState;
   if (state === "IDLE") {
-    if (status.idleReason === "FINISHED" || status.idleReason === "CLOSED" || status.idleReason === "ERROR" || status.idleReason === "CANCELLED") endSession(s, status.idleReason === "FINISHED");
+    // « Terminé » ne compte que près de la vraie fin : un écran qui ne décode pas le flux saute aussi à « FINISHED ».
+    const position = s.offset + status.currentTime;
+    const reallyFinished = status.idleReason === "FINISHED" && s.durationSec > 0 && position >= s.durationSec - 120;
+    if (status.idleReason === "FINISHED" || status.idleReason === "CLOSED" || status.idleReason === "ERROR" || status.idleReason === "CANCELLED") endSession(s, reallyFinished);
     return;
   }
   publish(s, {
@@ -187,9 +190,12 @@ export async function networkPlay(userId: string, deviceId: string, command: Ext
   const descriptor = await getOrProbeMediaDescriptor(t.movvizId, path).catch(() => null);
   const durationSec = descriptor?.durationMs ? descriptor.durationMs / 1000 : 0;
   const remux = target.via === "chromecast";
-  const audio = descriptor?.audioTracks[0]?.codec?.toLowerCase() ?? "aac";
+  const profile = castProfileFor(target.via === "chromecast" ? target.info.model : null, {
+    videoCodec: descriptor?.video.codec, bitDepth: descriptor?.video.bitDepth, width: descriptor?.video.width,
+    hdr: !!descriptor?.video.hdr, audioCodec: descriptor?.audioTracks[0]?.codec,
+  });
   const label = t.seasonNumber != null ? `${t.title} — S${t.seasonNumber} E${t.episodeNumber}${t.episodeTitle ? ` · ${t.episodeTitle}` : ""}` : t.title;
-  const token = createCastMedia({ userId, path, mode: remux ? "remux" : "direct", title: label, transcodeAudio: remux && !CHROMECAST_AUDIO.has(audio), durationSec: durationSec || null });
+  const token = createCastMedia({ userId, path, mode: remux ? "remux" : "direct", title: label, transcodeAudio: remux && profile.transcodeAudio, video: remux ? profile.video : null, durationSec: durationSec || null });
   const mediaUrl = `${publicBase.replace(/\/$/, "")}/api/connect/media/${token}`;
   const start = resolved.resumeSeconds ?? 0;
 

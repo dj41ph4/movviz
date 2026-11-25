@@ -1200,6 +1200,10 @@ export const en: Dictionary = {
     castHere: "Play here",
     remoteScreen: "Other screen on the network",
     remoteScreenHint: "Chromecast and compatible screens, through the browser",
+    nearbyCast: "Nearby Google Cast screen",
+    nearbyCastHint: "Chromecast or TV on the network you are on, even far from the server",
+    nearbyFailed: "Could not start playback on this Google Cast screen.",
+    localFileRequired: "This title must be in the Movviz files to be sent to this screen.",
   },
 
   notifications: {

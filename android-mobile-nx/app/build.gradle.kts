@@ -138,4 +138,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.zxing.core)
+    // Google Cast côté téléphone : écrans du réseau où se trouve le téléphone, même loin du serveur.
+    implementation(libs.cast.framework)
+    implementation(libs.mediarouter)
 }

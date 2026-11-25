@@ -1198,6 +1198,10 @@ export const fr = {
     castHere: "Lire ici",
     remoteScreen: "Autre écran du réseau",
     remoteScreenHint: "Chromecast et écrans compatibles, par le navigateur",
+    nearbyCast: "Écran Google Cast à proximité",
+    nearbyCastHint: "Chromecast ou TV du réseau où vous êtes, même loin du serveur",
+    nearbyFailed: "Impossible de lancer la lecture sur cet écran Google Cast.",
+    localFileRequired: "Ce titre doit être dans les fichiers Movviz pour être envoyé à cet écran.",
   },
 
   notifications: {

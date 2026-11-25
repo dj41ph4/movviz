@@ -1,3 +1,15 @@
+## v1.29.4 — November 25, 2026
+
+### Play on…: Google Cast screens really play your films
+
+- A Google Nest Hub rejected any 4K film (“could not send”): it decodes neither HEVC nor E-AC3 audio, and the video was sent to it as is. Checked on a real Nest Hub. The video is now adapted to the screen model: copied as is when it can play it (Chromecast with Google TV), otherwise re-encoded to H.264 at the right size, with HDR to SDR conversion when needed, and the audio goes to AAC.
+- A screen that gives up on playback no longer marks the film “Watched”: the end only counts near the real end.
+
+### Play on…: even far from the server
+
+- At a friend's, at a hotel, on a phone hotspot: the Android phone and Chrome (desktop and Android) find the Chromecasts and Google Cast screens of the network you are on, through the official Google Cast SDK. The server provides a secure playback link at its public address and the screen fetches the video itself, with Resume and “Watched” recorded.
+- The “Play on another device” icon is now everywhere: browser header on phones, Android mobile app headers (portrait, landscape), title page and player.
+
 ## v1.29.3 — November 25, 2026
 
 ### Play on…: network screens, Chromecast and DLNA TVs

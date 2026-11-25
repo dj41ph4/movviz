@@ -1,3 +1,15 @@
+## v1.29.4 — 25 november 2026
+
+### Afspelen op…: Google Cast-schermen spelen je films echt af
+
+- Een Google Nest Hub weigerde elke 4K-film („kan niet verzenden“): hij decodeert geen HEVC en geen E-AC3-geluid, en de video werd ongewijzigd verstuurd. Gecontroleerd op een echte Nest Hub. De video wordt nu aangepast aan het schermmodel: ongewijzigd als het scherm hem kan afspelen (Chromecast met Google TV), anders opnieuw gecodeerd naar H.264 op het juiste formaat, met HDR-naar-SDR-omzetting waar nodig, en het geluid gaat naar AAC.
+- Een scherm dat het afspelen opgeeft, markeert de film niet meer als „Gezien“: het einde telt alleen vlak bij het echte einde.
+
+### Afspelen op…: ook ver van de server
+
+- Bij een vriend, in een hotel, via een hotspot: de Android-telefoon en Chrome (computer en Android) vinden via de officiële Google Cast-SDK de Chromecasts en Google Cast-schermen van het netwerk waar je bent. De server levert een beveiligde afspeellink op zijn openbare adres en het scherm haalt de video zelf op, met Hervatten en „Gezien“ opgeslagen.
+- Het pictogram „Afspelen op een ander apparaat“ staat nu overal: browserkop op de telefoon, koppen van de Android-mobiele app (staand, liggend), titelpagina en speler.
+
 ## v1.29.3 — 25 november 2026
 
 ### Afspelen op…: schermen in het netwerk, Chromecast en DLNA-tv's

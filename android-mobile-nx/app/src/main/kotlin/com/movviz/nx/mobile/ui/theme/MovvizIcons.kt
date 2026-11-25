@@ -788,3 +788,29 @@ val MovvizIconCast: ImageVector by lazy {
         }
     }
 }
+
+/** Écran Google Cast trouvé par le téléphone (SDK Cast officiel : son glyphe est alors autorisé). */
+val MovvizIconGoogleCast: ImageVector by lazy {
+    movvizIcon("MovvizIconGoogleCast") {
+        stroke(width = 2f) {
+            moveTo(2.8f, 8.6f)
+            lineTo(2.8f, 5.6f)
+            quadTo(2.8f, 4f, 4.4f, 4f)
+            lineTo(19.6f, 4f)
+            quadTo(21.2f, 4f, 21.2f, 5.6f)
+            lineTo(21.2f, 18.4f)
+            quadTo(21.2f, 20f, 19.6f, 20f)
+            lineTo(14.2f, 20f)
+            moveTo(2.8f, 12.4f)
+            quadTo(10.2f, 12.6f, 10.4f, 20f)
+            moveTo(2.8f, 16.2f)
+            quadTo(6.4f, 16.4f, 6.6f, 20f)
+        }
+        fillPath {
+            moveTo(2.8f, 18.4f)
+            quadTo(4.4f, 18.4f, 4.4f, 20f)
+            lineTo(2.8f, 20f)
+            close()
+        }
+    }
+}

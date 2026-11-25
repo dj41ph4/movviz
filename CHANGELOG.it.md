@@ -1,3 +1,15 @@
+## v1.29.4 — 25 novembre 2026
+
+### Riproduci su…: gli schermi Google Cast riproducono davvero i tuoi film
+
+- Un Google Nest Hub rifiutava ogni film 4K („impossibile inviare“): non decodifica né HEVC né l'audio E-AC3, e il video gli veniva inviato così com'era. Verificato su un vero Nest Hub. Il video ora è adattato al modello dello schermo: copiato così com'è quando può riprodurlo (Chromecast con Google TV), altrimenti ricodificato in H.264 alla giusta dimensione, con conversione da HDR a SDR se necessario, e l'audio passa ad AAC.
+- Uno schermo che abbandona la riproduzione non segna più il film come „Visto“: la fine conta solo vicino alla vera fine.
+
+### Riproduci su…: anche lontano dal server
+
+- Da un amico, in hotel, con l'hotspot del telefono: il telefono Android e Chrome (computer e Android) trovano i Chromecast e gli schermi Google Cast della rete in cui ti trovi, tramite l'SDK Google Cast ufficiale. Il server fornisce un link di riproduzione sicuro al suo indirizzo pubblico e lo schermo va a prendere il video da solo, con Riprendi e „Visto“ registrati.
+- L'icona „Riproduci su un altro dispositivo“ è ora ovunque: intestazione del browser sul telefono, intestazioni dell'app Android mobile (verticale, orizzontale), scheda del titolo e lettore.
+
 ## v1.29.3 — 25 novembre 2026
 
 ### Riproduci su…: gli schermi della rete, Chromecast e TV DLNA

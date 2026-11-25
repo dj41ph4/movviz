@@ -64,6 +64,8 @@ fun NxTopNav(
     searchOpen: Boolean = false,
     searchQuery: String = "",
     onSearchToggle: () -> Unit = {},
+    /** « Lire sur un autre appareil » : télécommande des TV et écrans du compte. */
+    castBaseUrl: String? = null,
     onSearchQueryChange: (String) -> Unit = {},
     profiles: List<TvProfile> = emptyList(),
     activeProfile: TvProfile? = null,
@@ -119,6 +121,7 @@ fun NxTopNav(
             selected = selected,
             onSelect = onSelect,
             onSearchToggle = onSearchToggle,
+            castBaseUrl = castBaseUrl,
             onOpenProfile = onOpenProfile,
             onOpenSettings = onOpenSettings,
             onSwitchProfile = onSwitchProfile,
@@ -198,6 +201,8 @@ fun NxTopNav(
             }
         }
         Spacer(Modifier.weight(1f))
+        com.movviz.nx.mobile.connect.CastButton(baseUrl = castBaseUrl, payload = null, containerColor = Color.White.copy(alpha = 0.08f))
+        Spacer(Modifier.width(8.dp))
         Surface(
             onClick = onSearchToggle,
             modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onSearchToggle),
@@ -281,6 +286,7 @@ private fun CompactNxTopNav(
     selected: HomeTab,
     onSelect: (HomeTab) -> Unit,
     onSearchToggle: () -> Unit,
+    castBaseUrl: String?,
     onOpenProfile: () -> Unit,
     onOpenSettings: () -> Unit,
     onSwitchProfile: () -> Unit,
@@ -306,6 +312,7 @@ private fun CompactNxTopNav(
             }
         }
         Spacer(Modifier.weight(1f))
+        com.movviz.nx.mobile.connect.CastButton(baseUrl = castBaseUrl, payload = null, containerColor = Color.White.copy(alpha = 0.08f))
         Surface(onClick = onSearchToggle, modifier = Modifier.width(44.dp).height(44.dp).tvPointerClick(onSearchToggle),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0xFF3A3B42), contentColor = Color.White, focusedContentColor = Color.White)) {
             Icon(MovvizIconSearch, "Recherche", Modifier.padding(11.dp), Color.White)

@@ -502,6 +502,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     updateTag = viewModel.availableUpdateTag.collectAsState().value,
                     onUpdateClick = { viewModel.requestUpdateInstall() },
                     fallbackName = viewModel.currentUser.collectAsState().value?.username,
+                    castBaseUrl = serverUrl,
                 )
             }
         // En déplié, le rail tactile remplace la barre TV haute partout où
@@ -529,6 +530,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         if (searchOpen) tab = HomeTab.HOME else searchQuery = ""
                     },
                     onSearchQueryChange = { searchQuery = it },
+                    castBaseUrl = serverUrl,
                     profiles = viewModel.profiles.collectAsState().value,
                     activeProfile = portraitActiveProfile,
                     onProfileSelected = { profile ->

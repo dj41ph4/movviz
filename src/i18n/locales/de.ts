@@ -1200,6 +1200,10 @@ export const de: Dictionary = {
     castHere: "Hier abspielen",
     remoteScreen: "Anderer Bildschirm im Netzwerk",
     remoteScreenHint: "Chromecast und kompatible Bildschirme, über den Browser",
+    nearbyCast: "Google-Cast-Bildschirm in der Nähe",
+    nearbyCastHint: "Chromecast oder TV im Netzwerk, in dem Sie sind, auch fern vom Server",
+    nearbyFailed: "Wiedergabe auf diesem Google-Cast-Bildschirm konnte nicht gestartet werden.",
+    localFileRequired: "Dieser Titel muss in den Movviz-Dateien liegen, um an diesen Bildschirm gesendet zu werden.",
   },
 
   notifications: {

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { spawn } from "node:child_process";
 import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
-import { contentTypeFor, getCastMedia } from "@/lib/connect/castMedia";
+import { contentTypeFor, getCastMedia, remuxArgs } from "@/lib/connect/castMedia";
 import { resolveFfmpegBinary } from "@/lib/playback/engine/mediaRuntime";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,9 @@ function rangeBounds(raw: string | null, size: number): { start: number; end: nu
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= size) return null;
   return { start, end: Math.min(end, size - 1) };
 }
+
+// Le récepteur Google Cast est une page web d'une autre origine : le jeton suffit, aucun cookie n'est lu.
+const CORS = { "access-control-allow-origin": "*", "access-control-expose-headers": "content-length, content-range, accept-ranges" };
 
 // Profil DLNA : lecture en continu, déplacement par plage d'octets autorisé.
 const DLNA_FEATURES = "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000";
@@ -48,6 +51,7 @@ async function serve(req: NextRequest, context: Ctx, head: boolean) {
       "accept-ranges": "bytes",
       "content-length": String(bounds.end - bounds.start + 1),
       "cache-control": "no-store",
+      ...CORS,
       "transferMode.dlna.org": "Streaming",
       "contentFeatures.dlna.org": DLNA_FEATURES,
     };
@@ -58,22 +62,12 @@ async function serve(req: NextRequest, context: Ctx, head: boolean) {
     return new NextResponse(Readable.toWeb(stream) as ReadableStream, { status: partial ? 206 : 200, headers });
   }
 
-  const headers = { "content-type": "video/mp4", "cache-control": "no-store", "accept-ranges": "none" };
+  const headers = { "content-type": "video/mp4", "cache-control": "no-store", "accept-ranges": "none", ...CORS };
   if (head) return new NextResponse(null, { status: 200, headers });
   const startRaw = Number(req.nextUrl.searchParams.get("t") ?? "0");
   const start = Number.isFinite(startRaw) && startRaw > 0 ? Math.min(startRaw, 1_000_000) : 0;
-  // Vidéo copiée telle quelle (aucune recompression), audio copié sauf codec illisible par l'écran.
-  const args = [
-    "-hide_banner", "-loglevel", "error", "-nostdin",
-    ...(start > 0 ? ["-ss", start.toFixed(2)] : []),
-    "-i", media.path,
-    "-map", "0:v:0", "-map", "0:a:0?",
-    "-c:v", "copy",
-    ...(media.transcodeAudio ? ["-c:a", "aac", "-b:a", "256k", "-ac", "2"] : ["-c:a", "copy"]),
-    "-sn", "-dn",
-    "-movflags", "frag_keyframe+empty_moov+default_base_moof",
-    "-f", "mp4", "pipe:1",
-  ];
+  // Vidéo copiée, ou recodée en H.264 quand l'écran ne lit pas la source (voir castProfileFor).
+  const args = remuxArgs(media.path, start, media);
   const ffmpeg = spawn(resolveFfmpegBinary(), args, { stdio: ["ignore", "pipe", "ignore"], windowsHide: true });
   const stop = () => {
     if (ffmpeg.exitCode === null) ffmpeg.kill("SIGKILL");
@@ -90,4 +84,8 @@ export async function GET(req: NextRequest, context: Ctx) {
 
 export async function HEAD(req: NextRequest, context: Ctx) {
   return serve(req, context, true);
+}
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: { ...CORS, "access-control-allow-methods": "GET, HEAD, OPTIONS", "access-control-allow-headers": "range", "access-control-max-age": "86400" } });
 }

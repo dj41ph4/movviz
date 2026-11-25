@@ -8,6 +8,7 @@ import { useT } from "@/i18n/provider";
 import { Toggle } from "@/components/ui/Toggle";
 import { useConnect, type CastPayload } from "@/lib/connect/ConnectProvider";
 import { playerBridge } from "@/lib/connect/playerBridge";
+import { castWithGoogleCast, controlGoogleCast, getGoogleCast, getGoogleCastServer, subscribeGoogleCast, type GoogleCastResult } from "@/lib/connect/googleCast";
 import type { ConnectDevice, ReceiverState } from "@/lib/connect/types";
 import { toast } from "@/components/ui/Toast";
 import "./cast.css";
@@ -25,6 +26,9 @@ interface CastButtonProps {
   /** Lecteur : prévenu à l'ouverture / fermeture, pour garder la barre visible pendant le choix. */
   onOpenChange?: (open: boolean) => void;
 }
+
+/** Écran Google Cast piloté directement par ce navigateur, sur le réseau où il se trouve. */
+const LOCAL_CAST_ID = "gcast_local";
 
 const ACTIVE: ReadonlySet<ReceiverState["status"]> = new Set(["playing", "paused", "buffering", "loading"]);
 
@@ -45,7 +49,8 @@ function livePosition(state: ReceiverState, now: number): number {
 }
 
 function DeviceIcon({ device, className }: { device: ConnectDevice; className?: string }) {
-  // Écrans réseau : icône d'écran neutre (Movviz n'utilise pas le SDK Google Cast, donc pas son logo).
+  // Écran Google Cast trouvé par ce navigateur (SDK officiel) : logo Cast ; écrans vus par le serveur : icône neutre.
+  if (device.id === LOCAL_CAST_ID) return <Cast className={className} aria-hidden="true" />;
   const Icon = device.kind === "network" ? MonitorPlay : device.kind === "tv" || device.kind === "tizen" ? Tv : device.kind === "mobile" ? Smartphone : Monitor;
   return <Icon className={className} aria-hidden="true" />;
 }
@@ -114,10 +119,17 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
   const panelId = useId();
   const phone = useIsPhone();
   const targets = useBrowserTargets(video, open);
-
-  const receivers = connect?.receivers ?? [];
+  const gcast = useSyncExternalStore(subscribeGoogleCast, getGoogleCast, getGoogleCastServer);
+  const localCast: ConnectDevice | null = gcast.connected && gcast.deviceName
+    ? { id: LOCAL_CAST_ID, name: gcast.deviceName, kind: "network", via: "chromecast", receiver: true, online: true, state: gcast.state }
+    : null;
+  const serverReceivers = connect?.receivers ?? [];
+  // Le même écran vu par le serveur et par ce navigateur : une seule ligne, celle pilotée d'ici.
+  const receivers = localCast
+    ? [localCast, ...serverReceivers.filter((d) => d.name.toLowerCase() !== localCast.name.toLowerCase())]
+    : serverReceivers;
   // État « connecté » : seulement l'appareil piloté depuis ici (pas une TV lancée par quelqu'un d'autre).
-  const playingDevice = receivers.find((d) => d.state && ACTIVE.has(d.state.status) && d.id === connect?.controlledId);
+  const playingDevice = receivers.find((d) => d.state && ACTIVE.has(d.state.status) && (d.id === connect?.controlledId || d.id === LOCAL_CAST_ID));
   const [panelShift, setPanelShift] = useState(0);
   const anyActive = receivers.some((d) => d.state && ACTIVE.has(d.state.status));
   const now = useNow(open && anyActive);
@@ -171,16 +183,37 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
   if (!connect) return null;
 
   const browserTargets = variant === "player" && targets.remote;
-  const hasTargets = receivers.length > 0 || browserTargets;
-  // Barre du haut : sur ordinateur toujours là (« Recevoir sur cet appareil ») ; sur téléphone
-  // seulement quand un appareil est disponible, pour ne pas encombrer l'en-tête.
-  if (variant === "topbar" && !hasTargets && !connect.receiverEnabled && phone) return null;
-  if (variant !== "topbar" && !hasTargets) return null;
+  // Toujours visible (ordinateur, navigateur mobile) : la liste dit ce qui est possible, ou comment le rendre possible.
 
   const resolvePayload = (): CastPayload | null => (typeof payload === "function" ? payload() : payload ?? null);
   const canCast = variant !== "topbar" && !!resolvePayload();
+  const nearbyCast = gcast.available && !localCast && canCast;
+
+  const reportCast = (result: GoogleCastResult) => {
+    if (result === "local_file_required") toast("error", t("connect.localFileRequired"));
+    else if (result === "failed") toast("error", t("connect.nearbyFailed"));
+  };
+
+  /** Écran Google Cast du réseau de cet appareil (où qu'il soit par rapport au serveur). */
+  const castNearby = async () => {
+    const p = resolvePayload();
+    if (!p || busyId) return;
+    setBusyId(LOCAL_CAST_ID);
+    try {
+      if (variant === "player") playerBridge.current()?.pause();
+      const result = await castWithGoogleCast(p);
+      reportCast(result);
+      if (variant === "player") {
+        if (result === "ok") playerBridge.close();
+        else playerBridge.current()?.resume();
+      } else if (result === "ok") setTimeout(() => setOpen(false), 450);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const castTo = async (device: ConnectDevice) => {
+    if (device.id === LOCAL_CAST_ID) return castNearby();
     const p = resolvePayload();
     if (!p || busyId) return;
     setBusyId(device.id);
@@ -252,7 +285,7 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
       </div>
 
       <div className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain px-2 pb-2" role="list" aria-label={t("connect.devicesLabel")}>
-        {receivers.length === 0 && !browserTargets && (
+        {receivers.length === 0 && !browserTargets && !nearbyCast && (
           <div className="mx-2 my-2 rounded-2xl border border-dashed border-white/12 px-4 py-6 text-center">
             <Tv className="mx-auto mb-2.5 h-7 w-7 text-white/35" aria-hidden="true" />
             <p className="text-[13px] font-semibold text-white/85">{t("connect.emptyTitle")}</p>
@@ -269,17 +302,29 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
             canCast={canCast}
             focusFirst={index === 0}
             onCast={() => void castTo(device)}
-            onControl={(command) => void connect.sendControl(device, command)}
+            onControl={(command) => void (device.id === LOCAL_CAST_ID ? controlGoogleCast(command) : connect.sendControl(device, command))}
           />
         ))}
 
-        {browserTargets && (
+        {nearbyCast && (
           <div className={cn(receivers.length > 0 && "mt-1 border-t border-white/8 pt-1")}>
+            <BrowserTargetRow
+              icon={busyId === LOCAL_CAST_ID ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Cast className="h-5 w-5" aria-hidden="true" />}
+              title={t("connect.nearbyCast")}
+              hint={t("connect.nearbyCastHint")}
+              focusFirst={receivers.length === 0}
+              onClick={() => void castNearby()}
+            />
+          </div>
+        )}
+
+        {browserTargets && (
+          <div className={cn((receivers.length > 0 || nearbyCast) && "mt-1 border-t border-white/8 pt-1")}>
             <BrowserTargetRow
               icon={<Cast className="h-5 w-5" aria-hidden="true" />}
               title={t("connect.remoteScreen")}
               hint={t("connect.remoteScreenHint")}
-              focusFirst={receivers.length === 0}
+              focusFirst={receivers.length === 0 && !nearbyCast}
               onClick={() => {
                 const remote = (video?.() as (HTMLVideoElement & { remote?: RemotePlayback }) | null)?.remote;
                 void remote?.prompt().catch(() => {});
@@ -303,7 +348,7 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
   const sheet = phone && variant !== "player";
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className={cn("relative", variant === "topbar" && "nx-topbar-cast")}>
       {button}
       {open && !sheet && (
         <div

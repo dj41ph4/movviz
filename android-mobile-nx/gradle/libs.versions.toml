@@ -17,6 +17,8 @@ datastore = "1.2.1"
 coroutines = "1.10.2"
 zxing = "3.5.3"
 tvProvider = "1.0.0"
+castFramework = "22.1.0"
+mediarouter = "1.7.0"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -57,6 +59,8 @@ coil-svg = { group = "io.coil-kt", name = "coil-svg", version.ref = "coilCompose
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+cast-framework = { group = "com.google.android.gms", name = "play-services-cast-framework", version.ref = "castFramework" }
+mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 tv-provider = { group = "androidx.tvprovider", name = "tvprovider", version.ref = "tvProvider" }
 

@@ -98,3 +98,26 @@ test("Identifiants des écrans réseau compatibles avec le contrat des appareils
     assert.match(id, DEVICE_ID_RE);
   }
 });
+
+test("Profil Cast : le Nest Hub reçoit du H.264 + AAC, un Google TV garde la source", async () => {
+  const { castProfileFor, remuxArgs } = await import("../src/lib/connect/castMedia.ts");
+  const uhd = { videoCodec: "hevc", bitDepth: 10, width: 3840, hdr: true, audioCodec: "eac3" };
+  // Vérifié sur un vrai Nest Hub : HEVC/E-AC3 en copie = erreur, il faut recoder (et convertir le HDR).
+  const hub = castProfileFor("Google Nest Hub", uhd);
+  assert.deepEqual(hub.video, { width: 960, toneMap: true, preset: "ultrafast" });
+  assert.equal(hub.transcodeAudio, true);
+  assert.deepEqual(castProfileFor("Google Nest Hub", { ...uhd, hdr: false, width: 1920 }).video, { width: 1280, toneMap: false, preset: "veryfast" });
+  // Chromecast avec Google TV : HEVC HDR et E-AC3 passent tels quels.
+  const gtv = castProfileFor("Chromecast with Google TV", uhd);
+  assert.equal(gtv.video, null);
+  assert.equal(gtv.transcodeAudio, false);
+  // H.264 1080p + AAC : copie partout, aucun recodage inutile.
+  assert.deepEqual(castProfileFor("Chromecast", { videoCodec: "h264", bitDepth: 8, width: 1920, audioCodec: "aac" }), { video: null, transcodeAudio: false });
+  // Modèle inconnu, source inconnue : profil sûr.
+  assert.ok(castProfileFor(null, {}).video);
+  const args = remuxArgs("/m/film.mkv", 90, hub);
+  assert.ok(args.includes("libx264"));
+  assert.ok(args.join(" ").includes("scale=min(960\\,iw):-2"));
+  assert.deepEqual(args.slice(args.indexOf("-ss"), args.indexOf("-ss") + 2), ["-ss", "90.00"]);
+  assert.ok(remuxArgs("/m/a.mp4", 0, { transcodeAudio: false, video: null }).includes("copy"));
+});

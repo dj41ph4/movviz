@@ -683,9 +683,12 @@
     font-size: 19px;
     font-weight: 700;
   }
-  .nx-topbar-tools > :not(.nx-topbar-user) { display: none; }
+  .nx-topbar-tools > :not(.nx-topbar-user, .nx-topbar-cast) { display: none; }
   .nx-topbar-tools { margin-inline-start: 0; }
-  .nx-topbar-tools:has(> :not(.nx-topbar-user)):not(:has(.nx-topbar-user)) { display: none; }
+  .nx-topbar-tools:has(> :not(.nx-topbar-user, .nx-topbar-cast)):not(:has(.nx-topbar-user, .nx-topbar-cast)) { display: none; }
+  /* « Lire sur un autre appareil » reste dans l'en-tête du téléphone, au style des boutons ronds voisins. */
+  .nx-topbar .nx-topbar-cast > button { width: 44px; height: 44px; border: 0; background: rgb(255 255 255 / .08); box-shadow: none; backdrop-filter: none; color: var(--color-ink); }
+  .nx-topbar .nx-topbar-cast > button:active { background-color: rgb(167 123 255 / .20); }
   .nx-topbar .nx-topbar-user > button {
     width: 44px;
     height: 44px;

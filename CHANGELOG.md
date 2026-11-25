@@ -1,3 +1,15 @@
+## v1.29.4 — 25 novembre 2026
+
+### Lire sur… : les écrans Google Cast lisent vraiment vos films
+
+- Un Google Nest Hub refusait tout film 4K (« impossible d'envoyer ») : il ne décode ni le HEVC ni le son E-AC3, et la vidéo lui était envoyée telle quelle. Vérifié sur un vrai Nest Hub. La vidéo est désormais adaptée au modèle de l'écran : copiée telle quelle quand il sait la lire (Chromecast avec Google TV), sinon recodée en H.264 à la bonne taille, avec conversion HDR vers SDR si nécessaire, et le son passe en AAC.
+- Un écran qui abandonne la lecture ne marque plus le film « Vu » : la fin n'est retenue que près de la vraie fin.
+
+### Lire sur… : même loin du serveur
+
+- Chez un ami, à l'hôtel, en partage de connexion : le téléphone Android et Chrome (ordinateur et Android) trouvent les Chromecast et écrans Google Cast du réseau où vous êtes, par le SDK Google Cast officiel. Le serveur fournit un lien de lecture sécurisé à son adresse publique et l'écran vient chercher la vidéo lui-même, avec Reprendre et « Vu » enregistrés.
+- L'icône « Lire sur un autre appareil » est désormais présente partout : en-tête du navigateur sur téléphone, en-têtes de l'app Android mobile (portrait, paysage), fiche et lecteur.
+
 ## v1.29.3 — 25 novembre 2026
 
 ### Lire sur… : les écrans du réseau, Chromecast et téléviseurs DLNA

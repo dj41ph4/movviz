@@ -85,6 +85,8 @@ fun PortraitTopHeader(
     // Repli quand aucun profil n'est actif (session sans profil choisi) :
     // initiales + nom d'utilisateur au lieu du "MO" anonyme.
     fallbackName: String? = null,
+    /** « Lire sur un autre appareil » : toujours dans l'en-tête, à gauche de la loupe. */
+    castBaseUrl: String? = null,
 ) {
     val displayName = activeProfile?.name?.takeIf { it.isNotBlank() } ?: fallbackName
     Column(
@@ -107,6 +109,10 @@ fun PortraitTopHeader(
                 style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White),
             )
             Spacer(Modifier.weight(1f))
+            if (castBaseUrl != null) {
+                com.movviz.nx.mobile.connect.CastButton(baseUrl = castBaseUrl, payload = null, containerColor = Color.White.copy(alpha = 0.08f))
+                Spacer(Modifier.width(10.dp))
+            }
             // Refonte premium : la recherche devient une loupe dans l'en-tête
             // (même écran plein écran derrière) au lieu d'un champ qui
             // occupait une ligne entière au-dessus de chaque onglet.

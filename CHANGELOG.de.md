@@ -1,3 +1,15 @@
+## v1.29.4 — 25. November 2026
+
+### Abspielen auf…: Google-Cast-Bildschirme spielen Ihre Filme wirklich ab
+
+- Ein Google Nest Hub lehnte jeden 4K-Film ab („Senden nicht möglich“): Er dekodiert weder HEVC noch E-AC3-Ton, und das Video wurde unverändert gesendet. Auf einem echten Nest Hub geprüft. Das Video wird jetzt an das Bildschirmmodell angepasst: unverändert, wenn es abgespielt werden kann (Chromecast mit Google TV), sonst in H.264 in passender Größe neu kodiert, bei Bedarf mit HDR-zu-SDR-Umwandlung, und der Ton wird zu AAC.
+- Ein Bildschirm, der die Wiedergabe abbricht, markiert den Film nicht mehr als „Gesehen“: Das Ende zählt nur nahe dem echten Ende.
+
+### Abspielen auf…: auch fern vom Server
+
+- Bei Freunden, im Hotel, über einen Hotspot: Das Android-Telefon und Chrome (Computer und Android) finden über das offizielle Google-Cast-SDK die Chromecasts und Google-Cast-Bildschirme des Netzwerks, in dem Sie sind. Der Server liefert einen sicheren Wiedergabelink unter seiner öffentlichen Adresse, der Bildschirm holt das Video selbst ab, Fortsetzen und „Gesehen“ werden gespeichert.
+- Das Symbol „Auf einem anderen Gerät abspielen“ ist jetzt überall: Browser-Kopfzeile auf dem Telefon, Kopfzeilen der Android-Mobil-App (Hoch- und Querformat), Titelseite und Player.
+
 ## v1.29.3 — 25. November 2026
 
 ### Wiedergabe auf…: Bildschirme im Netzwerk, Chromecast und DLNA-Fernseher

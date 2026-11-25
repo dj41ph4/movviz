@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,6 +61,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconCast
 import com.movviz.nx.mobile.ui.theme.MovvizIconClose
 import com.movviz.nx.mobile.ui.theme.MovvizIconFilm
 import com.movviz.nx.mobile.ui.theme.MovvizIconForward
+import com.movviz.nx.mobile.ui.theme.MovvizIconGoogleCast
 import com.movviz.nx.mobile.ui.theme.MovvizIconPause
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlay
 import com.movviz.nx.mobile.ui.theme.MovvizIconRewind
@@ -79,10 +81,11 @@ private val SheetColor = Color(0xFF0B1230)
  * en faire apparaître un — puis sert de télécommande.
  */
 @Composable
-fun CastButton(baseUrl: String?, payload: CastPayload?) {
+fun CastButton(baseUrl: String?, payload: CastPayload?, containerColor: Color = Color.Black.copy(alpha = 0.35f)) {
     val context = LocalContext.current
     val devices by ConnectRemote.devices.collectAsState()
     val controlledId by ConnectRemote.controlledId.collectAsState()
+    val localCast by LocalCast.device.collectAsState()
     var open by remember { mutableStateOf(false) }
 
     // Liste à jour : toutes les 8 s sur la fiche, toutes les 2 s panneau ouvert (télécommande vivante).
@@ -96,7 +99,7 @@ fun CastButton(baseUrl: String?, payload: CastPayload?) {
     // Toujours visible sur la fiche : sans appareil, le panneau explique comment en faire apparaître un.
     if (baseUrl == null) return
 
-    val playing = devices.any { it.state?.active == true && (controlledId == null || it.id == controlledId) }
+    val playing = localCast?.state?.active == true || devices.any { it.state?.active == true && (controlledId == null || it.id == controlledId) }
     val tint = if (playing) MovvizBrand2 else Color.White
     Box {
         Surface(
@@ -104,8 +107,8 @@ fun CastButton(baseUrl: String?, payload: CastPayload?) {
             modifier = Modifier.size(40.dp).tvPointerClick { open = true },
             shape = ClickableSurfaceDefaults.shape(CircleShape),
             colors = ClickableSurfaceDefaults.colors(
-                containerColor = Color.Black.copy(alpha = 0.35f),
-                focusedContainerColor = Color.Black.copy(alpha = 0.5f),
+                containerColor = containerColor,
+                focusedContainerColor = Color.White.copy(alpha = 0.18f),
                 contentColor = tint,
                 focusedContentColor = tint,
             ),
@@ -132,8 +135,36 @@ fun CastButton(baseUrl: String?, payload: CastPayload?) {
 private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val devices by ConnectRemote.devices.collectAsState()
+    val serverDevices by ConnectRemote.devices.collectAsState()
+    val localCast by LocalCast.device.collectAsState()
+    val nearby by LocalCast.screens.collectAsState()
+    // Écrans Google Cast du réseau du TÉLÉPHONE (SDK officiel) : recherche seulement panneau ouvert.
+    DisposableEffect(Unit) {
+        LocalCast.startDiscovery(context)
+        onDispose { LocalCast.stopDiscovery() }
+    }
+    val local = localCast
+    // Le même écran vu par le serveur et par le téléphone : une seule ligne, celle pilotée d'ici.
+    val devices = if (local != null) listOf(local) + serverDevices.filter { !it.name.equals(local.name, ignoreCase = true) } else serverDevices
+    val nearbyFree = if (payload == null) emptyList() else nearby.filter { s -> devices.none { it.name.equals(s.name, ignoreCase = true) } }
     var busyId by remember { mutableStateOf<String?>(null) }
+    val castLocal: (String, String) -> Unit = { screenId, screenName ->
+        val p = payload
+        if (p != null && busyId == null) {
+            busyId = screenId
+            scope.launch {
+                val result = LocalCast.castTo(context, baseUrl, screenId, p)
+                busyId = null
+                val message = when (result) {
+                    LocalCast.Result.OK -> "Lecture envoyée à $screenName"
+                    LocalCast.Result.LOCAL_FILE_REQUIRED -> "Ce titre doit être dans les fichiers Movviz pour cet écran"
+                    LocalCast.Result.NO_SESSION -> "$screenName ne répond pas"
+                    LocalCast.Result.FAILED -> "Impossible de lancer la lecture sur $screenName"
+                }
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -186,7 +217,7 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
                     Column(
                         Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp),
                     ) {
-                        if (devices.isEmpty()) {
+                        if (devices.isEmpty() && nearbyFree.isEmpty()) {
                             Column(
                                 Modifier
                                     .fillMaxWidth()
@@ -213,6 +244,11 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
                                 busy = busyId == device.id,
                                 canCast = payload != null,
                                 onCast = {
+                                    if (device.id == LocalCast.DEVICE_ID) {
+                                        val screen = nearby.firstOrNull { it.name.equals(device.name, ignoreCase = true) }
+                                        if (screen != null) castLocal(screen.id, device.name)
+                                        return@DeviceRow
+                                    }
                                     val p = payload ?: return@DeviceRow
                                     if (busyId != null) return@DeviceRow
                                     busyId = device.id
@@ -224,12 +260,30 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
                                 },
                                 onControl = { kind, seconds ->
                                     scope.launch {
-                                        if (!ConnectRemote.control(context, baseUrl, device, kind, seconds)) {
+                                        val ok = if (device.id == LocalCast.DEVICE_ID) LocalCast.control(kind, seconds) else ConnectRemote.control(context, baseUrl, device, kind, seconds)
+                                        if (!ok) {
                                             Toast.makeText(context, "${device.name} ne répond pas", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 },
                             )
+                        }
+                        if (nearbyFree.isNotEmpty()) {
+                            Text(
+                                "À proximité · Google Cast",
+                                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkDim),
+                                modifier = Modifier.padding(start = 14.dp, top = if (devices.isEmpty()) 4.dp else 12.dp, bottom = 4.dp),
+                            )
+                            nearbyFree.forEach { screen ->
+                                DeviceRow(
+                                    device = ConnectDevice(screen.id, screen.name, "network", "nearby", null),
+                                    now = now,
+                                    busy = busyId == screen.id,
+                                    canCast = true,
+                                    onCast = { castLocal(screen.id, screen.name) },
+                                    onControl = { _, _ -> },
+                                )
+                            }
                         }
                     }
                 }
@@ -278,7 +332,7 @@ private fun DeviceRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = deviceIcon(device.kind),
+                    imageVector = if (device.via == "nearby" || device.id == LocalCast.DEVICE_ID) MovvizIconGoogleCast else deviceIcon(device.kind),
                     contentDescription = null,
                     tint = if (active) MovvizBrand2 else Color.White.copy(alpha = 0.85f),
                     modifier = Modifier.size(22.dp),
@@ -360,6 +414,7 @@ private fun deviceIcon(kind: String): ImageVector = when (kind) {
 }
 
 private fun kindLabel(kind: String, via: String): String = when {
+    via == "nearby" -> "Écran Google Cast de ce réseau"
     via == "chromecast" -> "Écran Google Cast"
     via == "dlna" -> "Écran DLNA"
     else -> kindLabelFor(kind)
