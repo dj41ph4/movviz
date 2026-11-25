@@ -992,6 +992,8 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     }
 
     init {
+        // Movviz Connect : le lecteur ouvert à distance garde les préférences du profil actif.
+        viewModelScope.launch { currentUser.collect { com.movviz.tv.connect.ConnectHub.profileId = it?.id } }
         viewModelScope.launch {
             _serverUrl.value = prefs.serverUrl.first()
         }

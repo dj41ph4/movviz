@@ -300,7 +300,79 @@ interface Window {
     const paths: Record<string, string> = { home: "M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1Z", compass: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM16 8l-3 5-5 3 3-5Z", library: "M4 3v18M9 3v18M14 3v18M18 4l4 16", search: "M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z", settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM9 2h6l1 3 3 1 3 3v6l-3 1-1 3-3 3H9l-1-3-3-1-3-3V9l3-1 1-3Z" };
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); const path = document.createElementNS(svg.namespaceURI, "path"); path.setAttribute("d", paths[name] || paths.home); svg.append(path); return svg;
   }
+  // ── Movviz Connect : cette TV reçoit « Lire sur… » d'un téléphone ou d'un navigateur ──
+  // Pas de flux temps réel par le pont TV : attente longue des ordres (/api/connect/poll),
+  // déclaration toutes les 20 s, état du lecteur rapporté à la télécommande.
+  let connectStarted = false;
+  function connectDeviceId() { return playbackProfile().deviceId; }
+  function connectDeviceName() {
+    try { const model = (window.webapis as unknown as { productinfo?: { getModel?: () => string } })?.productinfo?.getModel?.(); if (model) return `TV Samsung ${model}`.slice(0, 60); } catch { /* API absente */ }
+    return "TV Samsung";
+  }
+  function startConnect() {
+    if (connectStarted) return; connectStarted = true;
+    const register = () => { if (saved?.session) void call("/api/connect/devices", { id: connectDeviceId(), name: connectDeviceName(), kind: "tizen", receiver: true }).catch(() => {}); };
+    register(); window.setInterval(register, 20000);
+    let lastState = "", lastSent = 0;
+    window.setInterval(() => {
+      if (!saved?.session) return;
+      const player = activePlayer, av = window.webapis?.avplay;
+      const status = !player ? "idle" : player.changing ? "buffering" : av?.getState() === "PAUSED" ? "paused" : "playing";
+      const key = `${status}:${player?.media.tmdbId ?? ""}:${player?.episode?.seasonNumber ?? ""}:${player?.episode?.episodeNumber ?? ""}`;
+      const now = Date.now();
+      if (key === lastState && !(status === "playing" && now - lastSent >= 5000)) return;
+      if (!lastState && status === "idle") { lastState = key; return; }
+      lastState = key; lastSent = now;
+      const state = player
+        ? { status, title: player.media.title, mediaType: player.type, tmdbId: player.media.tmdbId, season: player.episode?.seasonNumber, episode: player.episode?.episodeNumber, position: player.position / 1000, duration: player.duration / 1000 }
+        : { status: "idle", position: 0, duration: 0 };
+      void call("/api/connect/state", { deviceId: connectDeviceId(), state }).catch(() => {});
+    }, 1000);
+    void (async () => {
+      let after: number | null = null;
+      for (;;) {
+        if (!saved?.session) { await new Promise(r => window.setTimeout(r, 5000)); continue; }
+        try {
+          const result: { seq: number; commands: { kind: string; [key: string]: unknown }[] } = await call(`/api/connect/poll?device=${connectDeviceId()}${after === null ? "" : `&after=${after}`}`);
+          after = result.seq;
+          for (const command of result.commands) await onConnectCommand(command).catch(report);
+        } catch { await new Promise(r => window.setTimeout(r, 3000)); }
+      }
+    })();
+  }
+  async function onConnectCommand(command: { kind: string; [key: string]: unknown }) {
+    const av = window.webapis?.avplay;
+    if (command.kind === "pause") { if (av?.getState() === "PLAYING") av.pause(); return; }
+    if (command.kind === "resume") { if (av?.getState() === "PAUSED") av.play(); return; }
+    if (command.kind === "stop") { await stopPlayer(false); return; }
+    if (command.kind === "seek") {
+      const player = activePlayer; const seconds = Number(command.seconds); if (!player || !Number.isFinite(seconds)) return;
+      await seek(Math.round(seconds * 1000) - player.position); return;
+    }
+    if (command.kind !== "play") return;
+    const type = command.mediaType === "series" ? "series" : "movie";
+    const params = new URLSearchParams({ tmdbId: String(command.tmdbId), type });
+    if (command.season !== undefined && command.episode !== undefined) { params.set("season", String(command.season)); params.set("episode", String(command.episode)); }
+    const explicit = typeof command.resumeSeconds === "number" ? command.resumeSeconds : null;
+    if (command.fromBeginning) params.set("fromBeginning", "1"); else if (explicit !== null) params.set("resume", String(explicit));
+    const resolved = await call<{ target: { type: MediaType; tmdbId: number; title: string; posterPath: string | null; ratingKey: string; movvizId: string; seriesId?: string; seasonNumber?: number; episodeNumber?: number; episodeTitle?: string }; resumeSeconds?: number; queue: { ratingKey: string; localKey: string | null; season: number; episode: number }[]; startIndex: number }>(`/api/connect/resolve?${params}`);
+    const target = resolved.target, item = resolved.queue[resolved.startIndex];
+    if (activePlayer) await stopPlayer(false);
+    if (command.from && typeof (command.from as { name?: unknown }).name === "string") toast(`${t("connect.startedFrom").replace("{device}", (command.from as { name: string }).name)}`);
+    if (target.type === "movie") {
+      const media: Media = { id: target.movvizId, tmdbId: target.tmdbId, title: target.title, posterPath: target.posterPath ?? undefined, plexRatingKey: target.ratingKey !== target.movvizId ? target.ratingKey : undefined };
+      await play(media, "movie", undefined, resolved.resumeSeconds === undefined);
+    } else {
+      const synthetic = `${target.seriesId}:s${target.seasonNumber}e${target.episodeNumber}`;
+      const media: Media = { id: target.seriesId, tmdbId: target.tmdbId, title: target.title, posterPath: target.posterPath ?? undefined };
+      const episode: Episode = { seasonNumber: target.seasonNumber!, episodeNumber: target.episodeNumber!, title: target.episodeTitle || "", status: "available", plexRatingKey: target.ratingKey !== synthetic ? target.ratingKey : undefined, playbackSource: item?.localKey ? "movviz" : "plex" };
+      await play(media, "series", episode, resolved.resumeSeconds === undefined);
+    }
+    // Transfert depuis un autre appareil : la position exacte de là-bas, pas la dernière enregistrée.
+    if (explicit !== null && explicit > 0 && activePlayer) await reposition(Math.round(explicit * 1000), false);
+  }
   async function home() {
+    startConnect();
     const version = begin(t("nav.home")); content.classList.add("home-page"); document.querySelector(".shell")?.classList.add("home-shell"); content.append(el("p", t("tizen.loading"), "muted"));
     // The rich hero asks TMDb and can take seconds right after a server restart: it never holds the
     // rows back. On a warm server it answers within the grace delay and the first screen stays whole.

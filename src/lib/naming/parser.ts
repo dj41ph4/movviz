@@ -151,6 +151,10 @@ export function parseRelease(rawName: string): ReleaseInfo {
  * part, which Movviz keeps as season 1, episode N of the fan version (see
  * metadata/fankai.ts). Without this the whole name became the title and no
  * part could ever be matched. Quality, language and codec stay as parsed.
+ * A whole-series pack keeps the season its NAME gives (usually none): a title
+ * merely ending in « Kai » may be an official series (Dragon Ball Kai, Higurashi
+ * Kai) with several seasons, and inventing « season 1 » made its intégrale pass
+ * for a season-1 pack (rejected by the intégrale search, wrong in a season search).
  * Mirrored in workers/releaseMatchWorker.mjs.
  */
 function withFankaiName(rawName: string, info: ReleaseInfo): ReleaseInfo {
@@ -159,7 +163,7 @@ function withFankaiName(rawName: string, info: ReleaseInfo): ReleaseInfo {
   if (!fan) return info;
   return fan.part != null
     ? { ...info, title: fan.title, season: 1, episode: fan.part, episodeEnd: null, seasonPart: null, isCompletePack: false }
-    : { ...info, title: fan.title, season: info.season ?? 1, episode: null, episodeEnd: null, seasonPart: null, isCompletePack: true };
+    : { ...info, title: fan.title, season: info.season, episode: null, episodeEnd: null, seasonPart: null, isCompletePack: true };
 }
 
 function parseReleaseUncached(rawName: string): ReleaseInfo {

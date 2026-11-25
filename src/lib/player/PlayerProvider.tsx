@@ -9,6 +9,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { playerDestination } from "@/lib/settings/playerPreference";
 import { useI18n } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
+import { playerBridge } from "@/lib/connect/playerBridge";
 
 export interface OriginRect {
   top: number;
@@ -133,6 +134,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [enabled, loaded, userEnabled]);
 
   const close = useCallback(() => setRequest(null), []);
+
+  // Movviz Connect : un ordre « lire » reçu d'un autre appareil passe par ce même lecteur.
+  useEffect(() => {
+    playerBridge.setProvider({ play, close });
+    return () => playerBridge.setProvider(null);
+  }, [play, close]);
 
   const playNextEpisode = useCallback(async (current: PlayNowRequest, prefetched: NextEpisodeInfo | null | undefined, manual = false) => {
     if (advancingEpisodeRef.current) return;

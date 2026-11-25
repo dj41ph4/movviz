@@ -21,7 +21,7 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import type { ReleaseInfo } from "@/lib/naming/types";
-import { releaseTitleMatches, seriesNeedsReleaseYear, seriesYearIsCompatible, partPackInfo, pickSearchTitle, releaseYearTarget, seriesSearchTitles } from "@/lib/library/matching";
+import { looksLikeSeriesRelease, releaseTitleMatches, seriesNeedsReleaseYear, seriesYearIsCompatible, partPackInfo, pickSearchTitle, releaseYearTarget, seriesSearchTitles } from "@/lib/library/matching";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
@@ -1669,7 +1669,10 @@ export function isCompleteSeriesPackTitle(
   // Un pack de SAISON taggé "Complete" sans plage couvrante ("Show.S03.Complete",
   // "Show.Complete.Season.1") n'est pas une intégrale non plus — le marqueur
   // "Complete" s'y réfère à la saison, pas à la série entière.
-  if (!range && parsedSeason != null) return false;
+  // Seulement quand le NOM porte vraiment une saison : le parseur Fan-Kai range en
+  // saison 1 toute intégrale d'un titre finissant par « Kai » (Dragon Ball Kai,
+  // Higurashi Kai…) sans que le nom en indique aucune — ce n'est pas un pack de saison.
+  if (!range && parsedSeason != null && looksLikeSeriesRelease(rawTitle)) return false;
 
   // If there's a season range, it must cover most of the show
   if (range) {

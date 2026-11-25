@@ -1,3 +1,18 @@
+## v1.29.2 — 25 novembre 2026
+
+### Trasmetti: guardare sulla TV da qualsiasi dispositivo
+
+- Un'unica icona Trasmetti, sul sito (computer e browser mobile, iPhone compreso), nel lettore, nella scheda del titolo e nell'app Android mobile. Elenca da sola i dispositivi Movviz dell'account pronti a ricevere: app Android TV, TV Samsung o un browser impostato su «Ricevi su questo dispositivo».
+- Un tocco avvia il film, o l'episodio in corso di una serie, sul dispositivo scelto: la TV trova il file, riprende dove eri e concatena gli episodi successivi. Il telefono poi non serve più.
+- Dal lettore, «Sposta la riproduzione» continua sulla TV al secondo esatto e chiude il lettore locale.
+- Il pannello fa da telecomando: barra di avanzamento cliccabile, indietro e avanti di 10 secondi, pausa, riprendi, ferma, e cosa è in riproduzione su ogni dispositivo, aggiornato in diretta.
+- Nel lettore web, AirPlay (Safari) e gli schermi proposti dal browser (Chromecast…) compaiono nello stesso elenco quando disponibili.
+- Android TV: nuova opzione «Apertura a distanza» nelle impostazioni. Movviz resta in ascolto ad app chiusa, si riavvia con il dispositivo e si apre da sola quando viene inviata una riproduzione. Android richiede per questo l'autorizzazione «Mostra sopra altre app», che la pagina delle impostazioni apre direttamente.
+
+### Ricerca di serie complete: Dragon Ball Kai e le serie ufficiali che finiscono con «Kai»
+
+- Una release come «Dragon.Ball.Kai.INTEGRALE.MULTi.1080p» veniva scambiata per una versione fan Fan-Kai a causa della parola «Kai», classificata come stagione 1 e poi esclusa dalla ricerca della serie completa come semplice pacchetto di stagione. Il nome di una serie completa non riceve più una stagione che non indica, e solo un vero numero di stagione nel nome rende una release un pacchetto di stagione. Stessa correzione per Higurashi Kai e gli altri titoli ufficiali interessati; le versioni Fan-Kai restano riconosciute come prima.
+
 ## v1.29.1 — 24 novembre 2026
 
 ### Pacchetto UGREEN: si compila di nuovo

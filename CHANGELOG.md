@@ -1,3 +1,18 @@
+## v1.29.2 — 25 novembre 2026
+
+### Caster : lire sur la TV depuis n'importe quel appareil
+
+- Une seule icône Caster, sur le site (ordinateur et navigateur mobile, iPhone compris), dans le lecteur, sur la fiche titre et dans l'app Android mobile. Elle liste tout seul les appareils Movviz du compte prêts à recevoir : app Android TV, TV Samsung, ou un navigateur réglé sur « Recevoir sur cet appareil ».
+- Un appui lance le film, ou l'épisode en cours d'une série, sur l'appareil choisi : la TV trouve le fichier, reprend où vous en étiez et enchaîne les épisodes suivants. Le téléphone n'est plus nécessaire ensuite.
+- Depuis le lecteur, « Transférer la lecture » continue sur la TV à la seconde près et ferme le lecteur local.
+- Le panneau sert de télécommande : barre de progression cliquable, reculer et avancer de 10 secondes, pause, reprendre, arrêter, et ce qui se lit sur chaque appareil, à jour en direct.
+- Dans le lecteur web, AirPlay (Safari) et les écrans proposés par le navigateur (Chromecast…) apparaissent dans la même liste quand ils sont disponibles.
+- Android TV : nouvelle option « Ouverture à distance » dans les réglages. Movviz reste à l'écoute app fermée, redémarre avec le boîtier et s'ouvre toute seule quand une lecture est envoyée. Android demande pour cela l'autorisation « Afficher par-dessus les autres applications », que la page de réglage ouvre directement.
+
+### Recherche d'intégrale : Dragon Ball Kai et les séries officielles finissant par « Kai »
+
+- Une release comme « Dragon.Ball.Kai.INTEGRALE.MULTi.1080p » était prise pour une version fan Fan-Kai à cause du mot « Kai », rangée d'office en saison 1, puis écartée de la recherche d'intégrale comme simple pack de saison. Le nom d'une intégrale ne reçoit plus de saison qu'il n'indique pas, et seul un vrai numéro de saison dans le nom fait d'une release un pack de saison. Même correction pour Higurashi Kai et les autres titres officiels concernés ; les versions Fan-Kai restent reconnues comme avant.
+
 ## v1.29.1 — 24 novembre 2026
 
 ### Version UGREEN : le paquet se construit de nouveau

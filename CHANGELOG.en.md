@@ -1,3 +1,18 @@
+## v1.29.2 — November 25, 2026
+
+### Cast: play on the TV from any device
+
+- A single Cast icon, on the website (desktop and mobile browser, iPhone included), in the player, on the title page and in the Android mobile app. It lists by itself the account's Movviz devices ready to receive: Android TV app, Samsung TV, or a browser set to “Receive on this device”.
+- One tap starts the movie, or the current episode of a series, on the chosen device: the TV finds the file, resumes where you were and chains the next episodes. The phone is no longer needed afterwards.
+- From the player, “Move playback” continues on the TV at the exact second and closes the local player.
+- The panel works as a remote: clickable progress bar, back and forward 10 seconds, pause, resume, stop, and what is playing on each device, updated live.
+- In the web player, AirPlay (Safari) and the screens offered by the browser (Chromecast…) appear in the same list when available.
+- Android TV: new “Remote opening” option in settings. Movviz keeps listening with the app closed, restarts with the box and opens by itself when playback is sent. Android requires the “Display over other apps” permission for this, which the settings page opens directly.
+
+### Complete-series search: Dragon Ball Kai and official series ending in “Kai”
+
+- A release such as “Dragon.Ball.Kai.INTEGRALE.MULTi.1080p” was taken for a Fan-Kai fan version because of the word “Kai”, filed as season 1, then dropped from the complete-series search as a mere season pack. A complete-series name no longer gets a season it does not state, and only a real season number in the name makes a release a season pack. Same fix for Higurashi Kai and other affected official titles; Fan-Kai versions are recognised as before.
+
 ## v1.29.1 — November 24, 2026
 
 ### UGREEN package: builds again

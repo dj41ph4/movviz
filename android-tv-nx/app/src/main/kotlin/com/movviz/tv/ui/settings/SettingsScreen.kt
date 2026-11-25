@@ -221,6 +221,12 @@ fun SettingsScreen(
             }
         }
 
+        item(key = "connect", contentType = "connect") {
+            SettingsSection(title = "Lecture depuis vos appareils", navRailFocusRequester = navRailFocusRequester) {
+                ConnectSettings(beta = beta)
+            }
+        }
+
         item(key = "about", contentType = "about") {
             SettingsSection(title = "À propos", navRailFocusRequester = navRailFocusRequester) {
                 InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
@@ -324,6 +330,70 @@ private fun Modifier.railExitGroup(rail: FocusRequester?): Modifier =
             if (direction == androidx.compose.ui.focus.FocusDirection.Left && rail != null) rail else FocusRequester.Default
         }
     }.focusGroup()
+
+/** Movviz Connect : ce boîtier reçoit « Lire sur la TV » ; « Ouverture à distance »
+ *  le garde à l'écoute app fermée, et ouvre Movviz quand un téléphone lance une lecture. */
+@Composable
+private fun ConnectSettings(beta: Boolean) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var remoteWake by remember { mutableStateOf(com.movviz.tv.connect.ConnectHub.remoteWakeEnabled(context)) }
+    var canOpen by remember { mutableStateOf(com.movviz.tv.connect.ConnectHub.canOpenFromBackground(context)) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            // Retour des réglages Android : l'autorisation vient peut-être d'être accordée.
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) canOpen = com.movviz.tv.connect.ConnectHub.canOpenFromBackground(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val hint = TextStyle(fontSize = if (beta) 13.sp else 10.sp, color = if (beta) MovvizTheme.palette.inkSoft else MovvizInkSoft)
+    val deviceName = remember { com.movviz.tv.connect.ConnectHub.deviceName(context) }
+    Text(
+        text = "Depuis votre téléphone ou votre ordinateur, l'icône Caster lance un film ou un épisode ici, puis sert de télécommande. Cette TV apparaît sous le nom « $deviceName ».",
+        style = hint,
+    )
+    Spacer(modifier = Modifier.height(11.dp))
+    SettingsToggle(
+        label = if (remoteWake) "Ouverture à distance : activée" else "Ouverture à distance : désactivée",
+        enabled = remoteWake,
+        onToggle = {
+            val next = !remoteWake
+            remoteWake = next
+            com.movviz.tv.connect.ConnectHub.setRemoteWakeEnabled(context, next)
+            if (next) {
+                com.movviz.tv.connect.ConnectService.start(context.applicationContext)
+                if (!com.movviz.tv.connect.ConnectHub.canOpenFromBackground(context)) openOverlaySettings(context)
+            }
+        },
+    )
+    Spacer(modifier = Modifier.height(9.dp))
+    Text(
+        text = when {
+            !remoteWake -> "Désactivée : la TV reçoit les lectures seulement quand Movviz est ouverte."
+            canOpen -> "Activée : Movviz reste à l'écoute et s'ouvre toute seule quand une lecture est envoyée, même fermée."
+            else -> "Il reste à autoriser « Afficher par-dessus les autres applications » pour Movviz dans les réglages Android (Applications › Accès spécifiques), sinon la TV ne peut pas s'ouvrir seule."
+        },
+        style = hint,
+    )
+    if (remoteWake && !canOpen) {
+        Spacer(modifier = Modifier.height(9.dp))
+        SettingsButton(text = "Ouvrir les réglages Android") { openOverlaySettings(context) }
+    }
+}
+
+private fun openOverlaySettings(context: android.content.Context) {
+    val pkg = android.net.Uri.parse("package:" + context.packageName)
+    val attempts = listOf(
+        android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg),
+        android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+        android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg),
+    )
+    for (intent in attempts) {
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { context.startActivity(intent) }.isSuccess) return
+    }
+}
 
 @Composable
 private fun AutoUpdateToggle(viewModel: AppViewModel) {

@@ -24,7 +24,12 @@ import java.util.concurrent.TimeUnit
  * Après une RECONNEXION, il signale « resync » : les événements manqués
  * pendant la coupure sont rattrapés par une seule relecture.
  */
-class LiveEvents(val baseUrl: String, private val onEvent: (channel: String, data: String) -> Unit) {
+class LiveEvents(
+    val baseUrl: String,
+    /** Movviz Connect : « /api/events?device=… » pour recevoir les ordres adressés à CET appareil. */
+    private val path: String = "/api/events",
+    private val onEvent: (channel: String, data: String) -> Unit,
+) {
     private var job: Job? = null
     @Volatile private var call: Call? = null
 
@@ -45,7 +50,7 @@ class LiveEvents(val baseUrl: String, private val onEvent: (channel: String, dat
             while (isActive) {
                 try {
                     val request = Request.Builder()
-                        .url(baseUrl.trimEnd('/') + "/api/events")
+                        .url(baseUrl.trimEnd('/') + path)
                         .header("Accept", "text/event-stream")
                         .build()
                     val current = client.newCall(request)

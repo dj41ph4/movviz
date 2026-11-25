@@ -39,6 +39,17 @@ test("pack de saison taggé Complete n'est PAS une intégrale (garde-fou épisod
   assert.equal(guard("My.Show.S04E01-E24.Complete.1080p.mkv"), false);
 });
 
+test("intégrale d'un titre officiel finissant par Kai (Dragon Ball Kai, Higurashi Kai)", () => {
+  const guard = (title: string, seasons = 7) => isCompleteSeriesPackTitle(title, seasons, undefined, parseRelease(title).episode, parseRelease(title).season);
+  assert.equal(guard("Dragon.Ball.Kai.INTEGRALE.MULTi.1080p.BluRay.x264-GRP"), true);
+  assert.equal(guard("Dragon.Ball.Kai.2009.INTEGRALE.MULTi.1080p.WEB.x264-GRP"), true);
+  assert.equal(guard("Dragon.Ball.Z.Kai.Complete.Series.1080p.BluRay.x265-GRP"), true);
+  assert.equal(guard("Higurashi.no.Naku.Koro.ni.Kai.INTEGRALE.VOSTFR.1080p-GRP", 2), true);
+  // Un vrai pack de saison reste refusé, même pour ces titres.
+  assert.equal(guard("Dragon.Ball.Kai.S03.Complete.MULTi.1080p-GRP"), false);
+  assert.equal(guard("Dragon.Ball.Kai.Saison.2.INTEGRALE.MULTi.1080p-GRP"), false);
+});
+
 test("pack de SAISON taggé Complete sans plage n'est PAS une intégrale (garde-fou saison)", () => {
   const guard = (title: string) => isCompleteSeriesPackTitle(title, 10, undefined, parseRelease(title).episode, parseRelease(title).season);
   assert.equal(guard("My.Show.S03.Complete.1080p.mkv"), false);

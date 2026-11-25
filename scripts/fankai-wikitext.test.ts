@@ -205,6 +205,10 @@ test("the release parser reads a part as season 1, episode N", () => {
   const pack = parseRelease("[Odji-san] Death Note Kaï 1080p Multi x264");
   assert.equal(pack.isCompletePack, true);
   assert.equal(pack.episode, null);
+  // Un pack n'invente pas de saison : « Dragon Ball Kai » est une série officielle à plusieurs saisons.
+  assert.equal(pack.season, null);
+  assert.equal(parseRelease("Dragon.Ball.Kai.INTEGRALE.MULTi.1080p.BluRay.x264-GRP").season, null);
+  assert.equal(parseRelease("Dragon.Ball.Kai.S02.MULTi.1080p.BluRay.x264-GRP").season, 2);
   // Unchanged for everything else.
   const scene = parseRelease("Death.Note.S01E03.1080p.MULTI.x264-GRP");
   assert.deepEqual([scene.title, scene.season, scene.episode], ["Death Note", 1, 3]);

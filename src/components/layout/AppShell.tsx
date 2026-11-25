@@ -24,6 +24,7 @@ import { useSetupRequired } from "@/lib/auth/useSetupRequired";
 import { GpuProvider } from "@/lib/gpu/GpuProvider";
 import { SmoothnessAdvisor } from "@/components/system/SmoothnessAdvisor";
 import { PlayerProvider } from "@/lib/player/PlayerProvider";
+import { ConnectProvider } from "@/lib/connect/ConnectProvider";
 import { AppErrorBoundary } from "@/components/ui/AppErrorBoundary";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { useForegroundFetcher } from "@/lib/priority/useForegroundFetcher";
@@ -211,6 +212,7 @@ export function AppShell({ children, version, initialDesignMode = "beta" }: { ch
         <I18nProvider>
           <VersionProvider version={version}>
             <InterfaceSWRPolicy>
+              <ConnectProvider enabled={!isAuthPage && !isPending}>
               <PlayerProvider>
                 <AppearanceProvider initialDesignMode={initialDesignMode}>
                 <DesktopTextScaleProvider />
@@ -244,6 +246,7 @@ export function AppShell({ children, version, initialDesignMode = "beta" }: { ch
                 </Suspense>
                 </AppearanceProvider>
               </PlayerProvider>
+              </ConnectProvider>
             </InterfaceSWRPolicy>
           </VersionProvider>
         </I18nProvider>

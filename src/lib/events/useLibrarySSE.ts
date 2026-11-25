@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { mutate } from "swr";
+import { CONNECT_EVENT, getDeviceId, type ConnectEventDetail } from "@/lib/connect/client";
 
 const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 30_000;
@@ -74,7 +75,8 @@ export function useLibrarySSE(enabled = true) {
     function connect() {
       esRef.current?.close();
 
-      const es = new EventSource("/api/events");
+      // L'identifiant de l'appareil : le serveur y adresse les ordres Movviz Connect.
+      const es = new EventSource(`/api/events?device=${encodeURIComponent(getDeviceId())}`);
       esRef.current = es;
 
       es.onopen = () => {
@@ -115,6 +117,14 @@ export function useLibrarySSE(enabled = true) {
       es.addEventListener("ai", () => {
         window.dispatchEvent(new Event(AI_CHAT_CHANGED_EVENT));
       });
+
+      for (const channel of ["connect-roster", "connect-command", "connect-state"] as const) {
+        es.addEventListener(channel, (event) => {
+          let data: unknown = null;
+          try { data = JSON.parse((event as MessageEvent).data); } catch { return; }
+          window.dispatchEvent(new CustomEvent<ConnectEventDetail>(CONNECT_EVENT, { detail: { channel, data } }));
+        });
+      }
 
       es.onerror = () => {
         es.close();

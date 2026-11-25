@@ -35,6 +35,8 @@ import { getOrCreateDeviceId } from "@/lib/playback/engine/deviceId";
 import { usePlaybackTelemetry } from "@/lib/playback/usePlaybackTelemetry";
 import { usePlaybackKeepAlive } from "@/lib/playback/keepAlive";
 import { isAppleMobile, pictureInPictureMode, type WebKitVideo } from "@/lib/player/pictureInPicture";
+import { playerBridge, type LocalPlayback } from "@/lib/connect/playerBridge";
+import { CastButton } from "@/components/connect/CastButton";
 import { toast } from "@/components/ui/Toast";
 
 export interface VideoPlayerProps {
@@ -2356,6 +2358,44 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     };
   }, []);
 
+  // Movviz Connect : ce lecteur obéit aux ordres reçus (pause, reprendre, aller à)
+  // et rapporte sa position réelle à la télécommande d'un autre appareil.
+  const connectReadRef = useRef<() => LocalPlayback>(() => ({ playing: false, buffering: false, position: 0, duration: 0, title, mediaType: "movie" }));
+  connectReadRef.current = () => ({
+    playing,
+    buffering,
+    position: pendingSeekRef.current.target ?? currentTime,
+    duration,
+    title,
+    mediaType: mediaType === "episode" ? "series" : "movie",
+    tmdbId,
+    season: seasonNumber,
+    episode: episodeNumber,
+  });
+  useEffect(() => {
+    playerBridge.setActive({
+      pause: () => videoRef.current?.pause(),
+      resume: () => { void videoRef.current?.play().catch(() => {}); },
+      seek: (seconds) => seekTo(seconds),
+      read: () => connectReadRef.current(),
+    });
+    return () => playerBridge.setActive(null);
+  }, [seekTo]);
+  const castVideo = useCallback(() => videoRef.current, []);
+  // « Transférer la lecture » : le titre, l'épisode et la position exacte de ce lecteur.
+  const castPayload = useCallback(() => {
+    if (!tmdbId) return null;
+    const now = connectReadRef.current();
+    const series = mediaType === "episode";
+    return {
+      title: now.title,
+      mediaType: series ? "series" as const : "movie" as const,
+      tmdbId,
+      ...(series && seasonNumber != null && episodeNumber != null ? { season: seasonNumber, episode: episodeNumber } : {}),
+      resumeSeconds: Math.max(0, Math.floor(now.position)),
+    };
+  }, [tmdbId, mediaType, seasonNumber, episodeNumber]);
+
   const togglePlay = () => {
     const el = videoRef.current;
     if (!el) return;
@@ -3527,6 +3567,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                         <AlertTriangle className="h-5 w-5" />
                       </button>
                     )}
+
+                    {tmdbId ? <CastButton variant="player" className={iconButtonClass} video={castVideo} payload={castPayload} /> : null}
 
                     {pipMode && (
                       <button

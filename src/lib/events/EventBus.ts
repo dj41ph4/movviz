@@ -16,7 +16,13 @@ export type AppEvent =
   /** The Movviz AI conversation of ONE user changed (new message, card
    *  swapped, « Effacer ») — that user's other devices show it at once. */
   | { type: "ai_chat_changed"; userId: string }
-  | { type: "recommendations_changed"; userId: string };
+  | { type: "recommendations_changed"; userId: string }
+  /** Movviz Connect : la liste des appareils de cet utilisateur a changé. */
+  | { type: "connect_roster"; userId: string }
+  /** Movviz Connect : un ordre pour UN appareil (le flux /api/events?device=… correspondant). */
+  | { type: "connect_command"; userId: string; targetId: string; command: import("@/lib/connect/types").ConnectCommand }
+  /** Movviz Connect : l'état de lecture rapporté par un appareil récepteur. */
+  | { type: "connect_state"; userId: string; deviceId: string; state: import("@/lib/connect/types").ReceiverState };
 
 const BUS_KEY = "__movviz_event_bus__";
 

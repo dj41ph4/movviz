@@ -1,3 +1,18 @@
+## v1.29.2 — 25. November 2026
+
+### Streamen: auf dem Fernseher abspielen, von jedem Gerät aus
+
+- Ein einziges Streamen-Symbol, auf der Website (Computer und mobiler Browser, iPhone eingeschlossen), im Player, auf der Titelseite und in der Android-Mobil-App. Es listet von selbst die Movviz-Geräte des Kontos, die empfangen können: Android-TV-App, Samsung-TV oder ein Browser mit „Auf diesem Gerät empfangen“.
+- Ein Tippen startet den Film oder die laufende Folge einer Serie auf dem gewählten Gerät: Der Fernseher findet die Datei, setzt dort fort, wo Sie waren, und spielt die nächsten Folgen nacheinander ab. Das Telefon wird danach nicht mehr gebraucht.
+- Im Player setzt „Wiedergabe übertragen“ sekundengenau auf dem Fernseher fort und schließt den lokalen Player.
+- Das Fenster dient als Fernbedienung: anklickbare Fortschrittsleiste, 10 Sekunden zurück und vor, Pause, Fortsetzen, Stopp, und was auf jedem Gerät läuft, live aktualisiert.
+- Im Web-Player erscheinen AirPlay (Safari) und die vom Browser angebotenen Bildschirme (Chromecast…) in derselben Liste, wenn verfügbar.
+- Android TV: neue Option „Öffnen aus der Ferne“ in den Einstellungen. Movviz bleibt bei geschlossener App empfangsbereit, startet mit dem Gerät und öffnet sich selbst, wenn eine Wiedergabe gesendet wird. Android verlangt dafür die Berechtigung „Über anderen Apps einblenden“, die die Einstellungsseite direkt öffnet.
+
+### Komplettpaket-Suche: Dragon Ball Kai und offizielle Serien, die auf „Kai“ enden
+
+- Ein Release wie „Dragon.Ball.Kai.INTEGRALE.MULTi.1080p“ wurde wegen des Wortes „Kai“ für eine Fan-Kai-Fanversion gehalten, als Staffel 1 eingeordnet und dann als bloßes Staffelpaket aus der Komplettpaket-Suche entfernt. Ein Komplettpaket erhält keine Staffel mehr, die sein Name nicht nennt, und nur eine echte Staffelnummer im Namen macht ein Release zum Staffelpaket. Gleiche Korrektur für Higurashi Kai und weitere betroffene offizielle Titel; Fan-Kai-Versionen werden wie bisher erkannt.
+
 ## v1.29.1 — 24. November 2026
 
 ### UGREEN-Paket: wird wieder gebaut

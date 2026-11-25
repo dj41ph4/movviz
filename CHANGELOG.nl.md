@@ -1,3 +1,18 @@
+## v1.29.2 — 25 november 2026
+
+### Casten: afspelen op de tv vanaf elk apparaat
+
+- Eén Casten-pictogram, op de website (computer en mobiele browser, iPhone inbegrepen), in de speler, op de titelpagina en in de Android-mobiele app. Het toont vanzelf de Movviz-apparaten van het account die kunnen ontvangen: Android TV-app, Samsung-tv of een browser met “Ontvangen op dit apparaat”.
+- Eén tik start de film, of de lopende aflevering van een serie, op het gekozen apparaat: de tv vindt het bestand, gaat verder waar je was en speelt de volgende afleveringen achter elkaar af. De telefoon is daarna niet meer nodig.
+- Vanuit de speler gaat “Weergave verplaatsen” op de seconde verder op de tv en sluit de lokale speler.
+- Het paneel werkt als afstandsbediening: klikbare voortgangsbalk, 10 seconden terug en vooruit, pauze, hervatten, stoppen, en wat er op elk apparaat speelt, live bijgewerkt.
+- In de webspeler verschijnen AirPlay (Safari) en de schermen die de browser aanbiedt (Chromecast…) in dezelfde lijst wanneer beschikbaar.
+- Android TV: nieuwe optie “Openen op afstand” in de instellingen. Movviz blijft luisteren met de app gesloten, start mee op met het apparaat en opent vanzelf wanneer een weergave wordt verstuurd. Android vraagt hiervoor de toestemming “Weergeven over andere apps”, die de instellingenpagina direct opent.
+
+### Zoeken naar complete series: Dragon Ball Kai en officiële series die op “Kai” eindigen
+
+- Een release als “Dragon.Ball.Kai.INTEGRALE.MULTi.1080p” werd door het woord “Kai” voor een Fan-Kai-fanversie aangezien, als seizoen 1 ingedeeld en daarna als gewoon seizoenspakket uit de zoektocht naar de complete serie gehaald. Een complete serie krijgt geen seizoen meer dat de naam niet noemt, en alleen een echt seizoensnummer in de naam maakt van een release een seizoenspakket. Dezelfde correctie voor Higurashi Kai en andere betrokken officiële titels; Fan-Kai-versies worden herkend zoals voorheen.
+
 ## v1.29.1 — 24 november 2026
 
 ### UGREEN-pakket: wordt weer gebouwd

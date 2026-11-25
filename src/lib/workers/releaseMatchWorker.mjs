@@ -126,7 +126,7 @@ function parseRelease(rawName) {
   if (!fan) return info;
   return fan.part != null
     ? { ...info, title: fan.title, season: 1, episode: fan.part, episodeEnd: null, seasonPart: null, isCompletePack: false }
-    : { ...info, title: fan.title, season: info.season ?? 1, episode: null, episodeEnd: null, seasonPart: null, isCompletePack: true };
+    : { ...info, title: fan.title, season: info.season, episode: null, episodeEnd: null, seasonPart: null, isCompletePack: true };
 }
 
 function parseReleaseBase(rawName) {

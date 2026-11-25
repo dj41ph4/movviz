@@ -44,6 +44,7 @@ import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { isVisibleSeason } from "@/lib/settings/seasonVisibility";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
+import { CastButton } from "@/components/connect/CastButton";
 import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
 import type { OnDeckEntry } from "@/lib/plex/onDeckService";
 import { setPageTitleContext } from "@/lib/ai/pageContext";
@@ -1777,6 +1778,21 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                   )}
                 </button>
               )}
+              {detail.tmdbId && ((type === "series" && !partActionBlocked && seriesLocalNext) || (type === "movie" && (hasLocalPlayback || (libraryStatus === "available" && !!libraryMatch?.plexRatingKey)))) ? (
+                <CastButton
+                  variant="title"
+                  payload={type === "series" && seriesLocalNext
+                    ? {
+                        title: detail.title ?? "",
+                        mediaType: "series",
+                        tmdbId: detail.tmdbId,
+                        season: seriesLocalNext.season,
+                        episode: seriesLocalNext.episode,
+                        ...(seriesResume?.offsetMs != null ? { resumeSeconds: Math.floor(seriesResume.offsetMs / 1000) } : {}),
+                      }
+                    : { title: detail.title ?? "", mediaType: "movie", tmdbId: detail.tmdbId }}
+                />
+              ) : null}
               <button
                 onClick={toggleWatchlist}
                 disabled={watching}

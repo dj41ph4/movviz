@@ -4,6 +4,8 @@ import { eventBus } from "@/lib/events/EventBus";
 import type { AppEvent } from "@/lib/events/EventBus";
 import { ensureDownloadWatcher } from "@/lib/events/downloadWatcher";
 import { getMovie, getSeries } from "@/lib/library/store";
+import { DEVICE_ID_RE } from "@/lib/connect/types";
+import { attachStream } from "@/lib/connect/registry";
 
 /** What a device needs to act on a library change without re-reading the
  *  whole library: which title (TMDb id) and whether it is playable now. */
@@ -39,13 +41,19 @@ const EVENT_SSE_CHANNEL: Record<AppEvent["type"], string> = {
   on_deck_refreshed: "on-deck",
   ai_chat_changed: "ai",
   recommendations_changed: "recommendations",
+  connect_roster: "connect-roster",
+  connect_command: "connect-command",
+  connect_state: "connect-state",
 };
 
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const deviceParam = req.nextUrl.searchParams.get("device") ?? "";
+  const deviceId = DEVICE_ID_RE.test(deviceParam) ? deviceParam : null;
   const encoder = new TextEncoder();
   let cleanup: (() => void) | undefined;
+  let detachDevice: (() => void) | undefined;
   let keepAlive: ReturnType<typeof setInterval> | undefined;
 
   const stream = new ReadableStream({
@@ -53,6 +61,8 @@ export async function GET(req: NextRequest) {
       cleanup = eventBus.on((event) => {
         // A user's views and resume positions go to that user's devices only.
         if ("userId" in event && event.userId !== user.id) return;
+        // Un ordre Connect ne va qu'à l'appareil visé (ce flux porte son identifiant).
+        if (event.type === "connect_command" && event.targetId !== deviceId) return;
         const channel = EVENT_SSE_CHANNEL[event.type];
         const data = JSON.stringify(channel === "library" ? withTitleState(event) : event);
         try {
@@ -66,6 +76,7 @@ export async function GET(req: NextRequest) {
       controller.enqueue(encoder.encode(": connected\n\n"));
       // A device is listening: the server now reports download changes itself.
       ensureDownloadWatcher();
+      if (deviceId) detachDevice = attachStream(user.id, deviceId);
       keepAlive = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
@@ -76,6 +87,7 @@ export async function GET(req: NextRequest) {
     },
     cancel() {
       cleanup?.();
+      detachDevice?.();
       clearInterval(keepAlive);
     },
   });

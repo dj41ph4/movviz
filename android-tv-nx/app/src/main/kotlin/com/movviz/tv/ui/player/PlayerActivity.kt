@@ -246,8 +246,14 @@ PlayerScreen(
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        com.movviz.tv.connect.ConnectService.activityStarted(this)
+    }
+
     override fun onStop() {
         lifecyclePauseHandler?.invoke()
+        com.movviz.tv.connect.ConnectService.activityStopped(this)
         super.onStop()
     }
 
@@ -1014,6 +1020,36 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             episodeNumber = current.episodeNumber.takeIf { it >= 0 },
         ) ?: 0L
         load(current, resume, level = startLevel, autoplay = !stillWatchingPrompt)
+    }
+
+    // Movviz Connect : la télécommande d'un autre appareil pilote ce lecteur
+    // (pause, reprendre, aller à, arrêter) et lit son état en retour.
+    DisposableEffect(exoPlayer) {
+        val detach = com.movviz.tv.connect.ConnectHub.attachPlayer {
+            val item = queue.getOrNull(currentIndex)
+            com.movviz.tv.connect.ConnectHub.PlayerSnapshot(
+                playing = exoPlayer.playWhenReady && exoPlayer.playbackState != Player.STATE_ENDED,
+                buffering = exoPlayer.playbackState == Player.STATE_BUFFERING,
+                positionMs = timelinePos(),
+                durationMs = timelineDur(),
+                title = mainTitle,
+                type = type,
+                tmdbId = tmdbId,
+                season = item?.seasonNumber ?: -1,
+                episode = item?.episodeNumber ?: -1,
+            )
+        }
+        onDispose { detach() }
+    }
+    LaunchedEffect(exoPlayer) {
+        com.movviz.tv.connect.ConnectHub.commands.collect { command ->
+            when (command) {
+                com.movviz.tv.connect.ConnectHub.PlayerCommand.Pause -> exoPlayer.pause()
+                com.movviz.tv.connect.ConnectHub.PlayerCommand.Resume -> exoPlayer.play()
+                com.movviz.tv.connect.ConnectHub.PlayerCommand.Stop -> onExit()
+                is com.movviz.tv.connect.ConnectHub.PlayerCommand.Seek -> seekAbs(command.positionMs)
+            }
+        }
     }
 
     DisposableEffect(exoPlayer) {

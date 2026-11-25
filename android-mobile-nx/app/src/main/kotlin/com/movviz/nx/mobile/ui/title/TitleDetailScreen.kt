@@ -699,6 +699,9 @@ fun TitleDetailScreen(
         // de ces boutons dans le hit-testing malgré son contenu visuel qui
         // commence sous le hero (les taps atterrissaient sur la liste vide,
         // pas sur les boutons — reproduit et corrigé en test émulateur).
+        val castBaseUrl by viewModel.serverUrl.collectAsState()
+        // Le serveur choisit l'épisode d'une série (celui en cours, sinon le prochain non vu) et le fichier.
+        val castPayload = detail?.let { com.movviz.nx.mobile.connect.CastPayload(title = it.title, mediaType = if (type == "movie") "movie" else "series", tmdbId = it.tmdbId) }
         if (narrowDetail) {
             Row(
                 modifier = Modifier
@@ -713,13 +716,29 @@ fun TitleDetailScreen(
                 if (d != null) {
                     val profileMediaState by viewModel.profileMedia.collectAsState()
                     val inWatchlist = profileMediaState?.watchlist?.any { it.tmdbId == d.tmdbId && it.type == d.type } == true
-                    FloatingHeroButton(
-                        icon = if (inWatchlist) com.movviz.nx.mobile.ui.theme.MovvizIconBookmarkFilled else com.movviz.nx.mobile.ui.theme.MovvizIconBookmark,
-                        contentDescription = if (inWatchlist) "Retirer de la watchlist" else "Ajouter à la watchlist",
-                        onClick = { viewModel.toggleWatchlist(d.type, d.tmdbId, d.title, d.year, d.posterPath, d.rating) },
-                        tint = if (inWatchlist) MovvizBrand2 else Color.White,
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        // Movviz Connect : « Lire sur la TV », visible seulement si un appareil peut recevoir.
+                        com.movviz.nx.mobile.connect.CastButton(baseUrl = castBaseUrl, payload = castPayload)
+                        FloatingHeroButton(
+                            icon = if (inWatchlist) com.movviz.nx.mobile.ui.theme.MovvizIconBookmarkFilled else com.movviz.nx.mobile.ui.theme.MovvizIconBookmark,
+                            contentDescription = if (inWatchlist) "Retirer de la watchlist" else "Ajouter à la watchlist",
+                            onClick = { viewModel.toggleWatchlist(d.type, d.tmdbId, d.title, d.year, d.posterPath, d.rating) },
+                            tint = if (inWatchlist) MovvizBrand2 else Color.White,
+                        )
+                    }
                 }
+            }
+        } else if (detail != null) {
+            // Paysage (deux volets) : même bouton, en haut à droite.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .zIndex(10f),
+                contentAlignment = Alignment.TopEnd,
+            ) {
+                com.movviz.nx.mobile.connect.CastButton(baseUrl = castBaseUrl, payload = castPayload)
             }
         }
 

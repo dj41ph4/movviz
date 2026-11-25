@@ -18,6 +18,13 @@
          "installer des applications inconnues" puis installe l'APK de la
          dernière release GitHub via ACTION_VIEW. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Movviz Connect : service qui reçoit les ordres « Lire sur la TV » d'un téléphone ou d'un
+         navigateur. « Afficher par-dessus » est la seule voie qu'Android 10+ laisse pour ouvrir
+         l'app quand elle est fermée (option « Ouverture à distance », accordée par l'utilisateur). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:name=".MovvizTvApplication"
@@ -80,6 +87,24 @@
              le package, le process est tué puis le système envoie
              MY_PACKAGE_REPLACED à la NOUVELLE version — ce receiver relance
              alors MainActivity (reboot de l'app, façon Netflix). -->
+        <service
+            android:name=".connect.ConnectService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Receives play and remote-control commands sent from the user's other Movviz devices (cast to TV)." />
+        </service>
+
+        <receiver
+            android:name=".connect.ConnectBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".UpdateReceiver"
             android:exported="false">

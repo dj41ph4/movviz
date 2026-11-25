@@ -148,6 +148,18 @@ class MainActivity : ComponentActivity() {
     // consommé par le NavHost une fois la navigation prête.
     private var pendingDeepLink: Intent? = null
 
+    // Movviz Connect : la TV reçoit « Lire sur la TV » tant qu'une activité Movviz est à l'écran
+    // (et app fermée avec « Ouverture à distance »).
+    override fun onStart() {
+        super.onStart()
+        com.movviz.tv.connect.ConnectService.activityStarted(this)
+    }
+
+    override fun onStop() {
+        com.movviz.tv.connect.ConnectService.activityStopped(this)
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingDeepLink = intent

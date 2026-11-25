@@ -8,6 +8,7 @@ import { useNavSearch } from "@/lib/nav/useNavSearch";
 import { SearchSuggestPanel } from "./SearchSuggestPanel";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
+import { CastButton } from "@/components/connect/CastButton";
 import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
@@ -167,6 +168,7 @@ export function Topbar({ inputRef, touchSearchOpen, openTouchSearch, closeTouchS
       </button>
       <div className="nx-topbar-tools ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         {user?.role === "admin" && <ActivityMonitor />}
+        <CastButton variant="topbar" />
         <NotificationBell />
         <UserMenu openTouchMenu={openTouchMenu} />
       </div>

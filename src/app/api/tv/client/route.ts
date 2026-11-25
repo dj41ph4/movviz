@@ -159,6 +159,10 @@ export async function POST(req: NextRequest) {
         case "/api/watch-status": response = await (await import("@/app/api/watch-status/route")).GET(delegated); break;
         case "/api/profile/watch-reset": response = await (await import("@/app/api/profile/watch-reset/route")).GET(delegated); break;
         case "/api/activity/v2": response = await (await import("@/app/api/activity/v2/route")).GET(delegated); break;
+        // Movviz Connect (TV Samsung) : appareils, ordre à lire, attente des ordres.
+        case "/api/connect/devices": response = await (await import("@/app/api/connect/devices/route")).GET(delegated); break;
+        case "/api/connect/resolve": response = await (await import("@/app/api/connect/resolve/route")).GET(delegated); break;
+        case "/api/connect/poll": response = await (await import("@/app/api/connect/poll/route")).GET(delegated); break;
         default: {
           const series = /^\/api\/library\/series\/([^/]+)$/.exec(path);
           if (!series) return reply({ error: "route_not_supported" }, 404);
@@ -173,6 +177,9 @@ export async function POST(req: NextRequest) {
       else if (path === "/api/profile/watch-reset") response = await (await import("@/app/api/profile/watch-reset/route")).POST(delegated);
       else if (path === "/api/playback/prepare") response = await (await import("@/app/api/playback/prepare/route")).POST(delegated);
       else if (path === "/api/playback/sessions") response = await (await import("@/app/api/playback/sessions/route")).POST(delegated);
+      else if (path === "/api/connect/devices") response = await (await import("@/app/api/connect/devices/route")).POST(delegated);
+      else if (path === "/api/connect/command") response = await (await import("@/app/api/connect/command/route")).POST(delegated);
+      else if (path === "/api/connect/state") response = await (await import("@/app/api/connect/state/route")).POST(delegated);
       else {
         const movieSearch = /^\/api\/library\/movies\/([^/]+)\/search$/.exec(path);
         const seriesSearch = /^\/api\/library\/series\/([^/]+)\/search$/.exec(path);
