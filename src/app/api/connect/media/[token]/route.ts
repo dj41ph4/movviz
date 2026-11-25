@@ -46,8 +46,11 @@ async function serve(req: NextRequest, context: Ctx, head: boolean) {
     const bounds = rangeBounds(req.headers.get("range"), stat.size);
     if (!bounds) return new NextResponse(null, { status: 416, headers: { "content-range": `bytes */${stat.size}` } });
     const partial = bounds.start !== 0 || bounds.end !== stat.size - 1;
+    // Les téléviseurs Samsung attendent « video/x-mkv » et refusent « video/x-matroska ».
+    const samsung = /samsung|sec_hhp|tizen/i.test(req.headers.get("user-agent") ?? "");
+    const type = contentTypeFor(media.path);
     const headers: Record<string, string> = {
-      "content-type": contentTypeFor(media.path),
+      "content-type": samsung && type === "video/x-matroska" ? "video/x-mkv" : type,
       "accept-ranges": "bytes",
       "content-length": String(bounds.end - bounds.start + 1),
       "cache-control": "no-store",
@@ -62,7 +65,11 @@ async function serve(req: NextRequest, context: Ctx, head: boolean) {
     return new NextResponse(Readable.toWeb(stream) as ReadableStream, { status: partial ? 206 : 200, headers });
   }
 
-  const headers = { "content-type": "video/mp4", "cache-control": "no-store", "accept-ranges": "none", ...CORS };
+  // Flux continu (aucune plage d'octets) : un téléviseur DLNA en repli doit le savoir (OP=00).
+  const headers = {
+    "content-type": "video/mp4", "cache-control": "no-store", "accept-ranges": "none", ...CORS,
+    "transferMode.dlna.org": "Streaming", "contentFeatures.dlna.org": "DLNA.ORG_OP=00;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+  };
   if (head) return new NextResponse(null, { status: 200, headers });
   const startRaw = Number(req.nextUrl.searchParams.get("t") ?? "0");
   const start = Number.isFinite(startRaw) && startRaw > 0 ? Math.min(startRaw, 1_000_000) : 0;

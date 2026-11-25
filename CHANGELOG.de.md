@@ -1,3 +1,13 @@
+## v1.29.8 — 25. November 2026
+
+### Abspielen auf…: Samsung- und DLNA-Fernseher, Smart View und Übergabe aus dem Player
+
+- Android: Das Telefon findet die DLNA-Fernseher in seinem WLAN (Samsung, LG, Sony, Philips… ohne Google Cast oder Movviz-App), auch bei Freunden. Der Fernseher spielt den Film direkt vom Server ab, das Telefon ist danach nur noch Fernbedienung. Lehnt er die Datei ab (älteres Modell, 4K/HDR), wechselt Movviz selbst auf eine H.264-1080p-Version; unterwegs wird eine zu große Datei gleich so gesendet.
+- Android: Smart View / Miracast: Die Zeile öffnet die Verbindung des Telefons; ist der Bildschirm verbunden, läuft der Film dort im Vollbild und das Telefon behält die Steuerung.
+- Android: Cast-Taste im Player: Der Fernseher setzt genau an der aktuellen Position fort, das Telefon stoppt und wird zur Fernbedienung.
+- Android: Jedes Senden zeigt seinen aktuellen Schritt mit einer Animation, läuft auch bei geschlossenem Bereich weiter, und die Suche nach Bildschirmen wird angezeigt.
+- Google Cast: Ein Empfänger im Movviz-Design ist möglich (Logo beim Start) mit MOVVIZ_CAST_APP_ID und MOVVIZ_CAST_APP_PUBLISHED=1; ohne Einstellung ändert sich nichts.
+
 ## v1.29.7 — 25. November 2026
 
 ### Abspielen auf…: unterwegs die Bildschirme in der Nähe des Telefons

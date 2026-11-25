@@ -40,7 +40,7 @@ class CastOptionsProvider : OptionsProvider {
             .setTargetActivityClassName(MainActivity::class.java.name)
             .build()
         return CastOptions.Builder()
-            .setReceiverApplicationId(CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID)
+            .setReceiverApplicationId(LocalCast.receiverAppId(context))
             .setCastMediaOptions(CastMediaOptions.Builder().setNotificationOptions(notification).build())
             .build()
     }
@@ -60,6 +60,47 @@ data class NearbyScreen(val id: String, val name: String, val description: Strin
  */
 object LocalCast {
     const val DEVICE_ID = "gcast_local"
+    private const val PREFS = "movviz_cast"
+
+    /**
+     * Récepteur aux couleurs de Movviz (MOVVIZ_CAST_APP_ID côté serveur), sinon celui de Google.
+     * Lu à la création du contexte Cast : un nouvel identifiant sert au plus tard au prochain lancement.
+     */
+    fun receiverAppId(context: Context): String =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("appId", null)
+            ?.takeIf { Regex("^[0-9A-F]{8}$").matches(it) } ?: CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID
+
+    /** Relit l'identifiant du récepteur sur le serveur (une fois par lancement). */
+    @Volatile private var receiverSynced = false
+    suspend fun syncReceiverId(context: Context, baseUrl: String) {
+        if (receiverSynced) return
+        val id = withContext(Dispatchers.IO) {
+            runCatching {
+                ApiClient.httpClient().newCall(Request.Builder().url("${baseUrl.trimEnd('/')}/api/connect/cast-config").build()).execute().use { r ->
+                    if (!r.isSuccessful) return@use Unit
+                    JSONObject(r.body?.string().orEmpty()).optString("appId").takeIf { Regex("^[0-9A-F]{8}$").matches(it) }
+                }
+            }.getOrDefault(Unit)
+        }
+        if (id == Unit) return // serveur injoignable : on garde le réglage connu
+        receiverSynced = true
+        val before = receiverAppId(context)
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("appId", id as String?).apply()
+        val after = receiverAppId(context)
+        val ctx = castContext ?: return
+        if (after == before || ctx.sessionManager.currentCastSession != null) return
+        withContext(Dispatchers.Main) {
+            runCatching { ctx.setReceiverApplicationId(after) }
+            val sel = MediaRouteSelector.Builder().addControlCategory(CastMediaControlIntent.categoryForCast(after)).build()
+            selector = sel
+            // Panneau ouvert : la recherche reprend aussitôt avec le nouveau récepteur.
+            if (discovering) router?.let { r ->
+                r.removeCallback(routerCallback)
+                r.addCallback(sel, routerCallback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
+            }
+            publishRoutes()
+        }
+    }
     private val json = "application/json".toMediaType()
 
     private val _screens = MutableStateFlow<List<NearbyScreen>>(emptyList())
@@ -91,7 +132,7 @@ object LocalCast {
         castContext = ctx
         router = MediaRouter.getInstance(context.applicationContext)
         selector = MediaRouteSelector.Builder()
-            .addControlCategory(CastMediaControlIntent.categoryForCast(CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID))
+            .addControlCategory(CastMediaControlIntent.categoryForCast(receiverAppId(context)))
             .build()
         ctx.sessionManager.addSessionManagerListener(sessionListener, CastSession::class.java)
         ctx.sessionManager.currentCastSession?.let { attach(it) }
@@ -114,15 +155,19 @@ object LocalCast {
     }
 
     /** Recherche active pendant que le panneau est ouvert (économise la batterie le reste du temps). */
+    private var discovering = false
+
     fun startDiscovery(context: Context) {
         ensure(context) ?: return
         val r = router ?: return
         val sel = selector ?: return
         r.addCallback(sel, routerCallback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
+        discovering = true
         publishRoutes()
     }
 
     fun stopDiscovery() {
+        discovering = false
         router?.removeCallback(routerCallback)
     }
 
@@ -209,7 +254,7 @@ object LocalCast {
     enum class Result { OK, FAILED, LOCAL_FILE_REQUIRED, NO_SESSION }
 
     /** Se connecte à l'écran choisi puis y envoie le titre (modèle de l'écran → copie ou recodage). */
-    suspend fun castTo(context: Context, baseUrl: String, screenId: String, payload: CastPayload): Result {
+    suspend fun castTo(context: Context, baseUrl: String, screenId: String, payload: CastPayload, onStage: (String) -> Unit = {}): Result {
         val ctx = ensure(context) ?: return Result.FAILED
         var session = ctx.sessionManager.currentCastSession
         val route = router?.routes?.firstOrNull { it.id == screenId }
@@ -217,11 +262,15 @@ object LocalCast {
         if (route != null && session?.castDevice?.friendlyName != route.name) {
             val waiter = CompletableDeferred<CastSession?>()
             sessionWaiter = waiter
-            withContext(Dispatchers.Main) { router?.selectRoute(route) }
-            session = withTimeoutOrNull(25_000) { waiter.await() }
-            sessionWaiter = null
+            try {
+                withContext(Dispatchers.Main) { router?.selectRoute(route) }
+                session = withTimeoutOrNull(25_000) { waiter.await() }
+            } finally {
+                sessionWaiter = null
+            }
         }
         session ?: return Result.NO_SESSION
+        onStage("Préparation de la vidéo…")
         val model = session.castDevice?.modelName
         val link = withContext(Dispatchers.IO) {
             val body = JSONObject().put("title", payload.title).put("mediaType", payload.mediaType).put("tmdbId", payload.tmdbId)
@@ -238,12 +287,14 @@ object LocalCast {
         }
         if (link == "local") return Result.LOCAL_FILE_REQUIRED
         if (link !is JSONObject) return Result.FAILED
+        LocalDlna.stopActive()
         finish(false)
         val c = Current(
             baseUrl, payload, link, link.getString("url"), link.optDouble("durationSec", 0.0),
             link.optString("progressSessionId").takeIf { it.isNotBlank() && it != "null" },
         )
         current = c
+        onStage("Lancement sur l'écran…")
         val ok = withContext(Dispatchers.Main) { load(session, c, link.optDouble("startSec", 0.0)) }
         return if (ok) Result.OK else Result.FAILED
     }
@@ -275,6 +326,15 @@ object LocalCast {
         client.load(MediaLoadRequestData.Builder().setMediaInfo(info).setAutoplay(true).setCurrentTime(0).build())
             .setResultCallback { done.complete(it.status.isSuccess) }
         return withTimeoutOrNull(30_000) { done.await() } ?: false
+    }
+
+    /** Arrête la lecture Google Cast pilotée d'ici (avant d'en lancer une autre ailleurs). */
+    suspend fun stopActive() {
+        if (current == null) return
+        withContext(Dispatchers.Main) {
+            finish(false)
+            castContext?.sessionManager?.endCurrentSession(true)
+        }
     }
 
     /** Pause, reprendre, aller à (recharge à la position), arrêter. */

@@ -1,3 +1,13 @@
+## v1.29.8 — November 25, 2026
+
+### Play on…: Samsung and DLNA TVs, Smart View and handoff from the player
+
+- Android: the phone finds the DLNA TVs on its Wi-Fi (Samsung, LG, Sony, Philips… without Google Cast or the Movviz app), even at a friend's. The TV plays the film straight from the server; the phone is then only the remote. If it refuses the file (older model, 4K/HDR), Movviz switches on its own to an H.264 1080p version; away from home, a file too heavy is sent in that version right away.
+- Android: Smart View / Miracast: the row opens the phone's connection; once the screen is connected, the film plays there full screen and the phone keeps the controls.
+- Android: Cast button in the player: the TV picks up at exactly the current position, the phone stops and becomes the remote.
+- Android: each send shows its live step with an animation, keeps going even if the panel is closed, and screen discovery is shown.
+- Google Cast: a Movviz-branded receiver is possible (logo at launch) with MOVVIZ_CAST_APP_ID and MOVVIZ_CAST_APP_PUBLISHED=1; without them, nothing changes.
+
 ## v1.29.7 — November 25, 2026
 
 ### Play on…: away from home, the screens near the phone

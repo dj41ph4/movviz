@@ -74,6 +74,8 @@ export interface CastVideoTranscode {
    * 1280 px est presque gratuit) ; la sortie réduite masque la différence d'image.
    */
   fastDecode?: boolean;
+  /** Débit vidéo plafonné (Mb/s) : écran hors de chez soi, le flux passe par l'envoi de la box. */
+  maxRateMbps?: number;
 }
 
 export interface CastProfile {
@@ -133,7 +135,8 @@ export function remuxArgs(path: string, startSec: number, media: Pick<CastMedia,
     "-i", path,
     "-map", "0:v:0", "-map", "0:a:0?",
     ...(v
-      ? ["-c:v", "libx264", "-preset", v.preset, "-crf", "23", "-profile:v", "high", "-level:v", "4.1", "-vf", filters.join(","), "-g", "48", "-keyint_min", "48", "-sc_threshold", "0"]
+      ? ["-c:v", "libx264", "-preset", v.preset, "-crf", "23", "-profile:v", "high", "-level:v", "4.1", "-vf", filters.join(","), "-g", "48", "-keyint_min", "48", "-sc_threshold", "0",
+        ...(v.maxRateMbps ? ["-maxrate", `${v.maxRateMbps}M`, "-bufsize", `${v.maxRateMbps * 2}M`] : [])]
       : ["-c:v", "copy"]),
     ...(media.transcodeAudio ? ["-c:a", "aac", "-b:a", "256k", "-ac", "2"] : ["-c:a", "copy"]),
     "-sn", "-dn",

@@ -24,6 +24,8 @@
         <package android:name="com.google.android.tts" />
     </queries>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Lire sur… : recherche des téléviseurs DLNA du Wi-Fi (SSDP multicast). -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- Auto-update (variante AU uniquement) : demande l'autorisation
          "installer des applications inconnues" puis installe l'APK de la
          dernière release GitHub via ACTION_VIEW. -->

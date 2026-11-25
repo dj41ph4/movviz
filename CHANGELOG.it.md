@@ -1,3 +1,13 @@
+## v1.29.8 — 25 novembre 2026
+
+### Riproduci su…: TV Samsung e DLNA, Smart View e passaggio dal lettore
+
+- Android: il telefono trova le TV DLNA del suo Wi-Fi (Samsung, LG, Sony, Philips… senza Google Cast né app Movviz), anche da un amico. La TV riproduce il film direttamente dal server, il telefono fa poi solo da telecomando. Se rifiuta il file (modello vecchio, 4K/HDR), Movviz passa da solo a una versione H.264 1080p; fuori casa, un file troppo pesante viene inviato subito così.
+- Android: Smart View / Miracast: la riga apre la connessione del telefono; una volta collegato lo schermo, il film va lì a schermo intero e il telefono tiene i comandi.
+- Android: pulsante Cast nel lettore: la TV riprende esattamente dalla posizione attuale, il telefono si ferma e diventa il telecomando.
+- Android: ogni invio mostra il passaggio in corso con un'animazione, continua anche chiudendo il pannello, e la ricerca degli schermi è segnalata.
+- Google Cast: è possibile un ricevitore con i colori di Movviz (logo all'avvio) con MOVVIZ_CAST_APP_ID e MOVVIZ_CAST_APP_PUBLISHED=1; senza, non cambia nulla.
+
 ## v1.29.7 — 25 novembre 2026
 
 ### Riproduci su…: fuori casa, gli schermi vicini al telefono

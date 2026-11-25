@@ -113,6 +113,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizBrandGlow
 import com.movviz.nx.mobile.ui.theme.MovvizDown
 import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconForward
+import com.movviz.nx.mobile.ui.theme.MovvizIconCast
 import com.movviz.nx.mobile.ui.theme.MovvizIconMusicNote
 import com.movviz.nx.mobile.ui.theme.MovvizIconPause
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlay
@@ -617,6 +618,8 @@ private fun PlayerScreen(
     var networkRetryCount by remember { mutableStateOf(0) }
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
+    // « Lire sur… » depuis le lecteur : transfert vers la TV à la position en cours.
+    var castSheet by remember { mutableStateOf<com.movviz.nx.mobile.connect.CastPayload?>(null) }
     var tracksVersion by remember { mutableStateOf(0) } // force la recomposition des dialogues pistes
     var subtitlePreferenceAppliedFor by remember { mutableStateOf<String?>(null) }
     // Indicateur flottant centré quand on seek — feedback visuel immédiat
@@ -715,6 +718,8 @@ ExoPlayer.Builder(context)
     // session (sessionActivity) fait que cliquer sur la carte du launcher
     // rouvre l'app. Relâchée quand l'Activity se ferme.
     PlayerImmersion(exoPlayer, nativePlayerView, "${current.ratingKey}|${current.localKey}", hasRenderedFrame, fillScreen, inPip)
+    // Écran sans fil (Miracast) connecté : la vidéo y passe en plein écran, le téléphone garde les commandes.
+    val externalScreen = rememberExternalVideoOutput(exoPlayer, nativePlayerView, enabled = !inPip)
 
     val mediaSession = remember(exoPlayer) {
         val sessionActivity = PendingIntent.getActivity(
@@ -1345,9 +1350,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
 
     // Auto-hide des contrôles — toute interaction relance le minuteur.
     var lastInteraction by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, isPlaying, timelineScrubbing) {
+    LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog, isPlaying, timelineScrubbing, castSheet) {
         showControls = true
-        if (!isPlaying || timelineScrubbing || showAudioDialog || showSubtitleDialog) return@LaunchedEffect
+        if (!isPlaying || timelineScrubbing || showAudioDialog || showSubtitleDialog || castSheet != null) return@LaunchedEffect
         delay(CONTROLS_TIMEOUT_MS)
         showControls = false
     }
@@ -1585,6 +1590,20 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             modifier = Modifier.fillMaxSize(),
         )
 
+        // Écran sans fil connecté : la vidéo est sur la TV, le téléphone affiche où elle se lit
+        // (sous les commandes, l'erreur et l'indicateur ±10 s, qui restent visibles).
+        if (externalScreen != null && !inPip) {
+            Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(MovvizIconCast, contentDescription = null, tint = MovvizInkSoft, modifier = Modifier.size(40.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("Lecture sur $externalScreen", style = MaterialTheme.typography.titleMedium, color = MovvizInk)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Touchez l'écran pour afficher les commandes", style = MaterialTheme.typography.bodySmall, color = MovvizInkSoft)
+                }
+            }
+        }
+
         // Zone invisible plein écran qui capte tout appui D-pad pour
         // réafficher les contrôles quand ils sont masqués, sans rien faire
         // d'autre (évite qu'une pression perdue dans le vide ne fasse rien).
@@ -1802,6 +1821,20 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 onNextEpisode = { nextEpisodeAction() },
                 onOpenAudio = { poke(); showAudioDialog = true },
                 onOpenSubtitles = { poke(); showSubtitleDialog = true },
+                onOpenCast = if (tmdbId <= 0) null else fun() {
+                    poke()
+                    // Position figée AU CLIC : la TV reprend exactement là où en est le téléphone.
+                    val item = queue[currentIndex]
+                    val series = type == "series" && item.seasonNumber > 0 && item.episodeNumber > 0
+                    castSheet = com.movviz.nx.mobile.connect.CastPayload(
+                        title = mainTitle,
+                        mediaType = if (type == "series") "series" else "movie",
+                        tmdbId = tmdbId,
+                        season = item.seasonNumber.takeIf { series },
+                        episode = item.episodeNumber.takeIf { series },
+                        resumeSeconds = (timelinePos() / 1000.0).coerceAtLeast(0.0),
+                    )
+                },
             )
         }
 
@@ -1899,6 +1932,20 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     showAudioDialog = false
                 },
                 onDismiss = { showAudioDialog = false },
+            )
+        }
+        castSheet?.let { payload ->
+            com.movviz.nx.mobile.connect.CastTransferSheet(
+                baseUrl = baseUrl,
+                payload = payload,
+                onDismiss = { castSheet = null },
+                onSent = {
+                    // La TV a pris le relais : le téléphone s'arrête (avancement enregistré)
+                    // et revient sur la fiche, où l'icône Caster sert de télécommande.
+                    castSheet = null
+                    pauseForBackground()
+                    onExit()
+                },
             )
         }
         if (showSubtitleDialog) {
@@ -2330,6 +2377,7 @@ private fun ControlsOverlay(
     onNextEpisode: () -> Unit,
     onOpenAudio: () -> Unit,
     onOpenSubtitles: () -> Unit,
+    onOpenCast: (() -> Unit)?,
 ) {
     // Ombre portée partagée titre/sous-titre — sans elle un texte blanc
     // disparaît sur une image claire (scène enneigée, ciel…). Le Shadow
@@ -2460,6 +2508,7 @@ private fun ControlsOverlay(
                     small = true,
                     onMoveToProgress = { progressFocus.requestFocus() },
                 )
+                if (onOpenCast != null) ControlButton(icon = MovvizIconCast, contentDescription = "Lire sur un autre appareil", onClick = onOpenCast, small = true, onMoveToProgress = { progressFocus.requestFocus() })
                 ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true, onMoveToProgress = { progressFocus.requestFocus() })
                 ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true, onMoveToProgress = { progressFocus.requestFocus() })
             }

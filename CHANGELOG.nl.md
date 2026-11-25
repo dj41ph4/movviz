@@ -1,3 +1,13 @@
+## v1.29.8 — 25 november 2026
+
+### Afspelen op…: Samsung- en DLNA-tv's, Smart View en overdracht vanuit de speler
+
+- Android: de telefoon vindt de DLNA-tv's op zijn wifi (Samsung, LG, Sony, Philips… zonder Google Cast of Movviz-app), ook bij een vriend. De tv speelt de film rechtstreeks van de server af; de telefoon is daarna alleen nog de afstandsbediening. Weigert hij het bestand (ouder model, 4K/HDR), dan schakelt Movviz zelf over op een H.264 1080p-versie; buitenshuis gaat een te zwaar bestand meteen zo.
+- Android: Smart View / Miracast: de regel opent de verbinding van de telefoon; zodra het scherm verbonden is, speelt de film daar schermvullend en houdt de telefoon de bediening.
+- Android: Cast-knop in de speler: de tv gaat precies verder op de huidige positie, de telefoon stopt en wordt de afstandsbediening.
+- Android: elke verzending toont de huidige stap met een animatie, gaat door ook als het paneel sluit, en het zoeken naar schermen wordt getoond.
+- Google Cast: een ontvanger in Movviz-stijl is mogelijk (logo bij het starten) met MOVVIZ_CAST_APP_ID en MOVVIZ_CAST_APP_PUBLISHED=1; zonder verandert er niets.
+
 ## v1.29.7 — 25 november 2026
 
 ### Afspelen op…: buitenshuis de schermen bij de telefoon

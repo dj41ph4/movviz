@@ -1,6 +1,19 @@
 package com.movviz.nx.mobile.connect
 
+import android.content.Context
+import android.content.Intent
+import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -32,6 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,10 +53,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -89,6 +105,7 @@ fun CastButton(baseUrl: String?, payload: CastPayload?, containerColor: Color = 
     var open by remember { mutableStateOf(false) }
 
     // Liste à jour : toutes les 8 s sur la fiche, toutes les 2 s panneau ouvert (télécommande vivante).
+    LaunchedEffect(baseUrl) { baseUrl?.let { LocalCast.syncReceiverId(context, it) } }
     LaunchedEffect(baseUrl, open) {
         val url = baseUrl ?: return@LaunchedEffect
         while (true) {
@@ -131,38 +148,77 @@ fun CastButton(baseUrl: String?, payload: CastPayload?, containerColor: Color = 
     if (open) CastSheet(baseUrl = baseUrl, payload = payload, onDismiss = { open = false })
 }
 
+/**
+ * Panneau « Lire sur… » ouvert depuis le lecteur : [payload] porte la position
+ * exacte de la lecture en cours (transfert au même instant). [onSent] est appelé
+ * dès que l'écran choisi a accepté la lecture.
+ */
 @Composable
-private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> Unit) {
+fun CastTransferSheet(baseUrl: String, payload: CastPayload, onDismiss: () -> Unit, onSent: (deviceName: String) -> Unit) {
+    CastSheet(baseUrl = baseUrl, payload = payload, onDismiss = onDismiss, onSent = onSent)
+}
+
+@Composable
+private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> Unit, onSent: (deviceName: String) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val serverDevices by ConnectRemote.devices.collectAsState()
     val localCast by LocalCast.device.collectAsState()
     val nearby by LocalCast.screens.collectAsState()
-    // Écrans Google Cast du réseau du TÉLÉPHONE (SDK officiel) : recherche seulement panneau ouvert.
+    val localDlna by LocalDlna.device.collectAsState()
+    val nearbyDlna by LocalDlna.screens.collectAsState()
+    val miracast = rememberWirelessDisplay()
+    // Écrans du réseau du TÉLÉPHONE (Google Cast par le SDK officiel, DLNA par SSDP) : recherche seulement panneau ouvert.
     DisposableEffect(Unit) {
         LocalCast.startDiscovery(context)
-        onDispose { LocalCast.stopDiscovery() }
+        LocalDlna.startDiscovery(context)
+        onDispose { LocalCast.stopDiscovery(); LocalDlna.stopDiscovery() }
     }
-    val local = localCast
     // Le même écran vu par le serveur et par le téléphone : une seule ligne, celle pilotée d'ici.
-    val devices = if (local != null) listOf(local) + serverDevices.filter { !it.name.equals(local.name, ignoreCase = true) } else serverDevices
+    val locals = listOfNotNull(localCast, localDlna)
+    val devices = locals + serverDevices.filter { d -> locals.none { it.name.equals(d.name, ignoreCase = true) } }
     val nearbyFree = if (payload == null) emptyList() else nearby.filter { s -> devices.none { it.name.equals(s.name, ignoreCase = true) } }
-    var busyId by remember { mutableStateOf<String?>(null) }
+    // Un téléviseur à la fois Google Cast et DLNA : une seule ligne, la voie Cast (pilotage plus fiable).
+    val dlnaFree = if (payload == null) emptyList() else nearbyDlna.filter { s ->
+        devices.none { sameScreen(it.name, s.name) } && nearby.none { sameScreen(it.name, s.name) }
+    }
+    val job by CastProgress.job.collectAsState()
+    val busyId = job?.screenId
+    val stage = job?.stage
+    val dlnaSearching by LocalDlna.searching.collectAsState()
+    val castDlna: (DlnaScreen) -> Unit = { screen ->
+        val p = payload
+        if (p != null) {
+            val started = CastProgress.start(context, screen.id, screen.name, "Préparation…", onSent) { setStage ->
+                when (LocalDlna.castTo(baseUrl, screen, p, setStage)) {
+                    LocalDlna.Result.OK -> true to "Lecture envoyée à ${screen.name}"
+                    LocalDlna.Result.LOCAL_FILE_REQUIRED -> false to "Ce titre doit être dans les fichiers Movviz pour cet écran"
+                    LocalDlna.Result.REFUSED -> false to "${screen.name} ne lit pas cette vidéo"
+                    LocalDlna.Result.FAILED -> false to "Impossible de joindre le serveur Movviz"
+                }
+            }
+            if (!started) busyToast(context, job)
+        }
+    }
     val castLocal: (String, String) -> Unit = { screenId, screenName ->
         val p = payload
-        if (p != null && busyId == null) {
-            busyId = screenId
-            scope.launch {
-                val result = LocalCast.castTo(context, baseUrl, screenId, p)
-                busyId = null
-                val message = when (result) {
-                    LocalCast.Result.OK -> "Lecture envoyée à $screenName"
-                    LocalCast.Result.LOCAL_FILE_REQUIRED -> "Ce titre doit être dans les fichiers Movviz pour cet écran"
-                    LocalCast.Result.NO_SESSION -> "$screenName ne répond pas"
-                    LocalCast.Result.FAILED -> "Impossible de lancer la lecture sur $screenName"
+        if (p != null) {
+            val started = CastProgress.start(context, screenId, screenName, "Connexion à $screenName…", onSent) { setStage ->
+                when (LocalCast.castTo(context, baseUrl, screenId, p, setStage)) {
+                    LocalCast.Result.OK -> true to "Lecture envoyée à $screenName"
+                    LocalCast.Result.LOCAL_FILE_REQUIRED -> false to "Ce titre doit être dans les fichiers Movviz pour cet écran"
+                    LocalCast.Result.NO_SESSION -> false to "$screenName ne répond pas"
+                    LocalCast.Result.FAILED -> false to "Impossible de lancer la lecture sur $screenName"
                 }
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
+            if (!started) busyToast(context, job)
+        }
+    }
+    // Appareils du compte à jour même ouvert depuis le lecteur (aucun bouton derrière pour rafraîchir).
+    LaunchedEffect(baseUrl) {
+        while (true) {
+            ConnectRemote.refresh(context, baseUrl)
+            delay(2_000L)
         }
     }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -215,9 +271,9 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
                         SheetIconButton(icon = MovvizIconClose, description = "Fermer", onClick = onDismiss)
                     }
                     Column(
-                        Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+                        Modifier.heightIn(max = minOf(460, (LocalConfiguration.current.screenHeightDp * 0.62f).toInt()).dp).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp),
                     ) {
-                        if (devices.isEmpty() && nearbyFree.isEmpty()) {
+                        if (devices.isEmpty() && nearbyFree.isEmpty() && dlnaFree.isEmpty() && payload == null) {
                             Column(
                                 Modifier
                                     .fillMaxWidth()
@@ -237,11 +293,12 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
                                 )
                             }
                         }
-                        devices.forEach { device ->
+                        devices.forEach { device -> key(device.id) {
                             DeviceRow(
                                 device = device,
                                 now = now,
-                                busy = busyId == device.id,
+                                busy = busyId == device.id || (busyId != null && busyName(busyId, nearby, nearbyDlna).equals(device.name, ignoreCase = true)),
+                                stage = stage.takeIf { busyId == device.id || (busyId != null && busyName(busyId, nearby, nearbyDlna).equals(device.name, ignoreCase = true)) },
                                 canCast = payload != null,
                                 onCast = {
                                     if (device.id == LocalCast.DEVICE_ID) {
@@ -249,41 +306,88 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
                                         if (screen != null) castLocal(screen.id, device.name)
                                         return@DeviceRow
                                     }
-                                    val p = payload ?: return@DeviceRow
-                                    if (busyId != null) return@DeviceRow
-                                    busyId = device.id
-                                    scope.launch {
-                                        val ok = ConnectRemote.play(context, baseUrl, device, p)
-                                        busyId = null
-                                        Toast.makeText(context, if (ok) "Lecture envoyée à ${device.name}" else "${device.name} n'est plus disponible", Toast.LENGTH_SHORT).show()
+                                    if (device.id == LocalDlna.DEVICE_ID) {
+                                        nearbyDlna.firstOrNull { it.name.equals(device.name, ignoreCase = true) }?.let(castDlna)
+                                        return@DeviceRow
                                     }
+                                    val p = payload ?: return@DeviceRow
+                                    val started = CastProgress.start(context, device.id, device.name, "Envoi à ${device.name}…", onSent) {
+                                        val ok = ConnectRemote.play(context, baseUrl, device, p)
+                                        ok to (if (ok) "Lecture envoyée à ${device.name}" else "${device.name} n'est plus disponible")
+                                    }
+                                    if (!started) busyToast(context, job)
                                 },
                                 onControl = { kind, seconds ->
                                     scope.launch {
-                                        val ok = if (device.id == LocalCast.DEVICE_ID) LocalCast.control(kind, seconds) else ConnectRemote.control(context, baseUrl, device, kind, seconds)
+                                        val ok = when (device.id) {
+                                            LocalCast.DEVICE_ID -> LocalCast.control(kind, seconds)
+                                            LocalDlna.DEVICE_ID -> LocalDlna.control(kind, seconds)
+                                            else -> ConnectRemote.control(context, baseUrl, device, kind, seconds)
+                                        }
                                         if (!ok) {
                                             Toast.makeText(context, "${device.name} ne répond pas", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 },
                             )
-                        }
+                        } }
                         if (nearbyFree.isNotEmpty()) {
-                            Text(
-                                "À proximité · Google Cast",
-                                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkDim),
-                                modifier = Modifier.padding(start = 14.dp, top = if (devices.isEmpty()) 4.dp else 12.dp, bottom = 4.dp),
-                            )
-                            nearbyFree.forEach { screen ->
+                            SectionLabel("À proximité · Google Cast", first = devices.isEmpty())
+                            nearbyFree.forEach { screen -> key(screen.id) {
                                 DeviceRow(
                                     device = ConnectDevice(screen.id, screen.name, "network", "nearby", null),
                                     now = now,
                                     busy = busyId == screen.id,
+                                    stage = stage.takeIf { busyId == screen.id },
                                     canCast = true,
                                     onCast = { castLocal(screen.id, screen.name) },
                                     onControl = { _, _ -> },
                                 )
+                            } }
+                        }
+                        if (dlnaFree.isNotEmpty()) {
+                            SectionLabel("À proximité · Téléviseurs DLNA", first = devices.isEmpty() && nearbyFree.isEmpty())
+                            dlnaFree.forEach { screen -> key(screen.id) {
+                                DeviceRow(
+                                    device = ConnectDevice(screen.id, screen.name, "network", "nearby-dlna", null),
+                                    now = now,
+                                    busy = busyId == screen.id,
+                                    stage = stage.takeIf { busyId == screen.id },
+                                    canCast = true,
+                                    onCast = { castDlna(screen) },
+                                    onControl = { _, _ -> },
+                                )
+                            } }
+                        }
+                        // Recherche en cours et rien encore trouvé : on le dit, plutôt qu'une liste vide.
+                        if (payload != null && nearbyFree.isEmpty() && dlnaFree.isEmpty() && dlnaSearching) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CastSpinner()
+                                Spacer(Modifier.width(12.dp))
+                                Text("Recherche des écrans à proximité…", style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft))
                             }
+                        }
+                        if (payload != null && (miracast != null || wirelessDisplayAvailable(context))) {
+                            // Miracast (Smart View, « Caster l'écran ») : Android réserve la connexion au système ;
+                            // une fois l'écran connecté, la lecture Movviz s'y affiche en plein écran.
+                            SectionLabel("Écran sans fil", first = devices.isEmpty() && nearbyFree.isEmpty() && dlnaFree.isEmpty())
+                            DeviceRow(
+                                device = ConnectDevice("miracast", miracast ?: wirelessDisplayLabel(), "network", "miracast", null),
+                                now = now,
+                                busy = false,
+                                canCast = true,
+                                subtitleOverride = if (miracast != null) "Connecté · lancez la lecture, elle s'affiche ici" else "Dupliquer l'écran du téléphone sur une TV",
+                                onCast = {
+                                    if (miracast != null) {
+                                        Toast.makeText(context, "Appuyez sur Lecture : le film s'affiche sur $miracast", Toast.LENGTH_LONG).show()
+                                        onDismiss()
+                                    } else openWirelessDisplaySettings(context)
+                                },
+                                onControl = { _, _ -> },
+                            )
                         }
                     }
                 }
@@ -297,7 +401,9 @@ private fun DeviceRow(
     device: ConnectDevice,
     now: Long,
     busy: Boolean,
+    stage: String? = null,
     canCast: Boolean,
+    subtitleOverride: String? = null,
     onCast: () -> Unit,
     onControl: (kind: String, seconds: Double?) -> Unit,
 ) {
@@ -306,13 +412,17 @@ private fun DeviceRow(
     val position = state?.livePosition(now) ?: 0.0
     val duration = state?.durationSec ?: 0.0
     val subtitle = when {
+        stage != null -> stage
+        subtitleOverride != null -> subtitleOverride
         active && state?.title != null && state.season != null && state.episode != null -> "${state.title} · S${state.season} E${state.episode}"
         active && state?.title != null -> state.title
         else -> "${kindLabel(device.kind, device.via)} · ${statusLabel(state)}"
     }
+    val otherBusy = CastProgress.job.collectAsState().value.let { it != null && !busy }
     Column(
         Modifier
             .fillMaxWidth()
+            .alpha(if (otherBusy && !active) 0.5f else 1f)
             .clip(RoundedCornerShape(18.dp))
             .background(if (active) Color.White.copy(alpha = 0.035f) else Color.Transparent),
     ) {
@@ -332,7 +442,11 @@ private fun DeviceRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = if (device.via == "nearby" || device.id == LocalCast.DEVICE_ID) MovvizIconGoogleCast else deviceIcon(device.kind),
+                    imageVector = when {
+                        device.via == "nearby" || device.id == LocalCast.DEVICE_ID -> MovvizIconGoogleCast
+                        device.via == "miracast" -> MovvizIconCast
+                        else -> deviceIcon(device.kind)
+                    },
                     contentDescription = null,
                     tint = if (active) MovvizBrand2 else Color.White.copy(alpha = 0.85f),
                     modifier = Modifier.size(22.dp),
@@ -342,9 +456,9 @@ private fun DeviceRow(
             Column(Modifier.weight(1f)) {
                 Text(device.name, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(2.dp))
-                Text(subtitle, style = TextStyle(fontSize = 12.5.sp, color = MovvizInkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(subtitle, style = TextStyle(fontSize = 12.5.sp, color = if (stage != null) MovvizBrand2 else MovvizInkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (busy) Text("…", style = TextStyle(fontSize = 18.sp, color = MovvizInkSoft))
+            if (busy) CastSpinner()
         }
         if (active && state != null) {
             Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) {
@@ -415,6 +529,7 @@ private fun deviceIcon(kind: String): ImageVector = when (kind) {
 
 private fun kindLabel(kind: String, via: String): String = when {
     via == "nearby" -> "Écran Google Cast de ce réseau"
+    via == "nearby-dlna" -> "Téléviseur DLNA de ce réseau"
     via == "chromecast" -> "Écran Google Cast"
     via == "dlna" -> "Écran DLNA"
     else -> kindLabelFor(kind)
@@ -441,3 +556,92 @@ private fun formatTime(seconds: Double): String {
     val sec = (s % 60).toString().padStart(2, '0')
     return if (h > 0) "$h:${m.toString().padStart(2, '0')}:$sec" else "$m:$sec"
 }
+
+@Composable
+private fun SectionLabel(text: String, first: Boolean) {
+    Text(
+        text,
+        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkDim),
+        modifier = Modifier.padding(start = 14.dp, top = if (first) 4.dp else 12.dp, bottom = 4.dp),
+    )
+}
+
+/** Anneau qui tourne pendant l'envoi : retour visuel dès le toucher, jusqu'à la réponse de l'écran. */
+@Composable
+private fun CastSpinner() {
+    val transition = rememberInfiniteTransition(label = "cast-spinner")
+    val angle by transition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+        label = "cast-spinner-angle",
+    )
+    Canvas(Modifier.size(22.dp)) {
+        val stroke = 2.5.dp.toPx()
+        drawArc(Color.White.copy(alpha = 0.12f), 0f, 360f, useCenter = false, style = Stroke(stroke))
+        drawArc(MovvizBrand2, angle, 100f, useCenter = false, style = Stroke(stroke, cap = StrokeCap.Round))
+    }
+}
+
+/** Même téléviseur sous deux noms (« [TV] Samsung Q60 » en DLNA, « Samsung Q60 » en Cast). */
+private fun sameScreen(a: String, b: String): Boolean {
+    val n = { s: String -> s.lowercase().replace("[tv]", "").replace(Regex("[^a-z0-9]"), "") }
+    val x = n(a)
+    val y = n(b)
+    return x.isNotEmpty() && y.isNotEmpty() && (x == y || x.contains(y) || y.contains(x))
+}
+
+/** Nom de l'écran en cours d'envoi (pour animer aussi sa ligne déjà listée). */
+private fun busyName(id: String?, cast: List<NearbyScreen>, dlna: List<DlnaScreen>): String =
+    cast.firstOrNull { it.id == id }?.name ?: dlna.firstOrNull { it.id == id }?.name ?: "\u0000"
+
+/** Écran sans fil (Miracast) connecté par le système, ou null. Suivi en direct. */
+@Composable
+private fun rememberWirelessDisplay(): String? {
+    val context = LocalContext.current
+    val manager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager }
+    fun current() = manager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)?.firstOrNull()?.name
+    var name by remember { mutableStateOf(current()) }
+    DisposableEffect(manager) {
+        val listener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) { name = current() }
+            override fun onDisplayRemoved(displayId: Int) { name = current() }
+            override fun onDisplayChanged(displayId: Int) { name = current() }
+        }
+        manager?.registerDisplayListener(listener, Handler(Looper.getMainLooper()))
+        onDispose { manager?.unregisterDisplayListener(listener) }
+    }
+    return name
+}
+
+/** Ouvre « Caster l'écran » / Smart View : Android réserve la connexion Miracast au système. */
+private fun openWirelessDisplaySettings(context: Context) {
+    val intents = listOf(
+        Intent(Settings.ACTION_CAST_SETTINGS),
+        Intent("android.settings.WIFI_DISPLAY_SETTINGS"),
+        Intent().setClassName("com.samsung.android.smartmirroring", "com.samsung.android.smartmirroring.CaptureActivity"),
+    )
+    for (intent in intents) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { context.startActivity(intent) }.isSuccess) return
+    }
+    Toast.makeText(context, "Ouvrez « Caster » ou « Smart View » dans les réglages rapides du téléphone", Toast.LENGTH_LONG).show()
+}
+
+private fun busyToast(context: Context, job: CastJob?) {
+    Toast.makeText(context, job?.let { "Envoi en cours vers ${it.screenName}…" } ?: "Envoi en cours…", Toast.LENGTH_SHORT).show()
+}
+
+/**
+ * Miracast n'existe pas partout : absent des Pixel depuis Android 6 (« Caster »
+ * n'y liste que des Chromecast). Proposé sur Samsung (Smart View) et sur les
+ * marques qui gardent l'affichage sans fil.
+ */
+private fun wirelessDisplayAvailable(context: Context): Boolean {
+    val brand = android.os.Build.MANUFACTURER.lowercase()
+    if (brand == "google") return false
+    if (brand == "samsung") return true
+    return runCatching { Intent("android.settings.WIFI_DISPLAY_SETTINGS").resolveActivity(context.packageManager) != null }.getOrDefault(false)
+}
+
+private fun wirelessDisplayLabel(): String =
+    if (android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)) "Smart View" else "Écran sans fil (Miracast)"

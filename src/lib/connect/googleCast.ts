@@ -72,8 +72,7 @@ function ensureLoaded() {
   const w = window as Win;
   w.__onGCastApiAvailable = (ok: boolean) => {
     if (!ok || !w.cast?.framework) return;
-    ready = true;
-    setup();
+    void setup().then(() => { ready = true; });
   };
   const script = document.createElement("script");
   script.src = SDK_URL;
@@ -82,12 +81,24 @@ function ensureLoaded() {
   document.head.appendChild(script);
 }
 
-function setup() {
+/** Récepteur aux couleurs de Movviz s'il est configuré (MOVVIZ_CAST_APP_ID), sinon celui de Google. */
+async function receiverAppId(fallback: string): Promise<string> {
+  try {
+    // Délai borné : un serveur lent ne doit jamais laisser le bouton Cast inutilisable.
+    const res = await fetch("/api/connect/cast-config", { cache: "no-store", signal: AbortSignal.timeout(3000) });
+    const body = (await res.json()) as { appId?: string | null };
+    return typeof body.appId === "string" && /^[0-9A-F]{8}$/.test(body.appId) ? body.appId : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function setup() {
   const w = window as Win;
   const fw = w.cast.framework;
   const ctx = fw.CastContext.getInstance();
   ctx.setOptions({
-    receiverApplicationId: w.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+    receiverApplicationId: await receiverAppId(w.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID),
     autoJoinPolicy: w.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
   });
   const syncCastState = () => {
