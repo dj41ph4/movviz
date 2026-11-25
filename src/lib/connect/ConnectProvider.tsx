@@ -42,6 +42,8 @@ interface ConnectContextValue {
   sendPlay: (device: ConnectDevice, payload: CastPayload) => Promise<boolean>;
   sendControl: (device: ConnectDevice, command: ControlCommand) => Promise<boolean>;
   refresh: () => void;
+  /** Vrai dès que l'appareil rapporte qu'il charge ou lit ce titre (au plus `timeoutMs`). */
+  waitForPlayback: (deviceId: string, tmdbId: number, timeoutMs: number) => Promise<boolean>;
 }
 
 const ConnectCtx = createContext<ConnectContextValue | null>(null);
@@ -53,6 +55,7 @@ export function useConnect(): ConnectContextValue | null {
 const noopSubscribe = () => () => {};
 
 const HEARTBEAT_MS = 20_000;
+const CONTROLLED_KEY = "movviz.connect.controlled";
 const SAFETY_REFRESH_MS = 30_000;
 
 function statusOf(local: ReturnType<typeof playerBridge.read>): ReceiverStatus {
@@ -84,7 +87,53 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
   useEffect(() => {
     receiverRef.current = receiverEnabled;
   }, [receiverEnabled]);
-  const [controlledId, setControlledId] = useState<string | null>(null);
+  const [controlledId, setControlledIdState] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(CONTROLLED_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture unique du stockage du navigateur au montage
+      if (saved) setControlledIdState(saved);
+    } catch { /* stockage indisponible */ }
+  }, []);
+  const setControlledId = useCallback((id: string | null) => {
+    setControlledIdState(id);
+    try {
+      if (id) window.localStorage.setItem(CONTROLLED_KEY, id);
+      else window.localStorage.removeItem(CONTROLLED_KEY);
+    } catch { /* stockage indisponible */ }
+  }, []);
+  const devicesRef = useRef<ConnectDevice[]>([]);
+  useEffect(() => {
+    devicesRef.current = devices;
+  }, [devices]);
+
+  // Un seul onglet de ce navigateur reçoit et rapporte (même identifiant d'appareil) : les autres
+  // restent de simples télécommandes. Sans Web Locks (navigateur ancien), chaque onglet reçoit.
+  const leaderRef = useRef(typeof navigator === "undefined" || !("locks" in navigator));
+  const [leader, setLeader] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const locks = (navigator as Navigator & { locks?: LockManager }).locks;
+    if (!locks) {
+      leaderRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- état d'une API du navigateur
+      setLeader(true);
+      return;
+    }
+    const abort = new AbortController();
+    let release: (() => void) | null = null;
+    locks.request("movviz-connect-receiver", { signal: abort.signal }, () => new Promise<void>((resolve) => {
+      release = resolve;
+      leaderRef.current = true;
+      setLeader(true);
+    })).catch(() => { /* onglet fermé avant d'obtenir le rôle */ });
+    return () => {
+      abort.abort();
+      leaderRef.current = false;
+      setLeader(false);
+      release?.();
+    };
+  }, [enabled]);
 
   const register = useCallback(async () => {
     const id = getDeviceId();
@@ -92,7 +141,7 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
       await fetch("/api/connect/devices", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, name: defaultDeviceName(), kind: detectDeviceKind(), receiver: receiverRef.current }),
+        body: JSON.stringify({ id, name: defaultDeviceName(), kind: detectDeviceKind(), receiver: readReceiverEnabled() }),
         keepalive: true,
       });
     } catch {
@@ -105,7 +154,8 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
       const r = await fetch("/api/connect/devices", { cache: "no-store" });
       if (!r.ok) return;
       const data = (await r.json()) as { devices?: ConnectDevice[] };
-      setDevices(Array.isArray(data.devices) ? data.devices : []);
+      const now = Date.now();
+      setDevices(Array.isArray(data.devices) ? data.devices.map((d) => (d.state ? { ...d, state: { ...d.state, updatedAt: now } } : d)) : []);
       setReady(true);
     } catch {
       /* garde la dernière liste connue */
@@ -148,7 +198,7 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
 
   // Ordre reçu : lire un titre, ou piloter le lecteur ouvert ici.
   const handleCommand = useCallback(async (command: ConnectCommand) => {
-    if (!receiverRef.current) return;
+    if (!receiverRef.current || !leaderRef.current) return;
     const tt = tRef.current;
     if (command.kind === "play") {
       const params = new URLSearchParams({ tmdbId: String(command.tmdbId), type: command.mediaType });
@@ -157,7 +207,8 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
         params.set("episode", String(command.episode));
       }
       if (command.fromBeginning) params.set("fromBeginning", "1");
-      else if (command.resumeSeconds !== undefined) params.set("resume", String(command.resumeSeconds));
+      else if (command.resumeSeconds !== undefined && command.resumeSeconds >= 1) params.set("resume", String(command.resumeSeconds));
+      else if (command.resumeSeconds !== undefined) params.set("fromBeginning", "1");
       try {
         const r = await fetch(`/api/connect/resolve?${params}`, { cache: "no-store" });
         if (!r.ok) {
@@ -183,7 +234,7 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
           seasonNumber: target.seasonNumber,
           episodeNumber: target.episodeNumber,
           posterUrl: target.posterPath ? `https://image.tmdb.org/t/p/w500${target.posterPath}` : null,
-          ...(resumeSeconds !== undefined ? { resumeFromSeconds: resumeSeconds } : { startFromBeginning: true }),
+          ...(resumeSeconds !== undefined && resumeSeconds >= 1 ? { resumeFromSeconds: resumeSeconds } : { startFromBeginning: true }),
         });
         if (command.from?.name) toast("info", tt("connect.startedFrom", { device: command.from.name }));
       } catch {
@@ -211,7 +262,8 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
       if (channel === "connect-roster") void refresh();
       else if (channel === "connect-state" && payload?.deviceId && payload.state) {
         const { deviceId, state } = payload;
-        setDevices((list) => list.map((d) => (d.id === deviceId ? { ...d, state } : d)));
+        const stamped = { ...state, updatedAt: Date.now() };
+        setDevices((list) => list.map((d) => (d.id === deviceId ? { ...d, state: stamped } : d)));
       } else if (channel === "connect-command" && payload?.command && payload.targetId === getDeviceId()) {
         void handleCommand(payload.command);
       }
@@ -222,7 +274,7 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
 
   // Récepteur : rapporte ce qui se lit ici (état, position) aux autres appareils.
   useEffect(() => {
-    if (!enabled || !receiverEnabled) return;
+    if (!enabled || !receiverEnabled || !leader) return;
     let last: { status: ReceiverStatus; position: number; key: string; at: number } | null = null;
     const report = () => {
       const local = playerBridge.read();
@@ -258,7 +310,7 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
       clearInterval(timer);
       off();
     };
-  }, [enabled, receiverEnabled]);
+  }, [enabled, receiverEnabled, leader]);
 
   const post = useCallback(async (device: ConnectDevice, command: ConnectCommand): Promise<boolean> => {
     const tt = tRef.current;
@@ -295,7 +347,7 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
       toast("success", tRef.current("connect.sent", { device: device.name }));
     }
     return ok;
-  }, [post]);
+  }, [post, setControlledId]);
 
   const sendControl = useCallback(async (device: ConnectDevice, command: ControlCommand) => {
     const ok = await post(device, command);
@@ -310,7 +362,19 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
       }));
     }
     return ok;
-  }, [post]);
+  }, [post, setControlledId]);
+
+  const waitForPlayback = useCallback((deviceId: string, tmdbId: number, timeoutMs: number) => new Promise<boolean>((resolve) => {
+    const started = Date.now();
+    const check = () => {
+      const state = devicesRef.current.find((d) => d.id === deviceId)?.state;
+      // « loading » est notre propre retour optimiste : on attend un état rapporté par l'appareil.
+      if (state && state.tmdbId === tmdbId && (state.status === "playing" || state.status === "buffering" || state.status === "paused")) return resolve(true);
+      if (Date.now() - started >= timeoutMs) return resolve(false);
+      setTimeout(check, 400);
+    };
+    check();
+  }), []);
 
   const receivers = useMemo(() => devices.filter((d) => d.receiver && d.id !== selfId), [devices, selfId]);
 
@@ -324,7 +388,8 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
     sendPlay,
     sendControl,
     refresh: () => void refresh(),
-  }), [ready, selfId, receivers, receiverEnabled, setReceiverEnabled, controlledId, sendPlay, sendControl, refresh]);
+    waitForPlayback,
+  }), [ready, selfId, receivers, receiverEnabled, setReceiverEnabled, controlledId, sendPlay, sendControl, refresh, waitForPlayback]);
 
   return <ConnectCtx.Provider value={value}>{children}</ConnectCtx.Provider>;
 }

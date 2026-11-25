@@ -42,8 +42,19 @@ object ConnectHub {
 
     @Volatile private var reader: (() -> PlayerSnapshot?)? = null
 
+    private const val KEY_PROFILE = "profile_id"
+
     /** Profil actif (préférences du lecteur), renseigné par l'app à la connexion. */
     @Volatile var profileId: String? = null
+
+    /** Le profil est gardé pour une lecture lancée app fermée (boîtier redémarré, sans AppViewModel). */
+    fun persistProfile(context: Context) {
+        val id = profileId ?: return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_PROFILE, id).apply()
+    }
+
+    fun savedProfile(context: Context): String? =
+        profileId ?: context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_PROFILE, null)
 
     fun dispatch(command: PlayerCommand) {
         _commands.tryEmit(command)

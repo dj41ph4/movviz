@@ -44,8 +44,22 @@ function buildQueue(target: AiPlayTarget): { queue: ConnectQueueItem[]; startInd
       });
     }
   }
-  const startIndex = Math.max(0, queue.findIndex((q) => q.season === target.seasonNumber && q.episode === target.episodeNumber));
-  return { queue, startIndex };
+  const startIndex = queue.findIndex((q) => q.season === target.seasonNumber && q.episode === target.episodeNumber);
+  if (startIndex >= 0) return { queue, startIndex };
+  // Épisode demandé hors de la file (spécial de la saison 0…) : il est lu seul, avec SA source.
+  const season = series.seasons.find((x) => x.seasonNumber === target.seasonNumber);
+  const ep = season?.episodes.find((e) => e.episodeNumber === target.episodeNumber);
+  if (!ep) return { queue, startIndex: 0 };
+  return {
+    queue: [{
+      ratingKey: target.ratingKey,
+      localKey: ep.file ? series.id : null,
+      season: target.seasonNumber ?? 0,
+      episode: target.episodeNumber ?? 0,
+      label: `S${target.seasonNumber} · Ép ${target.episodeNumber}${ep.title ? ` · ${ep.title}` : ""}`,
+    }],
+    startIndex: 0,
+  };
 }
 
 /**
@@ -79,7 +93,8 @@ export function resolveConnectPlay(
   if (!target) return null;
   const q = buildQueue(target);
   if (req.fromBeginning) return { target, ...q };
-  if (req.resumeSeconds !== undefined) return { target, resumeSeconds: req.resumeSeconds, ...q };
+  // Une position nulle vaut « depuis le début » (personne devant la TV pour répondre à « reprendre ? »).
+  if (req.resumeSeconds !== undefined) return req.resumeSeconds >= 1 ? { target, resumeSeconds: Math.min(req.resumeSeconds, 1_000_000), ...q } : { target, ...q };
   const saved = listPlaybackProgress(userId).find(
     (p) =>
       p.tmdbId === target.tmdbId &&

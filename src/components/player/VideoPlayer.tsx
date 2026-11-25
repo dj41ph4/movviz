@@ -375,6 +375,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // et déclencherait un repli HLS non voulu.
   const subtitleAbortRef = useRef<AbortController | null>(null);
   const [menuOpen, setMenuOpen] = useState<null | "audio" | "subtitle" | "speed" | "quality" | "playback">(null);
+  // Panneau « Lire sur… » ouvert : la barre reste affichée comme pour un menu.
+  const [castOpen, setCastOpen] = useState(false);
+  const panelOpen = menuOpen !== null || castOpen;
   const [directMode, setDirectMode] = useState(false);
   const qualityMaxWidthRef = useRef<number | null>(null);
   // Profil de compression ffmpeg local (leg ffmpeg uniquement — la leg HLS
@@ -2112,7 +2115,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
   // Sous-titres remontés au-dessus de la barre tant que les contrôles sont affichés (même condition
   // que l'opacité du bloc de contrôles plus bas).
-  const controlsShown = controlsVisible || !playing || buffering || menuOpen !== null || showResume;
+  const controlsShown = controlsVisible || !playing || buffering || panelOpen || showResume;
   useEffect(() => {
     subtitleLiftRef.current = controlsShown;
     const el = videoRef.current;
@@ -2321,17 +2324,17 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     setControlsVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => {
-      if (!seekingRef.current && playing && !buffering && !menuOpen) {
+      if (!seekingRef.current && playing && !buffering && !panelOpen) {
         setControlsVisible(false);
       }
     }, 3000);
-  }, [playing, buffering, menuOpen]);
+  }, [playing, buffering, panelOpen]);
 
   // Un film qui démarre ne doit pas laisser le lecteur posé à l'écran.
   // Après une très courte fenêtre d'orientation, l'overlay revient seulement
   // au mouvement de souris, au clic, à la pause ou à l'ouverture d'un menu.
   useEffect(() => {
-    if (!playing || buffering || menuOpen || showResume) {
+    if (!playing || buffering || panelOpen || showResume) {
       setControlsVisible(true);
       return;
     }
@@ -2339,7 +2342,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       if (!seekingRef.current) setControlsVisible(false);
     }, 2500);
     return () => clearTimeout(timer);
-  }, [playing, buffering, menuOpen, showResume]);
+  }, [playing, buffering, panelOpen, showResume]);
 
   // Sortie du pointeur hors de la vidéo → les contrôles se replient vite
   // (800ms au lieu de 3s, comportement Plex/Netflix).
@@ -2362,7 +2365,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // et rapporte sa position réelle à la télécommande d'un autre appareil.
   const connectReadRef = useRef<() => LocalPlayback>(() => ({ playing: false, buffering: false, position: 0, duration: 0, title, mediaType: "movie" }));
   connectReadRef.current = () => ({
-    playing,
+    playing: videoRef.current ? !videoRef.current.paused && !videoRef.current.ended : playing,
     buffering,
     position: pendingSeekRef.current.target ?? currentTime,
     duration,
@@ -2998,7 +3001,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           // instead: true browser fullscreen always gets a solid black,
           // unrounded, unconstrained box regardless of embedded/panel mode.
           fullscreen ? "fixed inset-0 h-[100dvh] w-[100dvw] rounded-none max-w-none bg-black" : embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
-          !controlsVisible && playing && !buffering && !menuOpen ? "cursor-none" : undefined,
+          !controlsVisible && playing && !buffering && !panelOpen ? "cursor-none" : undefined,
           // h-[80vh] centered (flex items-center on the outer wrapper) split
           // 10vh of empty space above AND below the panel — the controls bar
           // (anchored to THIS box's bottom-0, not the viewport's) sat well
@@ -3012,7 +3015,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           aria-hidden={embedded && !controlsVisible && playing && !buffering ? true : undefined}
           className={cn(
             "pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-4 bg-gradient-to-b from-black/85 via-black/45 to-transparent px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-20 pl-[max(env(safe-area-inset-left),1.25rem)] pr-[max(env(safe-area-inset-right),1.25rem)] transition-opacity duration-300",
-            controlsVisible || !playing || buffering || menuOpen ? "opacity-100" : "opacity-0 [&>*]:pointer-events-none"
+            controlsVisible || !playing || buffering || panelOpen ? "opacity-100" : "opacity-0 [&>*]:pointer-events-none"
           )}
         >
           <div className="pointer-events-auto flex min-w-0 items-start gap-3">
@@ -3281,7 +3284,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                   aria-hidden={undefined}
                   className={cn(
                     "pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/95 via-black/72 to-transparent pt-24 pb-[max(env(safe-area-inset-bottom),0.75rem)] transition-opacity duration-300",
-                    controlsVisible || !playing || buffering || menuOpen || showResume ? "opacity-100" : "opacity-0 [&>*]:pointer-events-none"
+                    controlsVisible || !playing || buffering || panelOpen || showResume ? "opacity-100" : "opacity-0 [&>*]:pointer-events-none"
                   )}
                 >
                   <div className="touch-player-controls pointer-events-auto mx-auto max-w-[1600px] px-4 sm:px-6">
@@ -3568,7 +3571,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                       </button>
                     )}
 
-                    {tmdbId ? <CastButton variant="player" className={iconButtonClass} video={castVideo} payload={castPayload} /> : null}
+                    {tmdbId ? <CastButton variant="player" className={iconButtonClass} video={castVideo} payload={castPayload} onOpenChange={setCastOpen} /> : null}
 
                     {pipMode && (
                       <button

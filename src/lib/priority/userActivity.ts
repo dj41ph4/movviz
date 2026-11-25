@@ -102,6 +102,7 @@ export function hasActivePlayback(): boolean {
  */
 const POLL_PREFIXES = [
   "/api/activity",
+  "/api/connect", // Movviz Connect : liste des appareils, attente des ordres (TV Samsung)
   "/api/cache",
   "/api/diagnostic",
   "/api/engine",
@@ -122,7 +123,7 @@ const POLL_PREFIXES = [
 ];
 
 /** POST silencieux du frontend (PerfReporter envoie ses mesures toutes les 5 s). */
-const SILENT_MUTATION_PREFIXES = ["/api/perf"];
+const SILENT_MUTATION_PREFIXES = ["/api/perf", "/api/connect/devices", "/api/connect/state"];
 
 /** POST de sauvegarde de progression du player (VideoPlayer, toutes les 10 s). */
 const PROGRESS_POST_RE = /^\/api\/stream\/[^/]+\/progress$/;

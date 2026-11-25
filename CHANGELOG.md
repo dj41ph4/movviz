@@ -1,3 +1,23 @@
+## v1.29.3 — 25 novembre 2026
+
+### Lire sur… : les écrans du réseau, Chromecast et téléviseurs DLNA
+
+- Le serveur trouve tout seul les Chromecast, Google TV, écrans Nest et téléviseurs compatibles Google Cast, ainsi que les téléviseurs et lecteurs DLNA du réseau local. Ils apparaissent dans la même liste que les apps Movviz, sans rien installer sur l'écran. Une enceinte sans écran n'est pas proposée.
+- L'écran va chercher lui-même la vidéo par un lien de lecture à usage unique, valable quelques heures et limité à ce seul fichier. Le DLNA reçoit le fichier tel quel ; le Chromecast reçoit un MP4 remuxé, sans recompression de l'image, avec le son converti seulement s'il ne sait pas le lire.
+- La même télécommande pilote ces écrans (pause, reprendre, aller à, arrêter) et la position s'affiche en direct. L'avancement et « Vu » sont enregistrés comme pour une lecture Movviz.
+- Les écrans réseau lisent les fichiers de la bibliothèque Movviz ; un titre présent uniquement sur Plex se lance depuis une app Movviz. Le serveur doit être sur le même réseau que les écrans (Docker : réseau « host », sinon il ne voit pas leurs annonces ; recherche désactivable avec MOVVIZ_CONNECT_DISCOVERY=0).
+
+### Lire sur… : plus fiable et conforme
+
+- Nouvelle icône propre à Movviz (écran et lecture) et libellé « Lire sur… » : le logo Cast et le nom AirPlay restent réservés aux commandes de Google et d'Apple. L'icône s'allume seulement pour l'appareil piloté depuis cet écran et clignote pendant l'envoi.
+- Android mobile : le bouton est toujours visible sur la fiche, y compris en paysage, sous la barre de navigation. Sans appareil, le panneau explique comment en faire apparaître un.
+- Transfert depuis le lecteur : la lecture locale ne se ferme qu'une fois la lecture réellement partie sur l'autre appareil ; sinon elle reprend ici, avec un message.
+- Un seul onglet d'un même navigateur reçoit les lectures (plus de double lecture), et fermer un autre onglet ne retire plus l'appareil de la liste. Le lecteur garde ses commandes affichées pendant le choix de l'appareil, et le panneau ne sort plus de l'écran sur téléphone.
+- État rapporté exact : un navigateur qui bloque la lecture automatique n'affiche plus « en lecture », et la position ne dérive plus quand l'horloge du serveur est décalée. Une reprise à 0 démarre au début sans demander « reprendre ? ». L'appareil piloté est retrouvé après un rechargement.
+- Android TV : la TV n'est proposée que si elle peut vraiment démarrer la lecture (app ouverte, ou ouverture à distance autorisée). Le service d'écoute ne se relance plus tout seul sans l'option, le profil actif est conservé pour une lecture lancée app fermée, et le réglage indique la commande adb sur les boîtiers sans écran « Afficher par-dessus ».
+- TV Samsung : un ordre envoyé juste après un redémarrage du serveur n'est plus perdu, la reprise se fait directement à la bonne position, l'état « chargement » s'affiche sur la télécommande, la TV quitte la liste à la déconnexion ou au changement de profil, et elle affiche son vrai modèle.
+- Les échanges de Lire sur… ne comptent plus comme de l'activité de l'utilisateur : les tâches de fond (RSS, recherches) ne sont plus retardées par une TV en attente.
+
 ## v1.29.2 — 25 novembre 2026
 
 ### Caster : lire sur la TV depuis n'importe quel appareil

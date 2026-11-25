@@ -47,15 +47,25 @@ class ConnectService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private var foregroundRefused = false
+
     override fun onCreate() {
         super.onCreate()
         ApiClient.initialize(applicationContext)
-        startAsForeground()
+        // Android 12+ peut refuser un service de premier plan démarré depuis l'arrière-plan : on s'arrête net.
+        foregroundRefused = runCatching { startAsForeground() }.onFailure { Log.w(TAG, "service de premier plan refusé", it) }.isFailure
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val remoteWake = ConnectHub.remoteWakeEnabled(applicationContext)
+        // Relancé par le système (intent nul) sans « Ouverture à distance » : rien à écouter app fermée.
+        if (foregroundRefused || (intent == null && !remoteWake && visibleActivities == 0)) {
+            running = false
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (runJob?.isActive != true) runJob = scope.launch { run() }
-        return START_STICKY
+        return if (remoteWake) START_STICKY else START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -99,6 +109,8 @@ class ConnectService : Service() {
                 register(url, id)
             }
         }
+        // Une activité apparaît ou disparaît : la disponibilité change, on se redéclare aussitôt.
+        scope.launch { visibility.collect { register(url, id) } }
         reportStateLoop(url, id)
     }
 
@@ -107,7 +119,9 @@ class ConnectService : Service() {
             .put("id", id)
             .put("name", ConnectHub.deviceName(applicationContext))
             .put("kind", "tv")
-            .put("receiver", true)
+            // Récepteur seulement si la lecture peut vraiment démarrer : app à l'écran, ou ouverture
+            // à distance autorisée. Sinon la TV n'est pas proposée (au lieu d'un « envoyé » sans effet).
+            .put("receiver", visibleActivities > 0 || ConnectHub.canOpenFromBackground(applicationContext))
         runCatching {
             ApiClient.httpClient().newCall(
                 Request.Builder().url("$url/api/connect/devices").post(body.toString().toRequestBody(json)).build(),
@@ -173,7 +187,7 @@ class ConnectService : Service() {
             // Personne devant l'écran pour répondre à « reprendre ? » : le choix est déjà fait.
             startFromBeginning = resumeMs == null,
             posterPath = target.optString("posterPath").takeIf { it.isNotBlank() && it != "null" },
-            profileId = ConnectHub.profileId,
+            profileId = ConnectHub.savedProfile(applicationContext),
             resumeMs = resumeMs,
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         runCatching { startActivity(intent) }.onFailure { Log.w(TAG, "ouverture du lecteur refusée", it) }
@@ -254,7 +268,8 @@ class ConnectService : Service() {
         private const val STOP_GRACE_MS = 5_000L
 
         @Volatile private var running = false
-        private var visibleActivities = 0
+        @Volatile private var visibleActivities = 0
+        private val visibility = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
         private val main = android.os.Handler(android.os.Looper.getMainLooper())
         private var pendingStop: Runnable? = null
 
@@ -282,11 +297,14 @@ class ConnectService : Service() {
         fun activityStarted(context: Context) {
             visibleActivities++
             start(context.applicationContext)
+            visibility.tryEmit(Unit)
         }
 
         /** Plus aucune activité à l'écran : Connect s'arrête, sauf « Ouverture à distance ». */
         fun activityStopped(context: Context) {
             visibleActivities = (visibleActivities - 1).coerceAtLeast(0)
+            ConnectHub.persistProfile(context.applicationContext)
+            visibility.tryEmit(Unit)
             if (visibleActivities > 0 || ConnectHub.remoteWakeEnabled(context)) return
             val app = context.applicationContext
             val stopRun = Runnable { if (visibleActivities == 0 && !ConnectHub.remoteWakeEnabled(app)) stop(app) }

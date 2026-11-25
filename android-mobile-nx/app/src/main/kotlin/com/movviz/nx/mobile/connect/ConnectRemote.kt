@@ -19,6 +19,8 @@ data class ConnectDevice(
     val id: String,
     val name: String,
     val kind: String,
+    /** « movviz » (app Movviz), « chromecast » ou « dlna » (écran du réseau trouvé par le serveur). */
+    val via: String,
     val state: ConnectState?,
 )
 
@@ -91,6 +93,8 @@ object ConnectRemote {
         }
         val list = runCatching {
             ApiClient.httpClient().newCall(Request.Builder().url("$base/api/connect/devices").build()).execute().use { response ->
+                // Session expirée ou serveur sans Connect : liste vide, jamais une TV fantôme.
+                if (response.code == 401 || response.code == 404) return@use emptyList()
                 if (!response.isSuccessful) return@use null
                 val array = JSONObject(response.body?.string() ?: "{}").optJSONArray("devices") ?: return@use emptyList()
                 val now = System.currentTimeMillis()
@@ -102,6 +106,7 @@ object ConnectRemote {
                         id = d.optString("id"),
                         name = d.optString("name"),
                         kind = d.optString("kind"),
+                        via = d.optString("via", "movviz"),
                         state = s?.let {
                             ConnectState(
                                 status = it.optString("status", "idle"),

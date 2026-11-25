@@ -29,6 +29,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/library/reject-series-pack",
   "/api/activity/log",
   "/api/extension", // Extension navigateur : jeton Bearer vérifié dans la route, pas de cookie.
+  "/api/connect/media", // Écrans réseau (Chromecast, DLNA) : jeton de 256 bits vérifié dans la route, un seul fichier.
 ];
 
 function isPublicApi(pathname: string) {

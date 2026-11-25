@@ -1028,7 +1028,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         val detach = com.movviz.tv.connect.ConnectHub.attachPlayer {
             val item = queue.getOrNull(currentIndex)
             com.movviz.tv.connect.ConnectHub.PlayerSnapshot(
-                playing = exoPlayer.playWhenReady && exoPlayer.playbackState != Player.STATE_ENDED,
+                playing = exoPlayer.playWhenReady && exoPlayer.playbackState != Player.STATE_ENDED && exoPlayer.playbackState != Player.STATE_IDLE,
                 buffering = exoPlayer.playbackState == Player.STATE_BUFFERING,
                 positionMs = timelinePos(),
                 durationMs = timelineDur(),

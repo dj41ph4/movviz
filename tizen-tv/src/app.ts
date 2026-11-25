@@ -266,6 +266,7 @@ interface Window {
     timer = window.setTimeout(() => void poll(), 2000);
   }
   async function profilesScreen() {
+    leaveConnect();
     generation++; history.length = 0; app.replaceChildren();
     const screen = el("div", "", "profile-picker"); screen.append(brand(), el("h1", t("tizen.whoWatching")), el("p", t("tizen.profileHint"), "muted"));
     const list = el("div", "", "profile-tiles");
@@ -309,34 +310,50 @@ interface Window {
     try { const model = (window.webapis as unknown as { productinfo?: { getModel?: () => string } })?.productinfo?.getModel?.(); if (model) return `TV Samsung ${model}`.slice(0, 60); } catch { /* API absente */ }
     return "TV Samsung";
   }
+  /** Cette TV quitte la liste à l'instant (déconnexion, changement de profil). */
+  function leaveConnect() {
+    if (saved?.session) void call("/api/connect/devices", { id: connectDeviceId(), leave: true }).catch(() => {});
+  }
   function startConnect() {
     if (connectStarted) return; connectStarted = true;
     const register = () => { if (saved?.session) void call("/api/connect/devices", { id: connectDeviceId(), name: connectDeviceName(), kind: "tizen", receiver: true }).catch(() => {}); };
     register(); window.setInterval(register, 20000);
+    // App masquée puis revenue : JavaScript était suspendu, on se redéclare sans attendre 20 s.
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") register(); });
     let lastState = "", lastSent = 0;
     window.setInterval(() => {
       if (!saved?.session) return;
       const player = activePlayer, av = window.webapis?.avplay;
-      const status = !player ? "idle" : player.changing ? "buffering" : av?.getState() === "PAUSED" ? "paused" : "playing";
-      const key = `${status}:${player?.media.tmdbId ?? ""}:${player?.episode?.seasonNumber ?? ""}:${player?.episode?.episodeNumber ?? ""}`;
+      const status = startingPlayer && !player ? "loading" : !player ? "idle" : player.changing ? "buffering" : av?.getState() === "PAUSED" ? "paused" : "playing";
+      // En pause, un saut doit aussi être rapporté : la position (par pas de 1,5 s) fait partie de la clé.
+      const key = `${status}:${player?.media.tmdbId ?? ""}:${player?.episode?.seasonNumber ?? ""}:${player?.episode?.episodeNumber ?? ""}:${status === "paused" ? Math.round((player?.position ?? 0) / 1500) : ""}`;
       const now = Date.now();
       if (key === lastState && !(status === "playing" && now - lastSent >= 5000)) return;
       if (!lastState && status === "idle") { lastState = key; return; }
       lastState = key; lastSent = now;
-      const state = player
+      const state = status === "loading"
+        ? { status, position: 0, duration: 0 }
+        : player
         ? { status, title: player.media.title, mediaType: player.type, tmdbId: player.media.tmdbId, season: player.episode?.seasonNumber, episode: player.episode?.episodeNumber, position: player.position / 1000, duration: player.duration / 1000 }
         : { status: "idle", position: 0, duration: 0 };
       void call("/api/connect/state", { deviceId: connectDeviceId(), state }).catch(() => {});
     }, 1000);
     void (async () => {
-      let after: number | null = null;
+      let after: number | null = null, owner = "";
       for (;;) {
         if (!saved?.session) { await new Promise(r => window.setTimeout(r, 5000)); continue; }
+        // Autre profil ou compte : on repart du dernier ordre de ce compte, rien d'ancien n'est rejoué.
+        if (saved.user.id !== owner) { owner = saved.user.id; after = null; register(); }
         try {
           const result: { seq: number; commands: { kind: string; [key: string]: unknown }[] } = await call(`/api/connect/poll?device=${connectDeviceId()}${after === null ? "" : `&after=${after}`}`);
           after = result.seq;
-          for (const command of result.commands) await onConnectCommand(command).catch(report);
-        } catch { await new Promise(r => window.setTimeout(r, 3000)); }
+          // Un ordre arrivé pendant l'attente d'un autre profil n'est pas exécuté avec le nouveau.
+          if (saved?.user.id === owner) for (const command of result.commands) await onConnectCommand(command).catch(report);
+        } catch (error) {
+          // Session expirée : on espace les essais au lieu de marteler le serveur.
+          const expired = error instanceof Error && error.message === t("tizen.sessionExpired");
+          await new Promise(r => window.setTimeout(r, expired ? 30000 : 3000));
+        }
       }
     })();
   }
@@ -354,22 +371,21 @@ interface Window {
     const params = new URLSearchParams({ tmdbId: String(command.tmdbId), type });
     if (command.season !== undefined && command.episode !== undefined) { params.set("season", String(command.season)); params.set("episode", String(command.episode)); }
     const explicit = typeof command.resumeSeconds === "number" ? command.resumeSeconds : null;
-    if (command.fromBeginning) params.set("fromBeginning", "1"); else if (explicit !== null) params.set("resume", String(explicit));
+    // Une position nulle vaut « depuis le début ».
+    if (command.fromBeginning || (explicit !== null && explicit < 1)) params.set("fromBeginning", "1"); else if (explicit !== null) params.set("resume", String(explicit));
     const resolved = await call<{ target: { type: MediaType; tmdbId: number; title: string; posterPath: string | null; ratingKey: string; movvizId: string; seriesId?: string; seasonNumber?: number; episodeNumber?: number; episodeTitle?: string }; resumeSeconds?: number; queue: { ratingKey: string; localKey: string | null; season: number; episode: number }[]; startIndex: number }>(`/api/connect/resolve?${params}`);
     const target = resolved.target, item = resolved.queue[resolved.startIndex];
     if (activePlayer) await stopPlayer(false);
     if (command.from && typeof (command.from as { name?: unknown }).name === "string") toast(`${t("connect.startedFrom").replace("{device}", (command.from as { name: string }).name)}`);
     if (target.type === "movie") {
       const media: Media = { id: target.movvizId, tmdbId: target.tmdbId, title: target.title, posterPath: target.posterPath ?? undefined, plexRatingKey: target.ratingKey !== target.movvizId ? target.ratingKey : undefined };
-      await play(media, "movie", undefined, resolved.resumeSeconds === undefined);
+      await play(media, "movie", undefined, resolved.resumeSeconds === undefined, resolved.resumeSeconds !== undefined ? Math.round(resolved.resumeSeconds * 1000) : undefined);
     } else {
       const synthetic = `${target.seriesId}:s${target.seasonNumber}e${target.episodeNumber}`;
       const media: Media = { id: target.seriesId, tmdbId: target.tmdbId, title: target.title, posterPath: target.posterPath ?? undefined };
       const episode: Episode = { seasonNumber: target.seasonNumber!, episodeNumber: target.episodeNumber!, title: target.episodeTitle || "", status: "available", plexRatingKey: target.ratingKey !== synthetic ? target.ratingKey : undefined, playbackSource: item?.localKey ? "movviz" : "plex" };
-      await play(media, "series", episode, resolved.resumeSeconds === undefined);
+      await play(media, "series", episode, resolved.resumeSeconds === undefined, resolved.resumeSeconds !== undefined ? Math.round(resolved.resumeSeconds * 1000) : undefined);
     }
-    // Transfert depuis un autre appareil : la position exacte de là-bas, pas la dernière enregistrée.
-    if (explicit !== null && explicit > 0 && activePlayer) await reposition(Math.round(explicit * 1000), false);
   }
   async function home() {
     startConnect();
@@ -851,6 +867,7 @@ interface Window {
     const about = section(t("tizen.about")); info(about, t("tizen.application"), "Movviz NX · Samsung Tizen"); info(about, t("settings.aboutVersion").replace("{version}", "").trim(), window.MOVVIZ_VERSION);
     const links = el("div", "", "settings-links"); links.append(button(t("nav.downloads"), downloads), button(t("tizen.profile"), profile), button(t("tizen.whoWatching"), profilesScreen)); content.append(links);
     content.append(button(t("tizen.signOut"), async () => {
+      leaveConnect();
       await call("/api/auth/logout", {}); const id = saved?.user.id;
       localStorage.setItem("movviz.tv.profiles", JSON.stringify(readProfiles().filter(p => !(p.server === loginServer && p.user.id === id)))); saved = null; movies = []; series = []; localStorage.removeItem("movviz.tv.connection"); await loginScreen();
     }, "danger")); (chips.find(chip => chip.dataset.language === selected) || chips[0]).focus();
@@ -868,7 +885,7 @@ interface Window {
       subtitleCapabilities: [], maxWidth: 1920, maxHeight: 1080,
     };
   }
-  async function play(media: Media, type: MediaType, episode?: Episode, fromStart = false) {
+  async function play(media: Media, type: MediaType, episode?: Episode, fromStart = false, startAtMs?: number) {
     if (startingPlayer || activePlayer) return;
     const av = window.webapis?.avplay; if (!av) throw new Error(t("tizen.devicePlayerOnly"));
     const startGeneration = generation;
@@ -907,7 +924,11 @@ interface Window {
       // Bouton « Passer… » : caché tant qu'aucun marqueur n'est actif (voir refreshSkip).
       const skip = button("", skipMarker, "skip-marker"); skip.id = "skip-marker"; skip.style.display = "none"; overlay.append(skip); app.append(overlay);
       if (activePlayer) void loadMarkers(activePlayer).catch(() => {});
-      if (!fromStart && session.resumeOffsetMs && session.resumeOffsetMs > 0) await reposition(session.resumeOffsetMs, false);
+      const resumeAt = startAtMs !== undefined && startAtMs > 0 ? startAtMs : session.resumeOffsetMs;
+      if (!fromStart && resumeAt && resumeAt > 0) {
+        await reposition(resumeAt, false);
+        if (startAtMs !== undefined && activePlayer) { activePlayer.position = resumeAt; await progressCall(`/api/playback/sessions/${session.sessionId}/seek`, { toMs: resumeAt }).catch(() => {}); }
+      }
       if (fromStart && session.resumeOffsetMs) await progressCall(`/api/playback/sessions/${session.sessionId}/seek`, { toMs: 0 });
       if (av.getState() === "READY" || av.getState() === "PAUSED") av.play(); controls.querySelector("button")?.focus();
       if (activePlayer) activePlayer.timer = window.setInterval(() => { void heartbeat().catch(report); }, 10000);

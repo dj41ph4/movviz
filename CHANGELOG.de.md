@@ -1,3 +1,23 @@
+## v1.29.3 — 25. November 2026
+
+### Wiedergabe auf…: Bildschirme im Netzwerk, Chromecast und DLNA-Fernseher
+
+- Der Server findet selbst Chromecasts, Google TVs, Nest-Displays und Google-Cast-kompatible Fernseher sowie DLNA-Fernseher und -Player im lokalen Netzwerk. Sie erscheinen in derselben Liste wie die Movviz-Apps, ohne Installation auf dem Bildschirm. Ein Lautsprecher ohne Bildschirm wird nicht angeboten.
+- Der Bildschirm holt das Video selbst über einen einmaligen Wiedergabelink, einige Stunden gültig und auf genau diese Datei beschränkt. DLNA erhält die Datei unverändert; Chromecast erhält ein remuxtes MP4 ohne Neukodierung des Bildes, der Ton wird nur umgewandelt, wenn er ihn nicht abspielen kann.
+- Dieselbe Fernbedienung steuert diese Bildschirme (Pause, Fortsetzen, Springen, Stopp), die Position wird live angezeigt. Fortschritt und „Gesehen“ werden wie bei einer Movviz-Wiedergabe gespeichert.
+- Netzwerk-Bildschirme spielen Dateien der Movviz-Bibliothek; ein Titel nur auf Plex wird aus einer Movviz-App gestartet. Der Server muss im selben Netzwerk wie die Bildschirme sein (Docker: Netzwerk „host“, sonst sieht er ihre Ankündigungen nicht; Suche abschaltbar mit MOVVIZ_CONNECT_DISCOVERY=0).
+
+### Wiedergabe auf…: zuverlässiger und regelkonform
+
+- Neues eigenes Movviz-Symbol (Bildschirm und Wiedergabe) und Beschriftung „Wiedergabe auf…“: Das Cast-Logo und der Name AirPlay bleiben den Bedienelementen von Google und Apple vorbehalten. Das Symbol leuchtet nur für das von hier gesteuerte Gerät und blinkt beim Senden.
+- Android mobil: Die Schaltfläche ist auf der Titelseite immer sichtbar, auch im Querformat, unter der Navigationsleiste. Ohne Gerät erklärt das Fenster, wie eines erscheint.
+- Übertragen aus dem Player: Die lokale Wiedergabe schließt sich erst, wenn die Wiedergabe auf dem anderen Gerät wirklich begonnen hat; sonst geht sie hier weiter, mit einer Meldung.
+- Nur ein Tab desselben Browsers empfängt Wiedergaben (keine doppelte Wiedergabe mehr), und das Schließen eines anderen Tabs entfernt das Gerät nicht mehr aus der Liste. Der Player behält seine Bedienelemente während der Geräteauswahl, und das Fenster ragt auf dem Telefon nicht mehr aus dem Bild.
+- Genauer gemeldeter Zustand: Ein Browser, der Autoplay blockiert, zeigt nicht mehr „Wiedergabe“, und die Position driftet nicht mehr bei abweichender Serveruhr. Ein Fortsetzen bei 0 startet am Anfang ohne Rückfrage. Das gesteuerte Gerät wird nach dem Neuladen wiedergefunden.
+- Android TV: Der Fernseher wird nur angeboten, wenn er die Wiedergabe wirklich starten kann (App offen oder Öffnen aus der Ferne erlaubt). Der Dienst startet ohne die Option nicht mehr von selbst neu, das aktive Profil bleibt für eine bei geschlossener App gestartete Wiedergabe erhalten, und die Einstellung zeigt den adb-Befehl auf Geräten ohne Bildschirm „Über anderen Apps einblenden“.
+- Samsung-TV: Ein Befehl direkt nach einem Serverneustart geht nicht mehr verloren, das Fortsetzen springt direkt an die richtige Stelle, der Zustand „Lädt“ erscheint auf der Fernbedienung, der Fernseher verlässt die Liste bei Abmeldung oder Profilwechsel und zeigt sein echtes Modell.
+- Der Datenverkehr von Wiedergabe auf… zählt nicht mehr als Benutzeraktivität: Hintergrundaufgaben (RSS, Suchen) werden nicht mehr durch einen wartenden Fernseher verzögert.
+
 ## v1.29.2 — 25. November 2026
 
 ### Streamen: auf dem Fernseher abspielen, von jedem Gerät aus

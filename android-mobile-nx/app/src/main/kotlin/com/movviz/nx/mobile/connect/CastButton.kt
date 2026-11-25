@@ -74,9 +74,9 @@ import kotlinx.coroutines.launch
 private val SheetColor = Color(0xFF0B1230)
 
 /**
- * Bouton « Caster » de la fiche : n'apparaît que si un appareil du compte
- * (TV, navigateur) peut recevoir la lecture. Ouvre la liste des appareils, qui
- * sert ensuite de télécommande.
+ * Bouton « Lire sur… » de la fiche : toujours visible ; il ouvre la liste des
+ * appareils du compte (TV, navigateur, écrans du réseau) — ou explique comment
+ * en faire apparaître un — puis sert de télécommande.
  */
 @Composable
 fun CastButton(baseUrl: String?, payload: CastPayload?) {
@@ -93,7 +93,8 @@ fun CastButton(baseUrl: String?, payload: CastPayload?) {
             delay(if (open) 2_000L else 8_000L)
         }
     }
-    if (baseUrl == null || devices.isEmpty()) return
+    // Toujours visible sur la fiche : sans appareil, le panneau explique comment en faire apparaître un.
+    if (baseUrl == null) return
 
     val playing = devices.any { it.state?.active == true && (controlledId == null || it.id == controlledId) }
     val tint = if (playing) MovvizBrand2 else Color.White
@@ -110,7 +111,7 @@ fun CastButton(baseUrl: String?, payload: CastPayload?) {
             ),
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(MovvizIconCast, contentDescription = "Caster", tint = tint, modifier = Modifier.size(19.dp))
+                Icon(MovvizIconCast, contentDescription = "Lire sur un autre appareil", tint = tint, modifier = Modifier.size(19.dp))
             }
         }
         if (playing) {
@@ -185,6 +186,26 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
                     Column(
                         Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp),
                     ) {
+                        if (devices.isEmpty()) {
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(Color.White.copy(alpha = 0.04f))
+                                    .padding(horizontal = 18.dp, vertical = 22.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Icon(MovvizIconTvScreen, contentDescription = null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(28.dp))
+                                Spacer(Modifier.height(10.dp))
+                                Text("Aucun appareil disponible", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk))
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "Ouvrez Movviz sur votre TV (Android TV ou Samsung) avec ce même compte, ou activez « Recevoir sur cet appareil » dans un navigateur. Les Chromecast et téléviseurs DLNA du réseau du serveur apparaissent aussi ici.",
+                                    style = TextStyle(fontSize = 12.5.sp, color = MovvizInkSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                                )
+                            }
+                        }
                         devices.forEach { device ->
                             DeviceRow(
                                 device = device,
@@ -233,7 +254,7 @@ private fun DeviceRow(
     val subtitle = when {
         active && state?.title != null && state.season != null && state.episode != null -> "${state.title} · S${state.season} E${state.episode}"
         active && state?.title != null -> state.title
-        else -> "${kindLabel(device.kind)} · ${statusLabel(state)}"
+        else -> "${kindLabel(device.kind, device.via)} · ${statusLabel(state)}"
     }
     Column(
         Modifier
@@ -334,11 +355,17 @@ private fun SheetIconButton(icon: ImageVector, description: String, primary: Boo
 }
 
 private fun deviceIcon(kind: String): ImageVector = when (kind) {
-    "tv", "tizen" -> MovvizIconTvScreen
+    "tv", "tizen", "network" -> MovvizIconTvScreen
     else -> MovvizIconFilm
 }
 
-private fun kindLabel(kind: String): String = when (kind) {
+private fun kindLabel(kind: String, via: String): String = when {
+    via == "chromecast" -> "Écran Google Cast"
+    via == "dlna" -> "Écran DLNA"
+    else -> kindLabelFor(kind)
+}
+
+private fun kindLabelFor(kind: String): String = when (kind) {
     "tv" -> "Télévision"
     "tizen" -> "TV Samsung"
     "mobile" -> "Téléphone"

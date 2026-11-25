@@ -1788,7 +1788,8 @@ export function TitleContent({ tmdbId, type, seriesPart: requestedPart, standalo
                         tmdbId: detail.tmdbId,
                         season: seriesLocalNext.season,
                         episode: seriesLocalNext.episode,
-                        ...(seriesResume?.offsetMs != null ? { resumeSeconds: Math.floor(seriesResume.offsetMs / 1000) } : {}),
+                        // La reprise ne vaut que pour l'épisode qu'elle concerne.
+                        ...(seriesResume?.offsetMs != null && seriesResume.seasonNumber === seriesLocalNext.season && seriesResume.episodeNumber === seriesLocalNext.episode ? { resumeSeconds: Math.floor(seriesResume.offsetMs / 1000) } : {}),
                       }
                     : { title: detail.title ?? "", mediaType: "movie", tmdbId: detail.tmdbId }}
                 />

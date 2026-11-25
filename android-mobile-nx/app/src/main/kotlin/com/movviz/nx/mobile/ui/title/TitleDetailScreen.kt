@@ -729,12 +729,13 @@ fun TitleDetailScreen(
                 }
             }
         } else if (detail != null) {
-            // Paysage (deux volets) : même bouton, en haut à droite.
+            // Paysage (deux volets) : même bouton, en haut à droite, sous la barre de navigation
+            // (NxTopNav ≈ 62 dp, dessinée au-dessus de l'écran) pour rester visible et touchable.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 72.dp)
                     .zIndex(10f),
                 contentAlignment = Alignment.TopEnd,
             ) {

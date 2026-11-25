@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Airplay, Cast, Loader2, Monitor, Pause, Play, RotateCcw, RotateCw, Smartphone, Square, Tv, X } from "lucide-react";
+import { Cast, Loader2, Monitor, MonitorPlay, Pause, Play, RotateCcw, RotateCw, Smartphone, Square, Tv, TvMinimalPlay, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { Toggle } from "@/components/ui/Toggle";
 import { useConnect, type CastPayload } from "@/lib/connect/ConnectProvider";
 import { playerBridge } from "@/lib/connect/playerBridge";
 import type { ConnectDevice, ReceiverState } from "@/lib/connect/types";
+import { toast } from "@/components/ui/Toast";
 import "./cast.css";
 
 type Variant = "topbar" | "player" | "title";
@@ -21,6 +22,8 @@ interface CastButtonProps {
   video?: () => HTMLVideoElement | null;
   /** Lecteur : classe du bouton, identique aux autres boutons de la barre. */
   className?: string;
+  /** Lecteur : prévenu à l'ouverture / fermeture, pour garder la barre visible pendant le choix. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 const ACTIVE: ReadonlySet<ReceiverState["status"]> = new Set(["playing", "paused", "buffering", "loading"]);
@@ -42,7 +45,8 @@ function livePosition(state: ReceiverState, now: number): number {
 }
 
 function DeviceIcon({ device, className }: { device: ConnectDevice; className?: string }) {
-  const Icon = device.kind === "tv" || device.kind === "tizen" ? Tv : device.kind === "mobile" ? Smartphone : Monitor;
+  // Écrans réseau : icône d'écran neutre (Movviz n'utilise pas le SDK Google Cast, donc pas son logo).
+  const Icon = device.kind === "network" ? MonitorPlay : device.kind === "tv" || device.kind === "tizen" ? Tv : device.kind === "mobile" ? Smartphone : Monitor;
   return <Icon className={className} aria-hidden="true" />;
 }
 
@@ -75,33 +79,31 @@ function useIsPhone(): boolean {
   return useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
 }
 
-type WebKitTargetVideo = HTMLVideoElement & { webkitShowPlaybackTargetPicker?: () => void };
-
-/** AirPlay (Safari) et écrans proposés par le navigateur (Remote Playback : Chromecast…). */
+/**
+ * Écrans proposés par le navigateur lui-même (Remote Playback : Chromecast via Chrome…). Un flux
+ * MSE (lecteur Movviz en remux, iPhone en ManagedMediaSource) n'est pas transmissible : rien n'est
+ * proposé dans ce cas. AirPlay n'est pas reproduit ici : Apple réserve son nom et son icône à ses
+ * propres commandes.
+ */
 function useBrowserTargets(video: (() => HTMLVideoElement | null) | undefined, open: boolean) {
-  const [airplay, setAirplay] = useState(false);
   const [remote, setRemote] = useState(false);
   useEffect(() => {
-    const el = video?.() as WebKitTargetVideo | null | undefined;
+    const el = video?.();
     if (!el) return;
-    const onAvailability = (e: Event) => setAirplay((e as Event & { availability?: string }).availability === "available");
-    const hasAirplay = typeof el.webkitShowPlaybackTargetPicker === "function";
-    if (hasAirplay) el.addEventListener("webkitplaybacktargetavailabilitychanged", onAvailability);
-    let watchId: number | null = null;
     const remotePlayback = (el as HTMLVideoElement & { remote?: RemotePlayback }).remote;
-    // Le flux MSE (lecteur Movviz en remux) n'est pas transmissible : le navigateur le refuse ici.
-    if (remotePlayback && !hasAirplay && !el.disableRemotePlayback) {
-      remotePlayback.watchAvailability((available) => setRemote(available)).then((id) => { watchId = id; }).catch(() => setRemote(false));
-    }
+    const source = el.currentSrc || el.src || "";
+    if (!remotePlayback || el.disableRemotePlayback || source.startsWith("blob:")) return;
+    let watchId: number | null = null;
+    remotePlayback.watchAvailability((available) => setRemote(available)).then((id) => { watchId = id; }).catch(() => setRemote(false));
     return () => {
-      if (hasAirplay) el.removeEventListener("webkitplaybacktargetavailabilitychanged", onAvailability);
-      if (remotePlayback && watchId !== null) remotePlayback.cancelWatchAvailability(watchId).catch(() => {});
+      setRemote(false);
+      if (watchId !== null) remotePlayback.cancelWatchAvailability(watchId).catch(() => {});
     };
   }, [video, open]);
-  return { airplay, remote };
+  return { remote };
 }
 
-export function CastButton({ variant, payload, video, className }: CastButtonProps) {
+export function CastButton({ variant, payload, video, className, onOpenChange }: CastButtonProps) {
   const t = useT();
   const connect = useConnect();
   const [open, setOpen] = useState(false);
@@ -114,7 +116,9 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
   const targets = useBrowserTargets(video, open);
 
   const receivers = connect?.receivers ?? [];
-  const playingDevice = receivers.find((d) => d.state && ACTIVE.has(d.state.status) && (d.id === connect?.controlledId || variant === "topbar"));
+  // État « connecté » : seulement l'appareil piloté depuis ici (pas une TV lancée par quelqu'un d'autre).
+  const playingDevice = receivers.find((d) => d.state && ACTIVE.has(d.state.status) && d.id === connect?.controlledId);
+  const [panelShift, setPanelShift] = useState(0);
   const anyActive = receivers.some((d) => d.state && ACTIVE.has(d.state.status));
   const now = useNow(open && anyActive);
 
@@ -149,12 +153,24 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
 
   useEffect(() => {
     if (open) connect?.refresh();
+    onOpenChange?.(open);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Le panneau du lecteur s'ouvre aligné sur le bouton, mais ne sort jamais de l'écran (375 px).
+  const toggle = () => {
+    if (!open && variant === "player" && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const width = Math.min(340, window.innerWidth - 32);
+      const left = rect.right - width;
+      setPanelShift(left < 16 ? 16 - left : 0);
+    }
+    setOpen((o) => !o);
+  };
+
   if (!connect) return null;
 
-  const browserTargets = variant === "player" && (targets.airplay || targets.remote);
+  const browserTargets = variant === "player" && targets.remote;
   const hasTargets = receivers.length > 0 || browserTargets;
   // Barre du haut : sur ordinateur toujours là (« Recevoir sur cet appareil ») ; sur téléphone
   // seulement quand un appareil est disponible, pour ne pas encombrer l'en-tête.
@@ -169,13 +185,20 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
     if (!p || busyId) return;
     setBusyId(device.id);
     try {
-      const ok = await connect.sendPlay(device, p);
-      if (ok && variant === "player") {
-        // Transfert : la lecture continue là-bas, ce lecteur se ferme.
+      if (variant === "player") {
+        // Transfert : pause ici, et ce lecteur ne se ferme qu'une fois la lecture partie là-bas.
         playerBridge.current()?.pause();
-        playerBridge.close();
+        const ok = await connect.sendPlay(device, p);
+        const started = ok && (await connect.waitForPlayback(device.id, p.tmdbId, 15_000));
+        if (started) playerBridge.close();
+        else {
+          playerBridge.current()?.resume();
+          if (ok) toast("error", t("connect.failed", { device: device.name }));
+        }
+        return;
       }
-      if (ok && variant !== "player") setTimeout(() => setOpen(false), 450);
+      const ok = await connect.sendPlay(device, p);
+      if (ok) setTimeout(() => setOpen(false), 450);
     } finally {
       setBusyId(null);
     }
@@ -189,7 +212,7 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
     <button
       ref={buttonRef}
       type="button"
-      onClick={() => setOpen((o) => !o)}
+      onClick={toggle}
       aria-label={label}
       title={label}
       aria-haspopup="dialog"
@@ -201,9 +224,10 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
         variant === "title" && "relative flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
         variant === "player" && cn("relative", className),
         playingDevice && "text-brand-glow",
+        busyId && "mv-cast-connecting",
       )}
     >
-      <Cast className={variant === "topbar" ? "h-[18px] w-[18px]" : variant === "title" ? "h-4 w-4" : "h-5 w-5"} strokeWidth={playingDevice ? 2.4 : 2} />
+      <TvMinimalPlay className={variant === "topbar" ? "h-[18px] w-[18px]" : variant === "title" ? "h-4 w-4" : "h-5 w-5"} strokeWidth={playingDevice ? 2.4 : 2} />
       {playingDevice && <span className="mv-cast-dot" aria-hidden="true" />}
     </button>
   );
@@ -214,7 +238,7 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
     <>
       <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4 sm:pt-3.5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Cast className="h-4 w-4 shrink-0 text-brand-glow" aria-hidden="true" />
+          <TvMinimalPlay className="h-4 w-4 shrink-0 text-brand-glow" aria-hidden="true" />
           <h2 className="truncate text-[15px] font-semibold text-white">{title}</h2>
         </div>
         <button
@@ -250,32 +274,18 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
         ))}
 
         {browserTargets && (
-          <div className={cn(receivers.length > 0 && "mt-1 border-t border-white/8 pt-1")} role="presentation">
-            {targets.airplay && (
-              <BrowserTargetRow
-                icon={<Airplay className="h-5 w-5" aria-hidden="true" />}
-                title={t("connect.airplay")}
-                hint={t("connect.airplayHint")}
-                focusFirst={receivers.length === 0}
-                onClick={() => {
-                  (video?.() as WebKitTargetVideo | null)?.webkitShowPlaybackTargetPicker?.();
-                  close(false);
-                }}
-              />
-            )}
-            {targets.remote && (
-              <BrowserTargetRow
-                icon={<Cast className="h-5 w-5" aria-hidden="true" />}
-                title={t("connect.remoteScreen")}
-                hint={t("connect.remoteScreenHint")}
-                focusFirst={receivers.length === 0 && !targets.airplay}
-                onClick={() => {
-                  const remote = (video?.() as (HTMLVideoElement & { remote?: RemotePlayback }) | null)?.remote;
-                  void remote?.prompt().catch(() => {});
-                  close(false);
-                }}
-              />
-            )}
+          <div className={cn(receivers.length > 0 && "mt-1 border-t border-white/8 pt-1")}>
+            <BrowserTargetRow
+              icon={<Cast className="h-5 w-5" aria-hidden="true" />}
+              title={t("connect.remoteScreen")}
+              hint={t("connect.remoteScreenHint")}
+              focusFirst={receivers.length === 0}
+              onClick={() => {
+                const remote = (video?.() as (HTMLVideoElement & { remote?: RemotePlayback }) | null)?.remote;
+                void remote?.prompt().catch(() => {});
+                close(false);
+              }}
+            />
           </div>
         )}
       </div>
@@ -307,6 +317,7 @@ export function CastButton({ variant, payload, video, className }: CastButtonPro
             "mv-cast-panel absolute z-[60] w-[340px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[22px] border border-white/10 bg-[#0b1230]/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.75)] backdrop-blur-2xl",
             variant === "player" ? "bottom-full right-0 mb-3 origin-bottom-right" : "right-0 top-[calc(100%+10px)] origin-top-right",
           )}
+          style={panelShift ? { right: -panelShift } : undefined}
         >
           {panelBody}
         </div>
@@ -341,6 +352,8 @@ function statusLabel(t: ReturnType<typeof useT>, state: ReceiverState | null): s
 }
 
 function kindLabel(t: ReturnType<typeof useT>, device: ConnectDevice): string {
+  if (device.via === "chromecast") return t("connect.kindGoogleCast");
+  if (device.via === "dlna") return t("connect.kindDlna");
   if (device.kind === "tv") return t("connect.kindTv");
   if (device.kind === "tizen") return t("connect.kindTizen");
   if (device.kind === "mobile") return t("connect.kindMobile");
@@ -428,7 +441,9 @@ function DeviceRow({ device, now, busy, canCast, focusFirst, onCast, onControl }
             aria-valuetext={`${fmt(position)} / ${fmt(duration)}`}
             tabIndex={0}
             onKeyDown={(e) => {
-              if (e.key === "ArrowLeft") { e.preventDefault(); onControl({ kind: "seek", seconds: Math.max(0, position - 10) }); }
+              if (e.key === "Home") { e.preventDefault(); onControl({ kind: "seek", seconds: 0 }); }
+              else if (e.key === "End" && duration > 0) { e.preventDefault(); onControl({ kind: "seek", seconds: Math.max(0, duration - 5) }); }
+              else if (e.key === "ArrowLeft") { e.preventDefault(); onControl({ kind: "seek", seconds: Math.max(0, position - 10) }); }
               else if (e.key === "ArrowRight") { e.preventDefault(); onControl({ kind: "seek", seconds: Math.min(duration || position + 10, position + 10) }); }
             }}
           >

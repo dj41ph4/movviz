@@ -1,3 +1,23 @@
+## v1.29.3 — 25 november 2026
+
+### Afspelen op…: schermen in het netwerk, Chromecast en DLNA-tv's
+
+- De server vindt zelf Chromecasts, Google TV's, Nest-schermen en Google Cast-compatibele tv's, en ook DLNA-tv's en -spelers in het lokale netwerk. Ze verschijnen in dezelfde lijst als de Movviz-apps, zonder iets op het scherm te installeren. Een speaker zonder scherm wordt niet aangeboden.
+- Het scherm haalt de video zelf op via een eenmalige afspeellink, enkele uren geldig en beperkt tot dat ene bestand. DLNA krijgt het bestand zoals het is; Chromecast krijgt een geremuxte MP4, zonder het beeld opnieuw te coderen, met het geluid alleen omgezet als het dat niet kan afspelen.
+- Dezelfde afstandsbediening bestuurt deze schermen (pauze, hervatten, verspringen, stoppen) en de positie wordt live getoond. Voortgang en “Bekeken” worden opgeslagen zoals bij een Movviz-weergave.
+- Netwerkschermen spelen bestanden uit de Movviz-bibliotheek; een titel die alleen op Plex staat start je vanuit een Movviz-app. De server moet in hetzelfde netwerk zitten als de schermen (Docker: netwerk “host”, anders ziet hij hun aankondigingen niet; zoeken uit te zetten met MOVVIZ_CONNECT_DISCOVERY=0).
+
+### Afspelen op…: betrouwbaarder en volgens de regels
+
+- Nieuw eigen Movviz-pictogram (scherm en afspelen) en label “Afspelen op…”: het Cast-logo en de naam AirPlay blijven voorbehouden aan de bediening van Google en Apple. Het pictogram licht alleen op voor het apparaat dat van hieruit wordt bestuurd en knippert tijdens het versturen.
+- Android mobiel: de knop is altijd zichtbaar op de titelpagina, ook liggend, onder de navigatiebalk. Zonder apparaat legt het paneel uit hoe er een verschijnt.
+- Verplaatsen vanuit de speler: de lokale weergave sluit pas als het afspelen echt is begonnen op het andere apparaat; anders gaat ze hier verder, met een melding.
+- Slechts één tabblad van dezelfde browser ontvangt weergaven (geen dubbele weergave meer), en een ander tabblad sluiten haalt het apparaat niet meer uit de lijst. De speler houdt zijn bediening zichtbaar tijdens het kiezen, en het paneel valt op de telefoon niet meer buiten beeld.
+- Juiste gemelde status: een browser die automatisch afspelen blokkeert toont niet meer “speelt af”, en de positie verloopt niet meer bij een afwijkende serverklok. Hervatten op 0 start vanaf het begin zonder te vragen. Het bestuurde apparaat wordt na herladen teruggevonden.
+- Android TV: de tv wordt alleen aangeboden als hij het afspelen echt kan starten (app open, of openen op afstand toegestaan). De luisterdienst start zonder de optie niet meer vanzelf opnieuw, het actieve profiel blijft bewaard voor een weergave gestart met de app gesloten, en de instelling toont het adb-commando op apparaten zonder scherm “Weergeven over andere apps”.
+- Samsung-tv: een opdracht vlak na een herstart van de server gaat niet meer verloren, hervatten gaat direct naar de juiste positie, de status “laden” verschijnt op de afstandsbediening, de tv verlaat de lijst bij afmelden of profielwissel en toont zijn echte model.
+- Verkeer van Afspelen op… telt niet meer als gebruikersactiviteit: achtergrondtaken (RSS, zoeken) worden niet meer vertraagd door een wachtende tv.
+
 ## v1.29.2 — 25 november 2026
 
 ### Casten: afspelen op de tv vanaf elk apparaat

@@ -1,3 +1,23 @@
+## v1.29.3 — 25 novembre 2026
+
+### Riproduci su…: gli schermi della rete, Chromecast e TV DLNA
+
+- Il server trova da solo Chromecast, Google TV, schermi Nest e TV compatibili Google Cast, oltre a TV e lettori DLNA della rete locale. Compaiono nello stesso elenco delle app Movviz, senza installare nulla sullo schermo. Un altoparlante senza schermo non viene proposto.
+- Lo schermo recupera da solo il video tramite un link di riproduzione monouso, valido qualche ora e limitato a quel solo file. Il DLNA riceve il file così com'è; il Chromecast riceve un MP4 remuxato, senza ricodifica dell'immagine, con l'audio convertito solo se non sa riprodurlo.
+- Lo stesso telecomando pilota questi schermi (pausa, riprendi, vai a, ferma) e la posizione è mostrata in diretta. Avanzamento e «Visto» vengono registrati come per una riproduzione Movviz.
+- Gli schermi di rete riproducono i file della libreria Movviz; un titolo presente solo su Plex si avvia da un'app Movviz. Il server deve essere sulla stessa rete degli schermi (Docker: rete «host», altrimenti non vede i loro annunci; ricerca disattivabile con MOVVIZ_CONNECT_DISCOVERY=0).
+
+### Riproduci su…: più affidabile e conforme
+
+- Nuova icona propria di Movviz (schermo e riproduzione) ed etichetta «Riproduci su…»: il logo Cast e il nome AirPlay restano riservati ai comandi di Google e Apple. L'icona si accende solo per il dispositivo pilotato da qui e lampeggia durante l'invio.
+- Android mobile: il pulsante è sempre visibile nella scheda, anche in orizzontale, sotto la barra di navigazione. Senza dispositivi, il pannello spiega come farne comparire uno.
+- Spostamento dal lettore: la riproduzione locale si chiude solo quando la riproduzione è davvero partita sull'altro dispositivo; altrimenti riprende qui, con un messaggio.
+- Solo una scheda dello stesso browser riceve le riproduzioni (niente più doppia riproduzione) e chiudere un'altra scheda non toglie più il dispositivo dall'elenco. Il lettore mantiene i comandi visibili durante la scelta e il pannello non esce più dallo schermo sul telefono.
+- Stato riportato esatto: un browser che blocca l'autoplay non mostra più «in riproduzione» e la posizione non deriva più se l'orologio del server è sfasato. Una ripresa a 0 parte dall'inizio senza chiedere. Il dispositivo pilotato viene ritrovato dopo un ricaricamento.
+- Android TV: la TV viene proposta solo se può davvero avviare la riproduzione (app aperta o apertura a distanza autorizzata). Il servizio non si riavvia più da solo senza l'opzione, il profilo attivo viene conservato per una riproduzione avviata ad app chiusa, e l'impostazione indica il comando adb sui dispositivi senza la schermata «Mostra sopra altre app».
+- TV Samsung: un comando inviato subito dopo un riavvio del server non va più perso, la ripresa va direttamente alla posizione giusta, lo stato «caricamento» compare sul telecomando, la TV lascia l'elenco alla disconnessione o al cambio di profilo e mostra il suo vero modello.
+- Il traffico di Riproduci su… non conta più come attività dell'utente: le attività in background (RSS, ricerche) non vengono più rallentate da una TV in attesa.
+
 ## v1.29.2 — 25 novembre 2026
 
 ### Trasmetti: guardare sulla TV da qualsiasi dispositivo

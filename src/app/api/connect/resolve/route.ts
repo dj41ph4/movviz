@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     season: intParam(q.get("season"), 0, 1000),
     episode: intParam(q.get("episode"), 0, 100_000),
     fromBeginning: q.get("fromBeginning") === "1",
-    resumeSeconds: q.has("resume") && Number.isFinite(resumeRaw) && resumeRaw >= 0 ? resumeRaw : undefined,
+    resumeSeconds: q.has("resume") && Number.isFinite(resumeRaw) && resumeRaw >= 0 ? Math.min(resumeRaw, 1_000_000) : undefined,
   });
   if (!resolved) return NextResponse.json({ error: "not_playable" }, { status: 404 });
   return NextResponse.json(resolved, { headers: { "cache-control": "no-store" } });

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { listDevices, registerDevice, removeDevice } from "@/lib/connect/registry";
-import { DEVICE_ID_RE, parseRegistration } from "@/lib/connect/types";
+import { DEVICE_ID_RE, parseLeave, parseRegistration } from "@/lib/connect/types";
+import { listNetworkDevices } from "@/lib/connect/network/manager";
 
 export const dynamic = "force-dynamic";
 
@@ -9,14 +10,22 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  return NextResponse.json({ devices: listDevices(user.id) }, { headers: { "cache-control": "no-store" } });
+  // Apps Movviz d'abord, puis les écrans du réseau local (Chromecast, DLNA) trouvés par le serveur.
+  const network = await listNetworkDevices(user.id).catch(() => []);
+  return NextResponse.json({ devices: [...listDevices(user.id), ...network] }, { headers: { "cache-control": "no-store" } });
 }
 
 /** Déclaration + battement de cœur (toutes les 20 s) d'un appareil Movviz. */
 export async function POST(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const registration = parseRegistration(await req.json().catch(() => null));
+  const body = await req.json().catch(() => null);
+  const leaving = parseLeave(body);
+  if (leaving) {
+    removeDevice(user.id, leaving);
+    return NextResponse.json({ ok: true });
+  }
+  const registration = parseRegistration(body);
   if (!registration) return NextResponse.json({ error: "invalid_device" }, { status: 400 });
   registerDevice(user.id, registration);
   return NextResponse.json({ ok: true });

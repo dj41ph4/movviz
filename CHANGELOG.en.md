@@ -1,3 +1,23 @@
+## v1.29.3 — November 25, 2026
+
+### Play on…: network screens, Chromecast and DLNA TVs
+
+- The server finds by itself Chromecasts, Google TVs, Nest displays and Google Cast-compatible TVs, as well as DLNA TVs and players on the local network. They show up in the same list as Movviz apps, with nothing to install on the screen. A speaker without a screen is not offered.
+- The screen fetches the video itself through a one-off playback link, valid for a few hours and limited to that single file. DLNA receives the file as is; Chromecast receives a remuxed MP4, without re-encoding the picture, with the audio converted only when it cannot play it.
+- The same remote controls these screens (pause, resume, seek, stop) and the position is shown live. Progress and “Watched” are recorded as for Movviz playback.
+- Network screens play files from the Movviz library; a title only on Plex is started from a Movviz app. The server must be on the same network as the screens (Docker: “host” network, otherwise it does not see their announcements; discovery can be turned off with MOVVIZ_CONNECT_DISCOVERY=0).
+
+### Play on…: more reliable and compliant
+
+- New Movviz-own icon (screen and play) and “Play on…” label: the Cast logo and the AirPlay name stay reserved for Google's and Apple's own controls. The icon lights up only for the device controlled from this screen and pulses while sending.
+- Android mobile: the button is always visible on the title page, landscape included, below the navigation bar. With no device, the panel explains how to make one appear.
+- Moving playback from the player: local playback only closes once playback has really started on the other device; otherwise it resumes here, with a message.
+- Only one tab of a given browser receives playback (no more double playback), and closing another tab no longer removes the device from the list. The player keeps its controls shown while choosing a device, and the panel no longer goes off-screen on phones.
+- Accurate reported state: a browser blocking autoplay no longer shows “playing”, and the position no longer drifts when the server clock is off. A resume at 0 starts from the beginning without asking “resume?”. The controlled device is found again after a reload.
+- Android TV: the TV is offered only if it can really start playback (app open, or remote opening allowed). The listening service no longer restarts by itself without the option, the active profile is kept for playback started with the app closed, and the setting shows the adb command on boxes without a “Display over other apps” screen.
+- Samsung TV: a command sent right after a server restart is no longer lost, resuming goes straight to the right position, the “loading” state shows on the remote, the TV leaves the list on sign-out or profile change, and it shows its real model.
+- Play on… traffic no longer counts as user activity: background tasks (RSS, searches) are no longer delayed by a waiting TV.
+
 ## v1.29.2 — November 25, 2026
 
 ### Cast: play on the TV from any device

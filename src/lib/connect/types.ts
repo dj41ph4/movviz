@@ -8,7 +8,7 @@
 export type DeviceKind = "tv" | "tizen" | "mobile" | "web" | "network";
 
 /** Protocole utilisé pour atteindre l'appareil (appareils réseau : voir discovery). */
-export type DeviceVia = "movviz" | "dlna";
+export type DeviceVia = "movviz" | "dlna" | "chromecast";
 
 export interface ConnectDevice {
   id: string;
@@ -61,7 +61,7 @@ export const ONLINE_MS = 45_000;
 const KINDS: readonly DeviceKind[] = ["tv", "tizen", "mobile", "web"];
 const STATUSES: readonly ReceiverStatus[] = ["idle", "loading", "playing", "paused", "buffering"];
 
-const CONTROL_CHARS = /[\u0000-\u001f]/g;
+const CONTROL_CHARS = /[\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
 const clean = (v: unknown, max: number) => (typeof v === "string" ? v.replace(CONTROL_CHARS, "").trim().slice(0, max) : "");
 const int = (v: unknown, lo: number, hi: number): number | undefined =>
   typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : undefined;
@@ -76,6 +76,12 @@ export function parseRegistration(body: unknown): { id: string; name: string; ki
   const name = clean(b.name, 60);
   if (!DEVICE_ID_RE.test(id) || !kind || !name) return null;
   return { id, name, kind, receiver: b.receiver === true };
+}
+
+/** « Je m'en vais » (déconnexion, changement de profil) : pour les appareils sans méthode DELETE (pont TV). */
+export function parseLeave(body: unknown): string | null {
+  const b = body as Record<string, unknown> | null;
+  return b && typeof b === "object" && b.leave === true && typeof b.id === "string" && DEVICE_ID_RE.test(b.id) ? b.id : null;
 }
 
 export function parseCommand(body: unknown): ConnectCommand | null {

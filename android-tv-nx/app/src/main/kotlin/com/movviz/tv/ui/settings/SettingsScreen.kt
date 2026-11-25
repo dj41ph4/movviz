@@ -338,6 +338,8 @@ private fun ConnectSettings(beta: Boolean) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var remoteWake by remember { mutableStateOf(com.movviz.tv.connect.ConnectHub.remoteWakeEnabled(context)) }
     var canOpen by remember { mutableStateOf(com.movviz.tv.connect.ConnectHub.canOpenFromBackground(context)) }
+    // Certains boîtiers TV n'ont pas l'écran « Afficher par-dessus » : on donne alors la voie adb.
+    var settingsMissing by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -363,7 +365,7 @@ private fun ConnectSettings(beta: Boolean) {
             com.movviz.tv.connect.ConnectHub.setRemoteWakeEnabled(context, next)
             if (next) {
                 com.movviz.tv.connect.ConnectService.start(context.applicationContext)
-                if (!com.movviz.tv.connect.ConnectHub.canOpenFromBackground(context)) openOverlaySettings(context)
+                if (!com.movviz.tv.connect.ConnectHub.canOpenFromBackground(context)) settingsMissing = !openOverlaySettings(context)
             }
         },
     )
@@ -372,17 +374,20 @@ private fun ConnectSettings(beta: Boolean) {
         text = when {
             !remoteWake -> "Désactivée : la TV reçoit les lectures seulement quand Movviz est ouverte."
             canOpen -> "Activée : Movviz reste à l'écoute et s'ouvre toute seule quand une lecture est envoyée, même fermée."
-            else -> "Il reste à autoriser « Afficher par-dessus les autres applications » pour Movviz dans les réglages Android (Applications › Accès spécifiques), sinon la TV ne peut pas s'ouvrir seule."
+            settingsMissing -> "Ce boîtier ne propose pas l'écran « Afficher par-dessus les autres applications ». Depuis un ordinateur : adb shell appops set ${context.packageName} SYSTEM_ALERT_WINDOW allow — sinon, la TV reçoit seulement quand Movviz est ouverte."
+            else -> "Il reste à autoriser « Afficher par-dessus les autres applications » pour Movviz dans les réglages Android (Applications › Accès spécifiques), sinon la TV ne peut pas s'ouvrir seule et n'est pas proposée app fermée."
         },
         style = hint,
     )
-    if (remoteWake && !canOpen) {
+    if (remoteWake) {
         Spacer(modifier = Modifier.height(9.dp))
-        SettingsButton(text = "Ouvrir les réglages Android") { openOverlaySettings(context) }
+        SettingsButton(text = if (canOpen) "Réglages Android (autorisation accordée)" else "Ouvrir les réglages Android") {
+            settingsMissing = !openOverlaySettings(context)
+        }
     }
 }
 
-private fun openOverlaySettings(context: android.content.Context) {
+private fun openOverlaySettings(context: android.content.Context): Boolean {
     val pkg = android.net.Uri.parse("package:" + context.packageName)
     val attempts = listOf(
         android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg),
@@ -391,8 +396,9 @@ private fun openOverlaySettings(context: android.content.Context) {
     )
     for (intent in attempts) {
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (runCatching { context.startActivity(intent) }.isSuccess) return
+        if (runCatching { context.startActivity(intent) }.isSuccess) return true
     }
+    return false
 }
 
 @Composable

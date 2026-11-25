@@ -77,6 +77,12 @@ export async function GET(req: NextRequest) {
       // A device is listening: the server now reports download changes itself.
       ensureDownloadWatcher();
       if (deviceId) detachDevice = attachStream(user.id, deviceId);
+      // Derrière certains proxys, cancel() n'arrive pas : l'abandon de la requête suffit.
+      req.signal.addEventListener("abort", () => {
+        cleanup?.();
+        detachDevice?.();
+        clearInterval(keepAlive);
+      });
       keepAlive = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));

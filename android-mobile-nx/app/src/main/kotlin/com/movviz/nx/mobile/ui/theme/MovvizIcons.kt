@@ -764,27 +764,26 @@ val MovvizIconLogout: ImageVector by lazy {
     }
 }
 
-/** Caster (Movviz Connect) — écran et ondes, comme l'icône Cast universelle. */
+/** « Lire sur… » (Movviz Connect) — écran et triangle de lecture, propre à Movviz. */
 val MovvizIconCast: ImageVector by lazy {
     movvizIcon("MovvizIconCast") {
         stroke(width = 2.1f) {
-            moveTo(3f, 8.2f)
-            lineTo(3f, 6.4f)
-            quadTo(3f, 4.8f, 4.6f, 4.8f)
+            moveTo(4.6f, 4.8f)
             lineTo(19.4f, 4.8f)
             quadTo(21f, 4.8f, 21f, 6.4f)
-            lineTo(21f, 17.6f)
-            quadTo(21f, 19.2f, 19.4f, 19.2f)
-            lineTo(14.6f, 19.2f)
-            moveTo(3f, 12f)
-            quadTo(10.2f, 12.4f, 10.6f, 19.2f)
-            moveTo(3f, 15.6f)
-            quadTo(6.6f, 15.9f, 6.9f, 19.2f)
+            lineTo(21f, 15.2f)
+            quadTo(21f, 16.8f, 19.4f, 16.8f)
+            lineTo(4.6f, 16.8f)
+            quadTo(3f, 16.8f, 3f, 15.2f)
+            lineTo(3f, 6.4f)
+            quadTo(3f, 4.8f, 4.6f, 4.8f)
+            moveTo(8.5f, 19.8f)
+            lineTo(15.5f, 19.8f)
         }
         fillPath {
-            moveTo(3f, 17.6f)
-            quadTo(4.6f, 17.7f, 4.7f, 19.2f)
-            lineTo(3f, 19.2f)
+            moveTo(10.2f, 8.1f)
+            lineTo(15.1f, 10.8f)
+            lineTo(10.2f, 13.5f)
             close()
         }
     }
