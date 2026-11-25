@@ -1,3 +1,9 @@
+## v1.29.6 — November 25, 2026
+
+### Play on…: smoother 4K films on a server without a graphics card
+
+- For a Google Cast screen that cannot play 4K (Nest Hub, classic Chromecast), the server lightens decoding of the 4K source and encodes as fast as possible: HEVC 4K decoding was what limited a NAS without a graphics card, not encoding. The picture sent being downscaled, the difference is not visible.
+
 ## v1.29.5 — November 25, 2026
 
 ### Play on…: HDR → SDR conversion follows the player setting

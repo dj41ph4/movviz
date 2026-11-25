@@ -1,3 +1,9 @@
+## v1.29.6 — 25 novembre 2026
+
+### Lire sur… : films 4K plus fluides sur un serveur sans carte graphique
+
+- Pour un écran Google Cast qui ne lit pas la 4K (Nest Hub, Chromecast classique), le serveur allège le décodage de la source 4K et encode au plus rapide : c'est le décodage HEVC 4K qui limitait un NAS sans carte graphique, pas l'encodage. L'image envoyée étant réduite, la différence ne se voit pas.
+
 ## v1.29.5 — 25 novembre 2026
 
 ### Lire sur… : la conversion HDR → SDR suit le réglage du lecteur

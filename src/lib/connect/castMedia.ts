@@ -68,6 +68,12 @@ export interface CastVideoTranscode {
   width: number;
   toneMap: boolean;
   preset: "veryfast" | "ultrafast";
+  /**
+   * Source 4K : décodage allégé (sans filtre de boucle) et encodage le plus rapide.
+   * Mesuré : sur un NAS sans GPU, c'est le décodage HEVC 4K qui limite (l'encodage
+   * 1280 px est presque gratuit) ; la sortie réduite masque la différence d'image.
+   */
+  fastDecode?: boolean;
 }
 
 export interface CastProfile {
@@ -109,7 +115,8 @@ export function castProfileFor(model: string | null | undefined, src: SourceInfo
       // Conversion HDR→SDR autorisée : 720 px, comme le moteur de lecture (coût du tonemap logiciel).
       ? { width: Math.min(maxWidth, 720, width || 720), toneMap: true, preset: "ultrafast" }
       // Sans conversion autorisée : simple passage en H.264 8 bits (couleurs plus ternes, lecture fluide).
-      : { width: Math.min(maxWidth, width || maxWidth), toneMap: false, preset: "veryfast" };
+      : { width: Math.min(maxWidth, width || maxWidth), toneMap: false, preset: width > 1920 ? "ultrafast" : "veryfast" };
+  if (video && width > 1920) video.fastDecode = true;
   const audio = (src.audioCodec ?? "aac").toLowerCase();
   const audioOk = ["aac", "mp3", "opus", "vorbis", "flac"].includes(audio) || (advanced && (audio === "ac3" || audio === "eac3"));
   return { video, transcodeAudio: !audioOk };
@@ -118,9 +125,10 @@ export function castProfileFor(model: string | null | undefined, src: SourceInfo
 /** Arguments ffmpeg du flux MP4 fragmenté servi à un écran Cast (« ?t= » secondes de départ). */
 export function remuxArgs(path: string, startSec: number, media: Pick<CastMedia, "transcodeAudio" | "video">): string[] {
   const v = media.video ?? null;
-  const filters = v ? [`scale=min(${v.width}\\,iw):-2`, ...(v.toneMap ? ["zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709", "tonemap=tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv"] : []), "format=yuv420p"] : [];
+  const filters = v ? [`scale=min(${v.width}\\,iw):-2${v.fastDecode ? ":flags=fast_bilinear" : ""}`,...(v.toneMap ? ["zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709", "tonemap=tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv"] : []), "format=yuv420p"] : [];
   return [
     "-hide_banner", "-loglevel", "error", "-nostdin",
+    ...(v?.fastDecode ? ["-skip_loop_filter", "all"] : []),
     ...(startSec > 0 ? ["-ss", startSec.toFixed(2)] : []),
     "-i", path,
     "-map", "0:v:0", "-map", "0:a:0?",

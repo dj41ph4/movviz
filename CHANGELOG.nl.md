@@ -1,3 +1,9 @@
+## v1.29.6 — 25 november 2026
+
+### Afspelen op…: vloeiendere 4K-films op een server zonder grafische kaart
+
+- Voor een Google Cast-scherm zonder 4K (Nest Hub, klassieke Chromecast) verlicht de server het decoderen van de 4K-bron en codeert zo snel mogelijk: het HEVC 4K-decoderen beperkte een NAS zonder grafische kaart, niet het coderen. Omdat het verzonden beeld verkleind is, is het verschil niet zichtbaar.
+
 ## v1.29.5 — 25 november 2026
 
 ### Afspelen op…: HDR → SDR-omzetting volgt de spelerinstelling

@@ -105,10 +105,12 @@ test("Profil Cast : le Nest Hub reçoit du H.264 + AAC, un Google TV garde la so
   // Vérifié sur un vrai Nest Hub : HEVC/E-AC3 en copie = erreur, il faut recoder.
   // Conversion HDR→SDR coupée (réglage, ou banc d'essai < 3×) : jamais de tonemap, simple passage en 8 bits.
   const hub = castProfileFor("Google Nest Hub", uhd);
-  assert.deepEqual(hub.video, { width: 1280, toneMap: false, preset: "veryfast" });
+  assert.deepEqual(hub.video, { width: 1280, toneMap: false, preset: "ultrafast", fastDecode: true });
+  const fast = remuxArgs("/m/f.mkv", 0, hub);
+  assert.ok(fast.indexOf("-skip_loop_filter") >= 0 && fast.indexOf("-skip_loop_filter") < fast.indexOf("-i"));
   assert.ok(!remuxArgs("/m/f.mkv", 0, hub).join(" ").includes("tonemap"));
   // Autorisée : 720 px, comme le moteur de lecture.
-  assert.deepEqual(castProfileFor("Google Nest Hub", { ...uhd, toneMapAllowed: true }).video, { width: 720, toneMap: true, preset: "ultrafast" });
+  assert.deepEqual(castProfileFor("Google Nest Hub", { ...uhd, toneMapAllowed: true }).video, { width: 720, toneMap: true, preset: "ultrafast", fastDecode: true });
   assert.equal(hub.transcodeAudio, true);
   assert.deepEqual(castProfileFor("Google Nest Hub", { ...uhd, hdr: false, width: 1920 }).video, { width: 1280, toneMap: false, preset: "veryfast" });
   // Chromecast avec Google TV : HEVC HDR et E-AC3 passent tels quels.
@@ -121,7 +123,7 @@ test("Profil Cast : le Nest Hub reçoit du H.264 + AAC, un Google TV garde la so
   assert.ok(castProfileFor(null, {}).video);
   const args = remuxArgs("/m/film.mkv", 90, hub);
   assert.ok(args.includes("libx264"));
-  assert.ok(args.join(" ").includes("scale=min(1280\\,iw):-2"));
+  assert.ok(args.join(" ").includes("scale=min(1280\\,iw):-2:flags=fast_bilinear"));
   assert.deepEqual(args.slice(args.indexOf("-ss"), args.indexOf("-ss") + 2), ["-ss", "90.00"]);
   assert.ok(remuxArgs("/m/a.mp4", 0, { transcodeAudio: false, video: null }).includes("copy"));
 });

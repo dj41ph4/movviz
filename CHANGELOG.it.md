@@ -1,3 +1,9 @@
+## v1.29.6 — 25 novembre 2026
+
+### Riproduci su…: film 4K più fluidi su un server senza scheda grafica
+
+- Per uno schermo Google Cast che non riproduce il 4K (Nest Hub, Chromecast classico), il server alleggerisce la decodifica della sorgente 4K e codifica il più velocemente possibile: era la decodifica HEVC 4K a limitare un NAS senza scheda grafica, non la codifica. Dato che l'immagine inviata è ridotta, la differenza non si vede.
+
 ## v1.29.5 — 25 novembre 2026
 
 ### Riproduci su…: la conversione HDR → SDR segue l'impostazione del lettore
