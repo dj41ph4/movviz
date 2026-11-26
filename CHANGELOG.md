@@ -1,3 +1,11 @@
+## v1.29.9 — 26 novembre 2026
+
+### Lire sur… : envoi animé dans le navigateur, écrans retrouvés en passant au Wi-Fi
+
+- Navigateur : comme sur Android, l'écran choisi affiche son étape en direct (« Envoi à… », « Préparation de la vidéo… », « En attente de la lecture… 4 s ») avec une animation ; l'envoi continue si l'on ferme le panneau, et « Lecture lancée » n'apparaît que lorsque l'écran lit vraiment.
+- Android : en passant de la 4G au Wi-Fi, les écrans de la maison apparaissent sans redémarrer l'app. La connexion ouverte en 4G resservait en Wi-Fi et le serveur croyait l'appareil hors de chez lui.
+- Android : panneau ouvert, la recherche des écrans Google Cast et DLNA repart toutes les 10 secondes.
+
 ## v1.29.8 — 25 novembre 2026
 
 ### Lire sur… : téléviseurs Samsung et DLNA, Smart View et transfert depuis le lecteur

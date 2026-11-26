@@ -17,9 +17,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -116,7 +118,7 @@ object LocalDlna {
 
     // ── Recherche ────────────────────────────────────────────────────────
 
-    /** Recherche pendant que le panneau est ouvert, relancée toutes les 12 s. */
+    /** Recherche pendant que le panneau est ouvert, relancée toutes les 10 s et dès que le réseau change. */
     fun startDiscovery(context: Context) {
         if (discovery?.isActive == true) return
         val app = context.applicationContext
@@ -129,7 +131,10 @@ object LocalDlna {
                 _screens.value = (found + listOfNotNull(playing?.takeIf { p -> found.none { it.id == p.id } }))
                     .sortedBy { it.name.lowercase() }
                 _searching.value = false
-                delay(12_000L)
+                // 10 s, ou tout de suite après un passage 4G → Wi-Fi (écrans du nouveau réseau).
+                val gen = NetworkWatch.generation.value
+                withTimeoutOrNull(10_000L) { NetworkWatch.generation.first { it != gen } }
+                    ?.let { _searching.value = true }
             }
         }
     }

@@ -43,6 +43,42 @@
   50% { opacity: 0.35; }
 }
 
+/* Envoi en cours : étape qui glisse en place, halo de la vignette, barre indéterminée sous la ligne. */
+.mv-cast-stage { animation: mv-cast-stage-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1); }
+.mv-cast-halo { box-shadow: 0 0 0 0 rgba(138, 180, 255, 0.5); animation: mv-cast-halo 1.6s ease-out infinite; }
+.mv-cast-indeterminate {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.mv-cast-indeterminate::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  border-radius: inherit;
+  background: var(--color-brand-glow, #8ab4ff);
+  animation: mv-cast-slide 1.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes mv-cast-stage-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mv-cast-halo {
+  0% { box-shadow: 0 0 0 0 rgba(138, 180, 255, 0.45); }
+  100% { box-shadow: 0 0 0 10px rgba(138, 180, 255, 0); }
+}
+@keyframes mv-cast-slide {
+  from { left: -35%; }
+  to { left: 100%; }
+}
+
 .mv-cast-panel { animation: mv-cast-pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1.15); }
 .mv-cast-sheet { animation: mv-cast-sheet 260ms cubic-bezier(0.2, 0.9, 0.25, 1); }
 .mv-cast-backdrop { animation: mv-cast-fade 200ms ease-out; }
@@ -73,6 +109,10 @@
   .mv-cast-panel,
   .mv-cast-sheet,
   .mv-cast-backdrop,
-  .mv-cast-connecting svg { animation: none; }
+  .mv-cast-connecting svg,
+  .mv-cast-stage,
+  .mv-cast-halo,
+  .mv-cast-indeterminate::after { animation: none; }
+  .mv-cast-indeterminate::after { left: 0; width: 100%; opacity: 0.5; }
   .mv-cast-eq span { transform: scaleY(0.7); }
 }

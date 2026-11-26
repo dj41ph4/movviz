@@ -1204,6 +1204,14 @@ export const nl: Dictionary = {
     nearbyCastHint: "Chromecast of tv op het netwerk waar je bent, ook ver van de server",
     nearbyFailed: "Kan het afspelen op dit Google Cast-scherm niet starten.",
     localFileRequired: "Deze titel moet in de Movviz-bestanden staan om naar dit scherm te sturen.",
+    stageSending: "Versturen naar {device}…",
+    stageWaiting: "Wachten op weergave… {seconds} s",
+    stagePicking: "Scherm kiezen…",
+    stageConnecting: "Verbinden met {device}…",
+    stagePreparing: "Video voorbereiden…",
+    stageLaunching: "Starten op het scherm…",
+    startedOn: "Speelt af op {device}",
+    busyCasting: "Bezig met versturen naar {device}…",
   },
 
   notifications: {

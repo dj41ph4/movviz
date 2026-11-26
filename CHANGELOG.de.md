@@ -1,3 +1,11 @@
+## v1.29.9 — 26. November 2026
+
+### Abspielen auf…: animiertes Senden im Browser, Bildschirme nach Wechsel ins WLAN wieder sichtbar
+
+- Browser: Wie unter Android zeigt der gewählte Bildschirm seinen aktuellen Schritt („Senden an…“, „Video wird vorbereitet…“, „Warten auf die Wiedergabe… 4 s“) mit einer Animation; das Senden läuft bei geschlossenem Bereich weiter, und „Wiedergabe gestartet“ erscheint erst, wenn der Bildschirm wirklich abspielt.
+- Android: Beim Wechsel von 4G ins WLAN erscheinen die Bildschirme zu Hause ohne Neustart der App. Die über 4G geöffnete Verbindung wurde im WLAN weiterverwendet, und der Server hielt das Gerät für unterwegs.
+- Android: Bei geöffnetem Bereich startet die Suche nach Google-Cast- und DLNA-Bildschirmen alle 10 Sekunden neu.
+
 ## v1.29.8 — 25. November 2026
 
 ### Abspielen auf…: Samsung- und DLNA-Fernseher, Smart View und Übergabe aus dem Player

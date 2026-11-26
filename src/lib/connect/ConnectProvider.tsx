@@ -344,7 +344,7 @@ export function ConnectProvider({ enabled, children }: { enabled: boolean; child
       setDevices((list) => list.map((d) => (d.id === device.id
         ? { ...d, state: { status: "loading", title: payload.title, mediaType: payload.mediaType, tmdbId: payload.tmdbId, season: payload.season, episode: payload.episode, position: payload.resumeSeconds ?? 0, duration: d.state?.duration ?? 0, updatedAt: Date.now() } }
         : d)));
-      toast("success", tRef.current("connect.sent", { device: device.name }));
+      // Pas de toast ici : le panneau montre l'attente, puis « Lecture lancée » une fois partie.
     }
     return ok;
   }, [post, setControlledId]);

@@ -1202,6 +1202,14 @@ export const fr = {
     nearbyCastHint: "Chromecast ou TV du réseau où vous êtes, même loin du serveur",
     nearbyFailed: "Impossible de lancer la lecture sur cet écran Google Cast.",
     localFileRequired: "Ce titre doit être dans les fichiers Movviz pour être envoyé à cet écran.",
+    stageSending: "Envoi à {device}…",
+    stageWaiting: "En attente de la lecture… {seconds} s",
+    stagePicking: "Choix de l’écran…",
+    stageConnecting: "Connexion à {device}…",
+    stagePreparing: "Préparation de la vidéo…",
+    stageLaunching: "Lancement sur l’écran…",
+    startedOn: "Lecture lancée sur {device}",
+    busyCasting: "Envoi en cours vers {device}…",
   },
 
   notifications: {

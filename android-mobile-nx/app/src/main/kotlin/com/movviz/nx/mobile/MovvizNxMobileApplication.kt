@@ -22,6 +22,8 @@ class MovvizNxMobileApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         ApiClient.initialize(this)
+        // Changement de réseau : connexions 4G périmées vidées, écrans recherchés à nouveau.
+        com.movviz.nx.mobile.connect.NetworkWatch.start(this)
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)

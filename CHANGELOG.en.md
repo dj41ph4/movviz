@@ -1,3 +1,11 @@
+## v1.29.9 — November 26, 2026
+
+### Play on…: animated sending in the browser, screens found again when switching to Wi-Fi
+
+- Browser: as on Android, the chosen screen shows its live step ("Sending to…", "Preparing the video…", "Waiting for playback… 4 s") with an animation; sending keeps going if the panel is closed, and "Playing on" only shows once the screen really plays.
+- Android: when switching from 4G to Wi-Fi, home screens appear without restarting the app. The connection opened over 4G was reused on Wi-Fi and the server thought the device was away from home.
+- Android: with the panel open, the search for Google Cast and DLNA screens restarts every 10 seconds.
+
 ## v1.29.8 — November 25, 2026
 
 ### Play on…: Samsung and DLNA TVs, Smart View and handoff from the player

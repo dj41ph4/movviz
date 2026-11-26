@@ -1,3 +1,11 @@
+## v1.29.9 — 26 novembre 2026
+
+### Riproduci su…: invio animato nel browser, schermi ritrovati passando al Wi-Fi
+
+- Browser: come su Android, lo schermo scelto mostra il passaggio in corso ("Invio a…", "Preparazione del video…", "In attesa della riproduzione… 4 s") con un'animazione; l'invio continua anche chiudendo il pannello, e "Riproduzione avviata" compare solo quando lo schermo riproduce davvero.
+- Android: passando dal 4G al Wi-Fi, gli schermi di casa compaiono senza riavviare l'app. La connessione aperta in 4G veniva riutilizzata in Wi-Fi e il server credeva il dispositivo fuori casa.
+- Android: a pannello aperto, la ricerca degli schermi Google Cast e DLNA riparte ogni 10 secondi.
+
 ## v1.29.8 — 25 novembre 2026
 
 ### Riproduci su…: TV Samsung e DLNA, Smart View e passaggio dal lettore

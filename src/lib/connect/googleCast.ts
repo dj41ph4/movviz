@@ -2,6 +2,7 @@
 
 import type { ReceiverState } from "@/lib/connect/types";
 import type { CastPayload } from "@/lib/connect/ConnectProvider";
+import type { CastStage } from "@/lib/connect/castProgress";
 
 /**
  * Google Cast vu par le NAVIGATEUR (SDK officiel « Web Sender » de Chrome) : les
@@ -207,18 +208,25 @@ export type GoogleCastResult = "ok" | "cancelled" | "failed" | "local_file_requi
  * titre. Le sélecteur passe d'abord : le geste de l'utilisateur ne doit pas être
  * consommé par la requête réseau.
  */
-export async function castWithGoogleCast(payload: CastPayload): Promise<GoogleCastResult> {
+export async function castWithGoogleCast(
+  payload: CastPayload,
+  /** Étape en cours, pour l'animation du panneau (nom de l'écran dès qu'il est connu). */
+  onStage: (stage: CastStage, deviceName?: string) => void = () => {},
+): Promise<GoogleCastResult> {
   const w = window as Win;
   if (!ready || !w.cast?.framework) return "failed";
   const ctx = w.cast.framework.CastContext.getInstance();
   if (!ctx.getCurrentSession()) {
+    onStage("picking");
     try {
       await ctx.requestSession();
     } catch {
       return "cancelled";
     }
   }
+  const name = ctx.getCurrentSession()?.getCastDevice()?.friendlyName as string | undefined;
   try {
+    onStage("preparing", name);
     const response = await fetch("/api/connect/link", {
       method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
       body: JSON.stringify(payload),
@@ -227,8 +235,13 @@ export async function castWithGoogleCast(payload: CastPayload): Promise<GoogleCa
     if (!response.ok) return body?.error === "local_file_required" ? "local_file_required" : "failed";
     if (current) finish(false);
     current = { link: body as Link, payload, offset: 0, sequence: 0, lastBeat: 0, started: false };
+    onStage("launching", name);
     await load(current.link.startSec);
-    return "ok";
+    // Chargé ne veut pas dire lancé : on attend la lecture (ou la pause) rapportée par l'écran.
+    onStage("waiting", name);
+    const deadline = Date.now() + 20_000;
+    while (current && !current.started && Date.now() < deadline) await new Promise((r) => setTimeout(r, 400));
+    return current ? "ok" : "failed";
   } catch {
     if (current) finish(false);
     return "failed";

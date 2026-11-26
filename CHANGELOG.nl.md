@@ -1,3 +1,11 @@
+## v1.29.9 — 26 november 2026
+
+### Afspelen op…: geanimeerd versturen in de browser, schermen terug bij overstap naar wifi
+
+- Browser: net als op Android toont het gekozen scherm de huidige stap ("Versturen naar…", "Video voorbereiden…", "Wachten op weergave… 4 s") met een animatie; versturen gaat door als het paneel sluit, en "Speelt af op" verschijnt pas als het scherm echt afspeelt.
+- Android: bij de overstap van 4G naar wifi verschijnen de schermen thuis zonder de app opnieuw te starten. De via 4G geopende verbinding werd op wifi hergebruikt en de server dacht dat het toestel van huis was.
+- Android: met het paneel open start het zoeken naar Google Cast- en DLNA-schermen elke 10 seconden opnieuw.
+
 ## v1.29.8 — 25 november 2026
 
 ### Afspelen op…: Samsung- en DLNA-tv's, Smart View en overdracht vanuit de speler

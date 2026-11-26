@@ -1204,6 +1204,14 @@ export const en: Dictionary = {
     nearbyCastHint: "Chromecast or TV on the network you are on, even far from the server",
     nearbyFailed: "Could not start playback on this Google Cast screen.",
     localFileRequired: "This title must be in the Movviz files to be sent to this screen.",
+    stageSending: "Sending to {device}…",
+    stageWaiting: "Waiting for playback… {seconds} s",
+    stagePicking: "Choosing a screen…",
+    stageConnecting: "Connecting to {device}…",
+    stagePreparing: "Preparing the video…",
+    stageLaunching: "Starting on the screen…",
+    startedOn: "Playing on {device}",
+    busyCasting: "Already sending to {device}…",
   },
 
   notifications: {

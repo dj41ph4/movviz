@@ -9,6 +9,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { useConnect, type CastPayload } from "@/lib/connect/ConnectProvider";
 import { playerBridge } from "@/lib/connect/playerBridge";
 import { castWithGoogleCast, controlGoogleCast, getGoogleCast, getGoogleCastServer, subscribeGoogleCast, type GoogleCastResult } from "@/lib/connect/googleCast";
+import { endCastJob, getCastJob, getCastJobServer, startCastJob, subscribeCastJob, type CastJob } from "@/lib/connect/castProgress";
 import type { ConnectDevice, ReceiverState } from "@/lib/connect/types";
 import { toast } from "@/components/ui/Toast";
 import "./cast.css";
@@ -112,7 +113,7 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
   const t = useT();
   const connect = useConnect();
   const [open, setOpen] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const job = useSyncExternalStore(subscribeCastJob, getCastJob, getCastJobServer);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -132,7 +133,7 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
   const playingDevice = receivers.find((d) => d.state && ACTIVE.has(d.state.status) && (d.id === connect?.controlledId || d.id === LOCAL_CAST_ID));
   const [panelShift, setPanelShift] = useState(0);
   const anyActive = receivers.some((d) => d.state && ACTIVE.has(d.state.status));
-  const now = useNow(open && anyActive);
+  const now = useNow(open && (anyActive || !!job));
 
   const close = useCallback((restoreFocus = true) => {
     setOpen(false);
@@ -189,51 +190,62 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
   const canCast = variant !== "topbar" && !!resolvePayload();
   const nearbyCast = gcast.available && !localCast && canCast;
 
-  const reportCast = (result: GoogleCastResult) => {
+  const reportCast = (result: GoogleCastResult, name: string) => {
     if (result === "local_file_required") toast("error", t("connect.localFileRequired"));
     else if (result === "failed") toast("error", t("connect.nearbyFailed"));
+    else if (result === "ok") toast("success", t("connect.startedOn", { device: name }));
   };
+
+  /** Un seul envoi à la fois : un clic pendant un envoi le rappelle au lieu d'en lancer un second. */
+  const busyToast = () => {
+    if (job) toast("info", t("connect.busyCasting", { device: job.deviceName }));
+  };
+
+  /** Fermeture après réussite, le temps de voir la ligne passer à « En lecture ». */
+  const closeSoon = () => setTimeout(() => setOpen(false), 700);
 
   /** Écran Google Cast du réseau de cet appareil (où qu'il soit par rapport au serveur). */
   const castNearby = async () => {
     const p = resolvePayload();
-    if (!p || busyId) return;
-    setBusyId(LOCAL_CAST_ID);
+    if (!p) return;
+    const stage = startCastJob(LOCAL_CAST_ID, gcast.deviceName ?? "Google Cast", "picking");
+    if (!stage) return busyToast();
+    let name = gcast.deviceName ?? "Google Cast";
     try {
       if (variant === "player") playerBridge.current()?.pause();
-      const result = await castWithGoogleCast(p);
-      reportCast(result);
+      const result = await castWithGoogleCast(p, (s, n) => { if (n) name = n; stage(s, n); });
+      reportCast(result, name);
       if (variant === "player") {
         if (result === "ok") playerBridge.close();
         else playerBridge.current()?.resume();
-      } else if (result === "ok") setTimeout(() => setOpen(false), 450);
+      } else if (result === "ok") closeSoon();
     } finally {
-      setBusyId(null);
+      endCastJob();
     }
   };
 
   const castTo = async (device: ConnectDevice) => {
     if (device.id === LOCAL_CAST_ID) return castNearby();
     const p = resolvePayload();
-    if (!p || busyId) return;
-    setBusyId(device.id);
+    if (!p) return;
+    const stage = startCastJob(device.id, device.name, "sending");
+    if (!stage) return busyToast();
     try {
-      if (variant === "player") {
-        // Transfert : pause ici, et ce lecteur ne se ferme qu'une fois la lecture partie là-bas.
-        playerBridge.current()?.pause();
-        const ok = await connect.sendPlay(device, p);
-        const started = ok && (await connect.waitForPlayback(device.id, p.tmdbId, 15_000));
-        if (started) playerBridge.close();
-        else {
-          playerBridge.current()?.resume();
-          if (ok) toast("error", t("connect.failed", { device: device.name }));
-        }
-        return;
-      }
+      // Lecteur : transfert, pause ici ; il ne se ferme qu'une fois la lecture partie là-bas.
+      if (variant === "player") playerBridge.current()?.pause();
       const ok = await connect.sendPlay(device, p);
-      if (ok) setTimeout(() => setOpen(false), 450);
+      if (ok) stage("waiting");
+      const started = ok && (await connect.waitForPlayback(device.id, p.tmdbId, 20_000));
+      if (started) toast("success", t("connect.startedOn", { device: device.name }));
+      // Ordre reçu mais lecture non confirmée : l'écran est peut-être juste lent, on le dit sans alarmer.
+      else if (ok && variant !== "player") toast("info", t("connect.sent", { device: device.name }));
+      else if (ok) toast("error", t("connect.failed", { device: device.name }));
+      if (variant === "player") {
+        if (started) playerBridge.close();
+        else playerBridge.current()?.resume();
+      } else if (ok) closeSoon();
     } finally {
-      setBusyId(null);
+      endCastJob();
     }
   };
 
@@ -257,7 +269,7 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
         variant === "title" && "relative flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80",
         variant === "player" && cn("relative", className),
         playingDevice && "text-brand-glow",
-        busyId && "mv-cast-connecting",
+        job && "mv-cast-connecting",
       )}
     >
       <TvMinimalPlay className={variant === "topbar" ? "h-[18px] w-[18px]" : variant === "title" ? "h-4 w-4" : "h-5 w-5"} strokeWidth={playingDevice ? 2.4 : 2} />
@@ -298,7 +310,8 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
             key={device.id}
             device={device}
             now={now}
-            busy={busyId === device.id}
+            stage={job?.deviceId === device.id ? stageText(t, job, now) : null}
+            dimmed={!!job && job.deviceId !== device.id}
             canCast={canCast}
             focusFirst={index === 0}
             onCast={() => void castTo(device)}
@@ -309,9 +322,11 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
         {nearbyCast && (
           <div className={cn(receivers.length > 0 && "mt-1 border-t border-white/8 pt-1")}>
             <BrowserTargetRow
-              icon={busyId === LOCAL_CAST_ID ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : <Cast className="h-5 w-5" aria-hidden="true" />}
-              title={t("connect.nearbyCast")}
+              icon={<Cast className="h-5 w-5" aria-hidden="true" />}
+              title={job?.deviceId === LOCAL_CAST_ID && job.deviceName !== "Google Cast" ? job.deviceName : t("connect.nearbyCast")}
               hint={t("connect.nearbyCastHint")}
+              stage={job?.deviceId === LOCAL_CAST_ID ? stageText(t, job, now) : null}
+              dimmed={!!job && job.deviceId !== LOCAL_CAST_ID}
               focusFirst={receivers.length === 0}
               onClick={() => void castNearby()}
             />
@@ -325,7 +340,9 @@ export function CastButton({ variant, payload, video, className, onOpenChange }:
               title={t("connect.remoteScreen")}
               hint={t("connect.remoteScreenHint")}
               focusFirst={receivers.length === 0 && !nearbyCast}
+              dimmed={!!job}
               onClick={() => {
+                if (job) return busyToast();
                 const remote = (video?.() as (HTMLVideoElement & { remote?: RemotePlayback }) | null)?.remote;
                 void remote?.prompt().catch(() => {});
                 close(false);
@@ -405,18 +422,43 @@ function kindLabel(t: ReturnType<typeof useT>, device: ConnectDevice): string {
   return t("connect.kindWeb");
 }
 
-function DeviceRow({ device, now, busy, canCast, focusFirst, onCast, onControl }: {
+/** Texte de l'étape en cours ; l'attente affiche les secondes écoulées. */
+function stageText(t: ReturnType<typeof useT>, job: CastJob, now: number): string {
+  const device = job.deviceName;
+  switch (job.stage) {
+    case "sending": return t("connect.stageSending", { device });
+    case "picking": return t("connect.stagePicking");
+    case "connecting": return t("connect.stageConnecting", { device });
+    case "preparing": return t("connect.stagePreparing");
+    case "launching": return t("connect.stageLaunching");
+    case "waiting": return t("connect.stageWaiting", { seconds: String(Math.max(0, Math.floor((now - job.since) / 1000))) });
+  }
+}
+
+/** Ligne en cours d'envoi : l'étape remplace le sous-titre, barre indéterminée dessous. */
+function StageLine({ text }: { text: string }) {
+  return (
+    <span key={text} className="mv-cast-stage mt-0.5 block truncate text-[12px] font-medium text-brand-glow" role="status" aria-live="polite">
+      {text}
+    </span>
+  );
+}
+
+function DeviceRow({ device, now, stage, dimmed, canCast, focusFirst, onCast, onControl }: {
   device: ConnectDevice;
   now: number;
-  busy: boolean;
+  stage: string | null;
+  dimmed: boolean;
   canCast: boolean;
   focusFirst: boolean;
   onCast: () => void;
   onControl: (command: { kind: "pause" } | { kind: "resume" } | { kind: "stop" } | { kind: "seek"; seconds: number }) => void;
 }) {
   const t = useT();
+  const busy = stage != null;
   const state = device.state;
-  const active = !!state && ACTIVE.has(state.status);
+  // Pendant l'envoi, notre propre « loading » optimiste ne doit pas afficher la télécommande.
+  const active = !busy && !!state && ACTIVE.has(state.status);
   const position = state ? livePosition(state, now) : 0;
   const duration = state?.duration ?? 0;
   const progress = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
@@ -435,35 +477,33 @@ function DeviceRow({ device, now, busy, canCast, focusFirst, onCast, onControl }
 
   const rowInner = (
     <>
-      <span className={cn(
-        "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] transition-colors",
-        active ? "bg-brand/25 text-brand-glow" : "bg-white/[0.07] text-white/80 group-hover:bg-white/[0.11]",
-      )}>
+      <StageIcon busy={busy} active={active}>
         <DeviceIcon device={device} className="h-[22px] w-[22px]" />
-      </span>
+      </StageIcon>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate text-[14px] font-semibold text-white">{device.name}</span>
           {active && state?.status === "playing" && <Equalizer />}
         </span>
-        <span className="mt-0.5 block truncate text-[12px] text-white/55">
-          {nowPlaying ?? `${kindLabel(t, device)} · ${statusLabel(t, state)}`}
-        </span>
+        {stage != null ? <StageLine text={stage} /> : (
+          <span className="mt-0.5 block truncate text-[12px] text-white/55">
+            {nowPlaying ?? `${kindLabel(t, device)} · ${statusLabel(t, state)}`}
+          </span>
+        )}
       </span>
-      {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white/70" aria-hidden="true" />}
+      {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-glow" aria-hidden="true" />}
     </>
   );
 
   return (
-    <div role="listitem" className={cn("rounded-2xl transition-colors", active && "bg-white/[0.035]")}>
+    <div role="listitem" className={cn("relative overflow-hidden rounded-2xl transition-[background-color,opacity] duration-200", (active || busy) && "bg-white/[0.035]", dimmed && "opacity-50")}>
       {canCast ? (
         <button
           type="button"
           data-cast-focus={focusFirst ? "" : undefined}
           onClick={onCast}
-          disabled={busy}
           aria-busy={busy || undefined}
-          className="group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-glow/70 disabled:cursor-wait"
+          className={cn("group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-glow/70", busy && "cursor-wait")}
         >
           {rowInner}
         </button>
@@ -472,6 +512,8 @@ function DeviceRow({ device, now, busy, canCast, focusFirst, onCast, onControl }
           {rowInner}
         </div>
       )}
+
+      {busy && <span className="mv-cast-indeterminate" aria-hidden="true" />}
 
       {active && state && (
         <div className="px-3 pb-3 pt-0.5">
@@ -546,19 +588,37 @@ function RemoteButton({ label, onClick, primary, focus, children }: { label: str
   );
 }
 
-function BrowserTargetRow({ icon, title, hint, focusFirst, onClick }: { icon: ReactNode; title: string; hint: string; focusFirst: boolean; onClick: () => void }) {
+/** Vignette de l'appareil : halo pulsé pendant l'envoi, teinte de marque en lecture. */
+function StageIcon({ busy, active, children }: { busy: boolean; active: boolean; children: ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-cast-focus={focusFirst ? "" : undefined}
-      className="group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-glow/70"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white/[0.07] text-white/80 group-hover:bg-white/[0.11]">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] font-semibold text-white">{title}</span>
-        <span className="mt-0.5 block truncate text-[12px] text-white/55">{hint}</span>
-      </span>
-    </button>
+    <span className={cn(
+      "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] transition-colors",
+      busy ? "mv-cast-halo bg-brand/25 text-brand-glow" : active ? "bg-brand/25 text-brand-glow" : "bg-white/[0.07] text-white/80 group-hover:bg-white/[0.11]",
+    )}>
+      {children}
+    </span>
+  );
+}
+
+function BrowserTargetRow({ icon, title, hint, stage = null, dimmed = false, focusFirst, onClick }: { icon: ReactNode; title: string; hint: string; stage?: string | null; dimmed?: boolean; focusFirst: boolean; onClick: () => void }) {
+  const busy = stage != null;
+  return (
+    <div className={cn("relative overflow-hidden rounded-2xl transition-[background-color,opacity] duration-200", busy && "bg-white/[0.035]", dimmed && "opacity-50")}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-busy={busy || undefined}
+        data-cast-focus={focusFirst ? "" : undefined}
+        className={cn("group flex w-full items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-glow/70", busy && "cursor-wait")}
+      >
+        <StageIcon busy={busy} active={false}>{icon}</StageIcon>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[14px] font-semibold text-white">{title}</span>
+          {stage != null ? <StageLine text={stage} /> : <span className="mt-0.5 block truncate text-[12px] text-white/55">{hint}</span>}
+        </span>
+        {busy && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-brand-glow" aria-hidden="true" />}
+      </button>
+      {busy && <span className="mv-cast-indeterminate" aria-hidden="true" />}
+    </div>
   );
 }

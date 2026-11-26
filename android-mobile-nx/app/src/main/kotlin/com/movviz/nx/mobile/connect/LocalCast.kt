@@ -171,6 +171,20 @@ object LocalCast {
         router?.removeCallback(routerCallback)
     }
 
+    /**
+     * Nouvelle recherche active (toutes les 10 s panneau ouvert, et aussitôt après
+     * un passage 4G → Wi-Fi) : un Chromecast allumé après l'ouverture, ou celui du
+     * nouveau réseau, apparaît sans redémarrer l'app.
+     */
+    fun rescan() {
+        if (!discovering) return
+        val r = router ?: return
+        val sel = selector ?: return
+        r.removeCallback(routerCallback)
+        r.addCallback(sel, routerCallback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY or MediaRouter.CALLBACK_FLAG_PERFORM_ACTIVE_SCAN)
+        publishRoutes()
+    }
+
     private val sessionListener = object : SessionManagerListener<CastSession> {
         override fun onSessionStarted(session: CastSession, sessionId: String) { attach(session); sessionWaiter?.complete(session) }
         override fun onSessionResumed(session: CastSession, wasSuspended: Boolean) { attach(session) }

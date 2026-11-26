@@ -87,7 +87,9 @@ import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val SheetColor = Color(0xFF0B1230)
 
@@ -219,6 +221,14 @@ private fun CastSheet(baseUrl: String, payload: CastPayload?, onDismiss: () -> U
         while (true) {
             ConnectRemote.refresh(context, baseUrl)
             delay(2_000L)
+        }
+    }
+    // Google Cast : nouvelle recherche active toutes les 10 s, et aussitôt après un changement de réseau.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val gen = NetworkWatch.generation.value
+            withTimeoutOrNull(10_000L) { NetworkWatch.generation.first { it != gen } }
+            LocalCast.rescan()
         }
     }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
