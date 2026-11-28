@@ -1,3 +1,9 @@
+## v1.29.10 — 28 november 2026
+
+### Series: een aflevering met datum in de naam wordt niet meer afgewezen
+
+- Een release met uitzenddatum ("Le.Meilleur.Patissier.S15E01.26.11.2026…") werd gelezen als serie uit 2026 en afgewezen door het filter ‘jaar’ voor een programma dat in 2012 begon. De datum geldt niet meer als jaar; een echt jaartal in de naam wordt nog steeds gecontroleerd.
+
 ## v1.29.9 — 26 november 2026
 
 ### Afspelen op…: geanimeerd versturen in de browser, schermen terug bij overstap naar wifi

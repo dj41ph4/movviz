@@ -166,3 +166,28 @@ test("un mot en plus ou une variante orthographique ne sont pas une substitution
   assert.equal(titleSimilarity("Naruto Shippuden", "Naruto Shippuuden The Series") >= 0.5, true);
   assert.equal(titleSimilarity("Spy Family", "Spy x Family") >= 0.72, true);
 });
+
+test("une date de diffusion dans le nom n'est pas l'année de la série (Le Meilleur Pâtissier 2012, S15E01 du 26.11.2026)", () => {
+  const parsed = parseRelease("Le.Meilleur.Patissier.S15E01.26.11.2026.Le.moelleux.VOF.1080p.WEB.AAC.2.0.H264-CANDIDE");
+  assert.equal(parsed.year, null);
+  assert.equal(parsed.title, "Le Meilleur Patissier");
+  assert.equal(parsed.season, 15);
+  assert.equal(parsed.episode, 1);
+  assert.equal(seriesYearIsCompatible(parsed.year, 2012, false), true);
+  // Date ISO et émission quotidienne : le titre s'arrête toujours à la date.
+  assert.equal(parseRelease("Danse avec les stars S15E01 2026-01-23 FRENCH 1080p WEB H264-THESYNDiCATE").year, null);
+  const daily = parseRelease("Quotidien.2026.11.26.FRENCH.1080p.WEB.H264");
+  assert.equal(daily.title, "Quotidien");
+  assert.equal(daily.year, null);
+  // Une vraie année reste lue, même suivie d'une date.
+  assert.equal(parseRelease("Des trains pas comme les autres 2011 S15E01 Philippines 2025-07-07 FRENCH 1080p WEB H264-THESYNDiCATE").year, "2011");
+  assert.equal(parseRelease("Scrubs.2026.S01E01.MULTi.1080p").year, "2026");
+});
+
+test("parité DATE_RE : parser.ts vs releaseMatchWorker.mjs", async () => {
+  const { readFileSync } = await import("node:fs");
+  const pick = (file: string) => readFileSync(file, "utf8").match(/const DATE_RE = (\/.+\/);/)?.[1];
+  const parser = pick("src/lib/naming/parser.ts");
+  assert.ok(parser);
+  assert.equal(pick("src/lib/workers/releaseMatchWorker.mjs"), parser);
+});

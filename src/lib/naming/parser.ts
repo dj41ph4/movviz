@@ -82,6 +82,15 @@ function romanToInt(roman: string): number {
   return total;
 }
 const YEAR_RE = /\b(19|20)\d{2}\b/;
+// An air date stamped in the name ("S15E01.26.11.2026", "2026-11-26") is the
+// broadcast day, not the show's year: a 2012 show airing in 2026 must not be
+// read as a 2026 release (the year gate would reject it). Dates are blanked
+// before the year lookup, and still end the title like a year does.
+// Mirrored in workers/releaseMatchWorker.mjs — keep in sync.
+const DATE_RE = /\b(?:\d{1,2}[.\-/ _]\d{1,2}[.\-/ _](?:19|20)\d{2}|(?:19|20)\d{2}[.\-/ _]\d{1,2}[.\-/ _]\d{1,2})\b/;
+function yearOutsideDates(s: string): string | null {
+  return s.replace(new RegExp(DATE_RE.source, "g"), (m) => " ".repeat(m.length)).match(YEAR_RE)?.[0] ?? null;
+}
 const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
 // Complete-series pack markers, all languages scene releases actually use.
 // This list is deliberately exhaustive (the mission requirement: the release
@@ -234,7 +243,7 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
 
   const isCompletePack = PACK_DESC_RE.test(s);
 
-  const year = s.match(YEAR_RE)?.[0] ?? null;
+  const year = yearOutsideDates(s);
 
   const titleEnd = firstMatchIndex(s, [
     SEASON_EPISODE_RE,
@@ -243,6 +252,7 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     SEASON_PART_RE,
     SPECIAL_EPISODE_RE,
     year ? new RegExp(escapeRegex(year)) : null,
+    DATE_RE,
     PACK_DESC_RE,
     resolution ? new RegExp(escapeRegex(resolution), "i") : null,
     languageRaw ? new RegExp(escapeRegex(languageRaw), "i") : null,

@@ -1,3 +1,9 @@
+## v1.29.10 — 28. November 2026
+
+### Serien: eine Folge mit Datum im Namen wird nicht mehr verworfen
+
+- Ein Release mit Ausstrahlungsdatum ("Le.Meilleur.Patissier.S15E01.26.11.2026…") wurde als Serie von 2026 gelesen und vom Filter „Jahr“ für eine seit 2012 laufende Sendung verworfen. Das Datum gilt nicht mehr als Jahr; ein echtes Jahr im Namen wird weiterhin geprüft.
+
 ## v1.29.9 — 26. November 2026
 
 ### Abspielen auf…: animiertes Senden im Browser, Bildschirme nach Wechsel ins WLAN wieder sichtbar

@@ -54,6 +54,11 @@ function romanToInt(roman) {
   return total;
 }
 const YEAR_RE = /\b(19|20)\d{2}\b/;
+// Mirror of parser.ts: an air date ("26.11.2026", "2026-11-26") is not the show's year.
+const DATE_RE = /\b(?:\d{1,2}[.\-/ _]\d{1,2}[.\-/ _](?:19|20)\d{2}|(?:19|20)\d{2}[.\-/ _]\d{1,2}[.\-/ _]\d{1,2})\b/;
+function yearOutsideDates(s) {
+  return s.replace(new RegExp(DATE_RE.source, "g"), (m) => " ".repeat(m.length)).match(YEAR_RE)?.[0] ?? null;
+}
 const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
 // Mirror of naming/parser.ts's PACK_DESC_RE — the worker runs outside the
 // bundler and can't import it. Keep in sync with parser.ts (single source of
@@ -188,7 +193,7 @@ function parseReleaseBase(rawName) {
   if (partMatch) seasonPart = parseInt(partMatch[1], 10);
 
   const isCompletePack = PACK_DESC_RE.test(s);
-  const year = s.match(YEAR_RE)?.[0] ?? null;
+  const year = yearOutsideDates(s);
 
   const titleEnd = firstMatchIndex(s, [
     SEASON_EPISODE_RE,
@@ -197,6 +202,7 @@ function parseReleaseBase(rawName) {
     SEASON_PART_RE,
     SPECIAL_EPISODE_RE,
     year ? new RegExp(escapeRegex(year)) : null,
+    DATE_RE,
     PACK_DESC_RE,
     resolution ? new RegExp(escapeRegex(resolution), "i") : null,
     languageRaw ? new RegExp(escapeRegex(languageRaw), "i") : null,
